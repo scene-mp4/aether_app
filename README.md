@@ -54,7 +54,7 @@ The device transmits real-time pollution and location data via WiFi to a mobile 
 
 **Setup**: 
 1. Hardware Setup
-  1.1 Components Required
+- Components Required
        - ESP8266 (NodeMCU)
        - PM2.5 sensor
        - CO₂ / CO / combustible gas sensor
@@ -62,39 +62,39 @@ The device transmits real-time pollution and location data via WiFi to a mobile 
        - Power source
        - Jumper wires and enclosure
    
-  1.2 Connections
+- Connections
        - Connect sensors to the ESP8266 following their datasheets
        - GPS module connected via UART (TX ↔ RX)
        - Ensure common ground across all components
        - Power the system via USB or battery
 
 2. Firmware Setup
-  2.1 Open the PolluTracker firmware in Arduino IDE
+- Open the PolluTracker firmware in Arduino IDE
    
-  2.2 Configure the following:
+- Configure the following:
        - WiFi SSID and password
        - Backend server/API endpoint
        - Unique device ID
        - Sensor calibration values
    
-  2.3 Select correct board and port:
+- Select correct board and port:
        - Board: NodeMCU 1.0 (ESP8266)
        - Baud rate: 9600 or as required
        
-  2.4 Upload the code to the ESP8266
-  2.5 Monitor output using Serial Monitor
+- Upload the code to the ESP8266
+- Monitor output using Serial Monitor
 
 3. Mobile Application Setup
-  3.1 Open the Flutter project in VS Code
-  3.2 Configure:
+- Open the Flutter project in VS Code
+- Configure:
        - Backend API URL
        - Map API key
-  3.3 Run the application:
+- Run the application:
        - flutter run
    
 4. Deployment Setup
-  4.1 Place PolluTracker devices in target areas
-  4.2 Ensure stable WiFi connectivity
-  4.3 Secure devices in weatherproof enclosures
-  4.4 Begin air quality monitoring
+- Place PolluTracker devices in target areas
+- Ensure stable WiFi connectivity
+- Secure devices in weatherproof enclosures
+- Begin air quality monitoring
 
