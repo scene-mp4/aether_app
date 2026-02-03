@@ -18,7 +18,7 @@ The device transmits real-time pollution and location data via WiFi to a mobile 
 
 **Installation Instructions**:
 1. Software Installation
-   1.1 Arduino IDE
+1.1 Arduino IDE
      1.1.1 Download and install Arduino IDE
      1.1.2 Add ESP8266 support:
            - Go to File → Preferences
