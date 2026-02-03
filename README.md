@@ -71,10 +71,10 @@ The device transmits real-time pollution and location data via WiFi to a mobile 
 2. Firmware Setup
 Open the PolluTracker firmware in Arduino IDE  
 Configure the following:
-       - WiFi SSID and password
-          - Backend server/API endpoint
-             - Unique device ID
-                - Sensor calibration values
+   - WiFi SSID and password
+     - Backend server/API endpoint
+       - Unique device ID
+         - Sensor calibration values
    
 Select correct board and port:
    - Board: NodeMCU 1.0 (ESP8266)
