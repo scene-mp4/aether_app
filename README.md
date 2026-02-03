@@ -56,41 +56,40 @@ The device transmits real-time pollution and location data via WiFi to a mobile 
 1. Hardware Setup
 - Components Required
        - ESP8266 (NodeMCU)
-       - PM2.5 sensor
-       - CO₂ / CO / combustible gas sensor
-       - GPS module (NEO-6M or equivalent)
-       - Power source
-       - Jumper wires and enclosure
+          - PM2.5 sensor
+             - CO₂ / CO / combustible gas sensor
+                - GPS module (NEO-6M or equivalent)
+                   - Power source
+                      - Jumper wires and enclosure
    
 - Connections
        - Connect sensors to the ESP8266 following their datasheets
-       - GPS module connected via UART (TX ↔ RX)
-       - Ensure common ground across all components
-       - Power the system via USB or battery
+          - GPS module connected via UART (TX ↔ RX)
+             - Ensure common ground across all components
+                - Power the system via USB or battery
 
 2. Firmware Setup
-- Open the PolluTracker firmware in Arduino IDE
-   
-- Configure the following:
+Open the PolluTracker firmware in Arduino IDE  
+Configure the following:
        - WiFi SSID and password
-       - Backend server/API endpoint
-       - Unique device ID
-       - Sensor calibration values
+          - Backend server/API endpoint
+             - Unique device ID
+                - Sensor calibration values
    
-- Select correct board and port:
-       - Board: NodeMCU 1.0 (ESP8266)
-       - Baud rate: 9600 or as required
+Select correct board and port:
+   - Board: NodeMCU 1.0 (ESP8266)
+      - Baud rate: 9600 or as required
        
-- Upload the code to the ESP8266
-- Monitor output using Serial Monitor
+Upload the code to the ESP8266
+Monitor output using Serial Monitor
 
 3. Mobile Application Setup
-- Open the Flutter project in VS Code
-- Configure:
-       - Backend API URL
-       - Map API key
+Open the Flutter project in VS Code
+Configure:
+- Backend API URL
+   - Map API key
 - Run the application:
-       - flutter run
+  - flutter run
    
 4. Deployment Setup
 - Place PolluTracker devices in target areas
