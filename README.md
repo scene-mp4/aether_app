@@ -5,7 +5,7 @@
 **Description**: Pollutracker is an IoT-based air pollution monitoring device that measures PM2.5 and CO₂, CO, and other combustible gas levels using air quality sensors and tracks its location through GPS. 
 The device transmits real-time pollution and location data via WiFi to a mobile application, where users can view deployed trackers on an interactive map. It enables LGUs, researchers, and citizens to monitor air quality across multiple areas and identify locations that need environmental improvement.
 
-**Technologies Used**: 
+**Technologies Used**: Flutter, Dart, IoT, Visual Studio Code, Arduino IDE, MySQL Database, Github, Git
 
 **Features**:
 - Air quality monitoring for PM2.5 and CO₂ levels
