@@ -26,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // placeholder, wala pa firebase
     if (username == 'admin' && password == 'admin') {
       print("Correct details, login successful.");
-      Navigator.pushNamed(context, '/map');
+      Navigator.pushNamed(context, '/bottom_navbar');
     } else {
       print("Incorrect details.");
     }
