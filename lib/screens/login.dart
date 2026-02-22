@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
-import 'main_nav.dart';
+import 'bottom_navbar.dart';
 
 // Contains the main login screen and is the first screen that shows up on app startup.
 // TODO (for Login):
@@ -26,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // placeholder, wala pa firebase
     if (username == 'admin' && password == 'admin') {
       print("Correct details, login successful.");
+      Navigator.pushNamed(context, '/map');
     } else {
       print("Incorrect details.");
     }
