@@ -4,20 +4,20 @@ import '../bottom_navbar.dart';
 import 'package:flutter/material.dart';
 import '../bottom_navbar.dart';
 
-class ProfileTab extends StatefulWidget {
+class TrackersTab extends StatefulWidget {
    @override
-  _ProfileTabState createState() => _ProfileTabState();
+  _TrackersTabState createState() => _TrackersTabState();
 }
 
-class _ProfileTabState extends State<ProfileTab> {
+class _TrackersTabState extends State<TrackersTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Profile")),
+      appBar: AppBar(title: Text("Trackers")),
       body: Center(
         child: Column(
           children: [
-            Text('Profile Page WIP')
+            Text('Trackers Page WIP')
           ],
         ),)
       );

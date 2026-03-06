@@ -1,11 +1,21 @@
+// navigation
 import 'package:flutter/material.dart';
 import 'screens/login.dart';
 import 'screens/bottom_navbar.dart';
 import 'screens/tabs/map_tab.dart';
-import 'screens/tabs/profile_tab.dart';
+import 'screens/tabs/trackers_tab.dart';
 import 'screens/tabs/settings_tab.dart';
 
-void main() {
+// firebase imports
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'firebase_options.dart';
+
+void main() async {
+    WidgetsFlutterBinding.ensureInitialized();
+      await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(MyApp());
 }
 
@@ -24,7 +34,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => LoginScreen(),
         '/bottom_navbar': (context) => BottomNavbar(),
         '/map': (context) => MapTab(),
-        '/profile': (context) => ProfileTab(),
+        '/trackers': (context) => TrackersTab(),
         '/settings': (context) => SettingsTab(),
       },
     );
