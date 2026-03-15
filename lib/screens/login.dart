@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
-import 'bottom_navbar.dart';
+import 'bottom_navbar.dart'; 
+import 'tabs/Register.dart'; //diko alam kng tama to ayaw kasi gumana nung button para sa register. Tinanong ko yng AI, ito daw kulang sabi
 
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -106,10 +107,14 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
                 SizedBox(height: 20),
               ElevatedButton(
-                onPressed:() => print("Register button pressed"), 
-                child: Text("Register", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-                
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => Register()),
+                  );
+                },
+                child: Text("Register"),
+              )
             ],
           ),
         ) ,
