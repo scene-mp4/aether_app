@@ -34,8 +34,6 @@ class _SettingsTabState extends State<SettingsTab> {
 
     if (confirm) {
       await _auth.signOut();
-      // After signing out, Firebase usually handles the state change 
-      // if you have an Auth Gate at the top level of your app.
     }
   }
 
@@ -166,14 +164,44 @@ class _SettingsTabState extends State<SettingsTab> {
   Widget _buildPrivacyPolicyDropdown() {
     return _baseExpansionTile(
       title: 'Privacy policy',
-      content: _bodyText("Last Updated: March 2026\n\nPolluTracker uses GPS to provide real-time location-specific air quality data. We do not sell your personal information."),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _bodyText("Last Updated: March 2026"),
+          _sectionTitle("Data We Collect"),
+          _bodyText("Location Data: Because PolluTracker is location-specific, we use GPS technology to provide air quality measurements relative to your position. This data is used to visualize pollution hotspots."),
+          _bodyText("User Profile Information: We store the name and email provided through Firebase Authentication to personalize your experience."),
+          _bodyText("Sensor Data: Pollutant concentrations (CO₂, CO, PM2.5) collected by our IoT devices are stored to generate forecasts and historical trends."),
+          _sectionTitle("How We Use Data"),
+          _bodyText("To provide real-time air quality alerts and health advice."),
+          _bodyText("To assist Local Government Units (LGUs) and researchers in identifying environmental patterns."),
+          _bodyText("To improve the application’s accessibility and performance on Android devices."),
+          _sectionTitle("Data Sharing"),
+          _bodyText("We do not sell your personal information. Aggregated, non-identifiable environmental data may be shared with environmental advocacy groups or researchers to support public health initiatives."),
+        ]
+      ),
     );
   }
 
   Widget _buildTermsDropdown() {
     return _baseExpansionTile(
       title: 'Terms and conditions',
-      content: _bodyText("1. Use of Service: Educational purposes only.\n2. Limitations: Supports PM2.5, CO₂, CO only.\n3. Scope: Android devices only."),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _bodyText("Last Updated: March 2026"),
+          _sectionTitle("Use of Service"),
+          _bodyText("PolluTracker is provided for educational and informational purposes. While we strive for high precision using our MQ-series sensors, the data provided should not replace professional medical advice or official government emergency broadcasts."),
+          _sectionTitle("Device Limitations"),
+          _bodyText("The PolluTracker system is a portable IoT solution. Accuracy can be affected by environmental factors, sensor calibration, and Wi-Fi connectivity. The application currently supports the detection of specific particles (PM2.5, CO₂, CO) only."),
+          _sectionTitle("User Responsibilities"),
+          _bodyText("Users are encouraged to use the Health Precautionaries and alerts provided by the app to make informed decisions. Users must not attempt to reverse-engineer the IoT device or the Flutter application."),
+          _sectionTitle("Scope of Support"),
+          _bodyText("The application is currently delimited to Android devices. We reserve the right to update the application and sensor firmware to improve accuracy and user experience."),
+          _sectionTitle("Disclaimer"),
+          _bodyText("PolluTracker shall not be held liable for any health issues arising from environmental exposure. Our goal is to provide a reference tool to help users minimize risk through awareness."),
+        ]
+      ),
     );
   }
 
