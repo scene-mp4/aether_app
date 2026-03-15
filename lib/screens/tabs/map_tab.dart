@@ -46,7 +46,7 @@ class _MapTabState extends State<MapTab> {
 
   Future fetchAQI() async {
     final url = Uri.parse(
-        "https://api.airvisual.com/v2/nearest_city?lat=14.5764&lon=121.0851&key=$apiKey");
+        "https://api.airvisual.com/v2/nearest_city?lat=14.5764&lon=121.0851&key=3daccd08-5d7f-41ba-af56-1ce0402607f5");
 
     try {
       final response = await http.get(url);
