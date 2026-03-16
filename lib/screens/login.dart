@@ -75,10 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 "Pollutracker",
                 style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold)
               ),
-              Text(
-                "lalagyan pa to logo tinatamad pa lang ako",
-                style: TextStyle(fontSize: 10)
-              ),
+              Image.asset('assets/logo.png', width: 120, height: 120),
               SizedBox(height: 35),
               TextField(
                 controller: emailField,
