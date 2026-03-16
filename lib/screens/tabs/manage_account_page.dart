@@ -14,13 +14,12 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
   final User? user = FirebaseAuth.instance.currentUser;
   final TextEditingController _nameController = TextEditingController();
   
-  // Custom color from your image
+  // Custom background color
   final Color customBgColor = const Color(0xFFF8FAF5);
 
   @override
   void initState() {
     super.initState();
-    // Initialize the controller with the name from Firebase
     _nameController.text = user?.displayName ?? "";
   }
 
@@ -38,6 +37,52 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
     }
   }
 
+  // --- Reset Password ---
+  Future<void> _resetPassword() async {
+    if (user?.email != null) {
+      try {
+        await FirebaseAuth.instance.sendPasswordResetEmail(email: user!.email!);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("Reset email sent!")));
+      } catch (e) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+      }
+    } else {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("No email associated with this account.")));
+    }
+  }
+
+  // --- Delete Account ---
+  Future<void> _deleteAccount() async {
+    bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Account"),
+        content: const Text("Are you sure you want to permanently delete your account?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text("Delete", style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    ) ?? false;
+
+    if (confirm) {
+      try {
+        await user?.delete();
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("Account deleted.")));
+      } catch (e) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,13 +90,16 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text("Manage Account", style: TextStyle(color: Color(0xFF545E56))),
+        title: const Text("Manage Account",
+            style: TextStyle(color: Color(0xFF545E56))),
         iconTheme: const IconThemeData(color: Color(0xFF545E56)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text("Profile Information", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF545E56))),
+          const Text("Profile Information",
+              style: TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF545E56))),
           const SizedBox(height: 20),
           
           // Name Field
@@ -59,7 +107,7 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
           
           const SizedBox(height: 20),
           
-          // Email Field (Read Only usually, as changing email requires re-auth)
+          // Email Field (Read Only)
           _buildReadOnlyField("Email Address", user?.email ?? "No email found", Icons.email_outlined),
           
           const SizedBox(height: 30),
@@ -67,7 +115,7 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
           ElevatedButton(
             onPressed: _updateDisplayName,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color.fromARGB(255, 82, 163, 255), // Matching your switch color
+              backgroundColor: const Color.fromARGB(255, 82, 163, 255),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 15),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -83,19 +131,12 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
             leading: const Icon(Icons.lock_reset, color: Colors.blueGrey),
             title: const Text("Reset Password"),
             subtitle: const Text("Send a reset link to your email"),
-            onTap: () async {
-              if (user?.email != null) {
-                await FirebaseAuth.instance.sendPasswordResetEmail(email: user!.email!);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Reset email sent!")));
-              }
-            },
+            onTap: _resetPassword,
           ),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
             title: const Text("Delete Account", style: TextStyle(color: Colors.redAccent)),
-            onTap: () {
-              // Add a confirmation dialog here
-            },
+            onTap: _deleteAccount,
           ),
         ],
       ),

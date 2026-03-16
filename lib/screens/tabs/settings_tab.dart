@@ -12,30 +12,79 @@ class SettingsTab extends StatefulWidget {
 class _SettingsTabState extends State<SettingsTab> {
   bool pushNotifications = true;
   bool darkMode = false;
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   final Color customBgColor = const Color(0xFFF8FAF5);
 
-  // --- LOGOUT FUNCTION ---
-  Future<void> _signOut() async {
-    bool confirm = await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Sign Out"),
-        content: const Text("Are you sure you want to log out of PolluTracker?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true), 
-            child: const Text("Sign Out", style: TextStyle(color: Color.fromARGB(255, 82, 163, 255)))
-          ),
-        ],
-      ),
-    ) ?? false;
+  String username = "User";
+  String email = "";
 
-    if (confirm) {
-      await _auth.signOut();
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    User? user = _auth.currentUser;
+
+    if (user != null) {
+      try {
+        DocumentSnapshot userDoc =
+            await _firestore.collection('users').doc(user.uid).get();
+
+        setState(() {
+          username = userDoc.exists
+              ? (userDoc['username'] ?? user.email ?? "User")
+              : (user.email ?? "User");
+
+          email = user.email ?? "";
+        });
+      } catch (e) {
+        setState(() {
+          username = user.email ?? "User";
+          email = user.email ?? "";
+        });
+      }
     }
   }
+
+Future<void> _signOut() async {
+  bool confirm = await showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text("Sign Out"),
+      content: const Text("Are you sure you want to log out of PolluTracker?"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text("Cancel"),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text(
+            "Sign Out",
+            style: TextStyle(color: Color.fromARGB(255, 82, 163, 255)),
+          ),
+        ),
+      ],
+    ),
+  ) ?? false;
+
+  if (confirm) {
+    // Sign out from Firebase
+    await _auth.signOut();
+
+    // Navigate back to login screen and remove all previous routes
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/login',
+      (Route<dynamic> route) => false,
+    );
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -49,11 +98,11 @@ class _SettingsTabState extends State<SettingsTab> {
           children: [
             _buildProfileHeader(user),
             const Divider(height: 1, thickness: 0.5, color: Colors.black12),
-            
+
             _buildSectionHeader('App Settings'),
-            _buildActionTile('Tracking settings', Icons.chevron_right),
-            _buildActionTile('Add new saved locations', Icons.add),
-            
+ //           _buildActionTile('Tracking settings', Icons.chevron_right),
+ //           _buildActionTile('Add new saved locations', Icons.add),
+
             _buildSwitchTile(
               'Push notifications',
               pushNotifications,
@@ -66,7 +115,7 @@ class _SettingsTabState extends State<SettingsTab> {
             ),
 
             const Divider(height: 32, thickness: 0.5, color: Colors.black12),
-            
+
             _buildSectionHeader('More'),
             _buildAboutUsDropdown(),
             _buildPrivacyPolicyDropdown(),
@@ -74,17 +123,19 @@ class _SettingsTabState extends State<SettingsTab> {
 
             const SizedBox(height: 30),
 
-            // --- THE SIGN OUT BUTTON ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ElevatedButton.icon(
                 onPressed: _signOut,
                 icon: const Icon(Icons.logout, color: Colors.white, size: 20),
-                label: const Text("Sign Out", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                label: const Text("Sign Out",
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Color.fromARGB(255, 82, 163, 255),
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                   elevation: 0,
                 ),
               ),
@@ -103,8 +154,11 @@ class _SettingsTabState extends State<SettingsTab> {
           CircleAvatar(
             radius: 42,
             backgroundColor: const Color(0xFF90CAF9),
-            backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
-            child: user?.photoURL == null ? const Icon(Icons.pets, size: 45, color: Colors.white) : null,
+            backgroundImage:
+                user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+            child: user?.photoURL == null
+                ? const Icon(Icons.pets, size: 45, color: Colors.white)
+                : null,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -112,26 +166,36 @@ class _SettingsTabState extends State<SettingsTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user?.displayName ?? "User Name",
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF545E56)),
+                  username,
+                  style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF545E56)),
                 ),
                 Text(
-                  '@${user?.email?.split('@')[0] ?? "username"}',
-                  style: const TextStyle(fontSize: 16, color: Colors.black45),
+                  email,
+                  style:
+                      const TextStyle(fontSize: 16, color: Colors.black45),
                 ),
                 const SizedBox(height: 10),
                 GestureDetector(
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const ManageAccountPage()),
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              const ManageAccountPage()),
                     ).then((_) => setState(() {}));
                   },
                   child: const Row(
-                    mainAxisSize: MainAxisSize.min, 
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Manage account', style: TextStyle(color: Colors.black45, decoration: TextDecoration.underline)),
-                      Icon(Icons.chevron_right, color: Colors.black45, size: 18),
+                      Text('Manage account',
+                          style: TextStyle(
+                              color: Colors.black45,
+                              decoration: TextDecoration.underline)),
+                      Icon(Icons.chevron_right,
+                          color: Colors.black45, size: 18),
                     ],
                   ),
                 ),
@@ -143,7 +207,6 @@ class _SettingsTabState extends State<SettingsTab> {
     );
   }
 
-  // --- INFO DROPDOWNS ---
   Widget _buildAboutUsDropdown() {
     return _baseExpansionTile(
       title: 'About us',
@@ -205,37 +268,61 @@ class _SettingsTabState extends State<SettingsTab> {
     );
   }
 
-  // --- REUSABLE BUILDERS ---
   Widget _baseExpansionTile({required String title, required Widget content}) {
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
-        title: Text(title, style: const TextStyle(fontSize: 16, color: Colors.black87)),
-        trailing: const Icon(Icons.chevron_right, color: Colors.black26),
-        children: [Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), child: content)],
+        title: Text(title,
+            style: const TextStyle(fontSize: 16, color: Colors.black87)),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: content,
+          )
+        ],
       ),
     );
   }
 
   Widget _sectionTitle(String text) => Padding(
-    padding: const EdgeInsets.only(top: 12, bottom: 4),
-    child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF545E56))),
-  );
+        padding: const EdgeInsets.only(top: 12, bottom: 4),
+        child: Text(text,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: Color(0xFF545E56))),
+      );
 
-  Widget _bodyText(String text) => Text(text, style: const TextStyle(fontSize: 14, height: 1.4, color: Color(0xFF64748B)));
+  Widget _bodyText(String text) => Text(text,
+      style: const TextStyle(
+          fontSize: 14, height: 1.4, color: Color(0xFF64748B)));
 
   Widget _buildSectionHeader(String title) {
-    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 8), child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF6B7280))));
+    return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        child: Text(title,
+            style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF6B7280))));
   }
 
   Widget _buildActionTile(String title, IconData trailingIcon) {
-    return ListTile(title: Text(title, style: const TextStyle(fontSize: 16, color: Colors.black87)), trailing: Icon(trailingIcon, color: Colors.black26));
+    return ListTile(
+        title: Text(title,
+            style: const TextStyle(fontSize: 16, color: Colors.black87)),
+        trailing: Icon(trailingIcon, color: Colors.black26));
   }
 
   Widget _buildSwitchTile(String title, bool value, ValueChanged<bool> onChanged) {
     return ListTile(
-      title: Text(title, style: const TextStyle(fontSize: 16, color: Colors.black87)),
-      trailing: Switch(value: value, onChanged: onChanged, activeColor: Colors.white, activeTrackColor: const Color(0xFF5C6BC0)),
+      title: Text(title,
+          style: const TextStyle(fontSize: 16, color: Colors.black87)),
+      trailing: Switch(
+          value: value,
+          onChanged: onChanged,
+          activeColor: Colors.white,
+          activeTrackColor: const Color(0xFF5C6BC0)),
     );
   }
 }
