@@ -3,6 +3,7 @@ import '../bottom_navbar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'manage_account_page.dart';
+import '../../main.dart';
 
 class SettingsTab extends StatefulWidget {
   @override
@@ -91,7 +92,7 @@ Future<void> _signOut() async {
     User? user = _auth.currentUser;
 
     return Scaffold(
-      backgroundColor: customBgColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.only(bottom: 40),
@@ -110,8 +111,11 @@ Future<void> _signOut() async {
             ),
             _buildSwitchTile(
               'Dark mode',
-              darkMode,
-              (val) => setState(() => darkMode = val),
+              themeNotifier.value == ThemeMode.dark,
+              (val) {
+                themeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
+                setState(() {});
+              },
             ),
 
             const Divider(height: 32, thickness: 0.5, color: Colors.black12),

@@ -11,6 +11,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 
+ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
+
 void main() async {
     WidgetsFlutterBinding.ensureInitialized();
       await Firebase.initializeApp(
@@ -21,6 +23,7 @@ void main() async {
 
 // Main file that only contains the navigation routes for the individual app screens.
 // Read the details about each tab / screen file in the screens / tabs file folders.
+
 
 class MyApp extends StatelessWidget {
   @override
