@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
 import 'bottom_navbar.dart'; 
-import 'tabs/Register.dart'; //diko alam kng tama to ayaw kasi gumana nung button para sa register. Tinanong ko yng AI, ito daw kulang sabi
+import 'tabs/Register.dart'; 
 
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,10 +10,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // Contains the main login screen and is the first screen that shows up on app startup.
 // TODO (for Login):
 // - add show/hide button for password
-// - implement login functionality with firebase
-// - pollutracker logo (?)
 // - polish UI
-// - add user registration screen
+
 
 class LoginScreen extends StatefulWidget {
    @override
