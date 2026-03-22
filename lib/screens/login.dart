@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                "Pollutracker",
+                "PolluTracker",
                 style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold)
               ),
               Image.asset('assets/logo.png', width: 120, height: 120),
