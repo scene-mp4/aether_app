@@ -82,7 +82,8 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(height: 20),
                 TextField(
                 controller: passwordField,
-                decoration: InputDecoration(labelText: 'Password')
+                decoration: InputDecoration(labelText: 'Password'),
+                obscureText: true,
               ),
               SizedBox(height: 40),
               Padding(

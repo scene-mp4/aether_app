@@ -46,7 +46,7 @@ class _MapTabState extends State<MapTab> {
 
   Future fetchAQI() async {
     final url = Uri.parse(
-        "https://api.airvisual.com/v2/nearest_city?lat=14.5764&lon=121.0851&key=3daccd08-5d7f-41ba-af56-1ce0402607f5");
+        "https://api.airvisual.com/v2/nearest_city?lat=14.5764&lon=121.0851&key=$apiKey");
 
     try {
       final response = await http.get(url);
@@ -84,9 +84,12 @@ class _MapTabState extends State<MapTab> {
                         initialZoom: 11.0,
                       ),
                       children: [
+                        // ✅ FIXED: Use CartoDB tiles — no User-Agent restrictions
                         TileLayer(
                           urlTemplate:
-                              "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                              "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+                          subdomains: const ['a', 'b', 'c', 'd'],
+                          userAgentPackageName: 'com.example.pollutracker',
                         ),
                         HeatMapLayer(
                           heatMapDataSource:
@@ -113,12 +116,11 @@ class _MapTabState extends State<MapTab> {
                       right: 16,
                       child: Column(
                         children: [
-                          // AQI main card
                           Container(
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.85),
                               borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
+                              boxShadow: const [
                                 BoxShadow(
                                   color: Colors.black26,
                                   blurRadius: 8,
@@ -153,7 +155,6 @@ class _MapTabState extends State<MapTab> {
                                     ),
                                   ],
                                 ),
-                                // AQI color indicator
                                 Container(
                                   width: 60,
                                   height: 60,
@@ -178,7 +179,6 @@ class _MapTabState extends State<MapTab> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          // Weather info row
                           Row(
                             children: [
                               Expanded(
@@ -216,7 +216,7 @@ class _MapTabState extends State<MapTab> {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.85),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Colors.black26,
             blurRadius: 6,
