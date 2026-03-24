@@ -12,6 +12,7 @@ class TrackersTab extends StatefulWidget {
 class _TrackersTabState extends State<TrackersTab> {
   bool _showDetails = false;
   Map<String, dynamic>? _selectedTrackerData;
+  String _selectedTrackerId = "";
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
   // Update the owner_id to the current user's UID
@@ -20,8 +21,8 @@ class _TrackersTabState extends State<TrackersTab> {
         .collection('devices') // Correct collection name
         .doc(docId)
         .update({'owner_id': currentUserId});
-    
-    Navigator.pop(context); 
+
+    Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Tracker successfully linked!")),
     );
@@ -30,7 +31,9 @@ class _TrackersTabState extends State<TrackersTab> {
   void _showAvailableTrackers() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
@@ -38,7 +41,8 @@ class _TrackersTabState extends State<TrackersTab> {
               .where('owner_id', isEqualTo: "") // Shows devices with no owner
               .snapshots(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            if (!snapshot.hasData)
+              return const Center(child: CircularProgressIndicator());
             final available = snapshot.data!.docs;
 
             if (available.isEmpty) {
@@ -56,7 +60,7 @@ class _TrackersTabState extends State<TrackersTab> {
                 // FIX: Use 'device_name' instead of 'name'
                 return ListTile(
                   leading: const Icon(Icons.add_link),
-                  title: Text(data['device_name'] ?? "Unknown Device"), 
+                  title: Text(data['device_name'] ?? "Unknown Device"),
                   subtitle: Text("ID: ${available[index].id}"),
                   onTap: () => _linkTracker(available[index].id),
                 );
@@ -72,9 +76,10 @@ class _TrackersTabState extends State<TrackersTab> {
   Widget build(BuildContext context) {
     if (_showDetails && _selectedTrackerData != null) {
       return TrackersInfo(
-        // FIX: Ensure parameters match your field names
+        trackerId: _selectedTrackerId,
         trackerName: _selectedTrackerData!['device_name'] ?? "Unknown",
-        trackerLocation: _selectedTrackerData!['location'] ?? "Unknown Location",
+        trackerLocation:
+            _selectedTrackerData!['location'] ?? "Unknown Location",
         onBack: () => setState(() => _showDetails = false),
       );
     }
@@ -82,7 +87,10 @@ class _TrackersTabState extends State<TrackersTab> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF5),
       appBar: AppBar(
-        title: const Text("My Trackers", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: const Text(
+          "My Trackers",
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -99,7 +107,10 @@ class _TrackersTabState extends State<TrackersTab> {
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
-              child: Text("No trackers linked to this account.", style: TextStyle(color: Colors.grey)),
+              child: Text(
+                "No trackers linked to this account.",
+                style: TextStyle(color: Colors.grey),
+              ),
             );
           }
 
@@ -109,11 +120,13 @@ class _TrackersTabState extends State<TrackersTab> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             itemCount: userTrackers.length,
             itemBuilder: (context, index) {
-              final tracker = userTrackers[index].data() as Map<String, dynamic>;
+              final tracker =
+                  userTrackers[index].data() as Map<String, dynamic>;
               return GestureDetector(
                 onTap: () {
                   setState(() {
                     _selectedTrackerData = tracker;
+                    _selectedTrackerId = userTrackers[index].id;
                     _showDetails = true;
                   });
                 },
@@ -128,7 +141,10 @@ class _TrackersTabState extends State<TrackersTab> {
                     children: [
                       const CircleAvatar(
                         backgroundColor: Color(0xFFD1EBE9),
-                        child: Icon(Icons.location_on, color: Color(0xFF4B5563)),
+                        child: Icon(
+                          Icons.location_on,
+                          color: Color(0xFF4B5563),
+                        ),
                       ),
                       const SizedBox(width: 15),
                       Expanded(
@@ -138,11 +154,18 @@ class _TrackersTabState extends State<TrackersTab> {
                             Text(
                               // FIX: Use 'device_name'
                               tracker['device_name'] ?? "Unnamed",
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF374151),
+                              ),
                             ),
                             Text(
                               tracker['location'] ?? "No location set",
-                              style: const TextStyle(color: Colors.grey, fontSize: 13),
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13,
+                              ),
                             ),
                           ],
                         ),
