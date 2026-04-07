@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../main.dart';
 import 'tabs/map_tab.dart';
 import 'tabs/trackers_tab.dart';
+import 'tabs/summary_tab.dart';
 import 'tabs/settings_tab.dart';
 
 // Contains the bottom navigation bar. All other tabs will be in separate files, and when a tab is pressed on the bottom navigation bar, the current screen should change.
@@ -18,6 +19,7 @@ int _currentIndex = 1;
 final List<Widget> tabs = [
   MapTab(),
   TrackersTab(),
+  SummaryTab(),
   SettingsTab()
 ];
 
@@ -41,6 +43,10 @@ final List<Widget> tabs = [
           BottomNavigationBarItem(
             icon: Icon(Icons.radio_button_checked),
             label: "Trackers",
+            ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.analytics),
+            label: "Summary",
             ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../bottom_navbar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -53,8 +54,15 @@ class _TrackersInfoState extends State<TrackersInfo> {
   }
 
   double calculatePPM(double ratio, double a, double b) {
-    if (ratio <= 0 || ratio.isNaN) return 0.0;
-    return a * pow(ratio, b);
+    if (ratio.isNaN) return 0.0;
+    // Protect against extreme or invalid ratio values that cause pow() to explode.
+    const double minRatio = 0.01;
+    const double maxRatio = 100.0;
+    double safeRatio = ratio.clamp(minRatio, maxRatio);
+    double val = a * pow(safeRatio, b);
+    if (val.isNaN || val.isInfinite) return 0.0;
+    // Cap PPM to a high but reasonable ceiling to avoid misleading huge values.
+    return val.clamp(0.0, 10000.0) as double;
   }
 
   double getCorrectionFactor(double t, double h) {
@@ -194,13 +202,23 @@ class _TrackersInfoState extends State<TrackersInfo> {
           double t = hasReading ? (data['temperature'] ?? 0.0).toDouble() : 0.0;
           double h = hasReading ? (data['humidity'] ?? 0.0).toDouble() : 0.0;
           double pm25 = hasReading ? (data['pm25'] ?? 0.0).toDouble() : 0.0;
+
           double v2 = hasReading ? (data['mq2_v'] ?? 0.0).toDouble() : 0.0;
           double v9 = hasReading ? (data['mq9_v'] ?? 0.0).toDouble() : 0.0;
           double v135 = hasReading ? (data['mq135_v'] ?? 0.0).toDouble() : 0.0;
 
-          double r2 = (hasReading && v2 > 0) ? (3.3 - v2) / v2 : 0.0;
-          double r9 = (hasReading && v9 > 0) ? (3.3 - v9) / v9 : 0.0;
-          double r135 = (hasReading && v135 > 0) ? (3.3 - v135) / v135 : 0.0;
+          // Heuristic: some devices store raw ADC counts (0-1023). If values look
+          // like raw ADC (>20), convert to voltage using 5.0V reference.
+          if (v2 > 20) v2 = v2 * (5.0 / 1023.0);
+          if (v9 > 20) v9 = v9 * (5.0 / 1023.0);
+          if (v135 > 20) v135 = v135 * (5.0 / 1023.0);
+
+          // Compute sensor resistance ratios; if sensor voltage is zero or
+          // invalid, fall back to a safe maximum ratio that calculatePPM will clamp.
+          const double fallbackRatio = 100.0;
+          double r2 = (v2 > 0) ? ((5.0 - v2) / v2) : fallbackRatio;
+          double r9 = (v9 > 0) ? ((5.0 - v9) / v9) : fallbackRatio;
+          double r135 = (v135 > 0) ? ((5.0 - v135) / v135) : fallbackRatio;
 
           double lpg = calculatePPM(r2, 574.25, -2.222);
           double co = calculatePPM(r9, 1000.5, -1.969);
@@ -214,6 +232,16 @@ class _TrackersInfoState extends State<TrackersInfo> {
           int pmAqi = calculatePM25AQI(pm25);
           int finalIAQI = getCompositeIAQI(co, co2, nh3, pmAqi);
           double absHum = calculateAbsoluteHumidity(t, h);
+
+          // Debug: print intermediate values to help trace IAQI computation
+          if (kDebugMode) {
+            print('--- Tracker Debug (${widget.trackerName}) ---');
+            print('v2: $v2, v9: $v9, v135: $v135');
+            print('r2: $r2, r9: $r9, r135: $r135');
+            print('lpg: $lpg, co: $co, co2: $co2, nh3: $nh3');
+            print('pm25: $pm25 -> pmAqi: $pmAqi');
+            print('finalIAQI: $finalIAQI');
+          }
 
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
