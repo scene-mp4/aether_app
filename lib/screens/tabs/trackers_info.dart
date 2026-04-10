@@ -80,6 +80,44 @@ class _TrackersInfoState extends State<TrackersInfo> {
     return [iCo, iCo2, iNh3, pmAqi.toDouble()].reduce(max).toInt();
   }
 
+  // Estimate gas concentrations (lpg, co, co2, nh3) from a raw reading map.
+  Map<String, double> _estimateGasesFromMap(Map<String, dynamic> m) {
+    double mq2_v = _toDouble(m['mq2_v']);
+    double mq9_v = _toDouble(m['mq9_v']);
+    double mq135_v = _toDouble(m['mq135_v']);
+    double temp = _toDouble(m['temperature']);
+    double hum = _toDouble(m['humidity']);
+
+    if (mq2_v > 20) mq2_v = mq2_v * (5.0 / 1023.0);
+    if (mq9_v > 20) mq9_v = mq9_v * (5.0 / 1023.0);
+    if (mq135_v > 20) mq135_v = mq135_v * (5.0 / 1023.0);
+
+    const double fallbackRatio = 100.0;
+    double r2 = (mq2_v > 0) ? ((5.0 - mq2_v) / mq2_v) : fallbackRatio;
+    double r9 = (mq9_v > 0) ? ((5.0 - mq9_v) / mq9_v) : fallbackRatio;
+    double r135 = (mq135_v > 0) ? ((5.0 - mq135_v) / mq135_v) : fallbackRatio;
+
+    double lpg = calculatePPM(r2, 574.25, -2.222);
+    double coEst = calculatePPM(r9, 1000.5, -1.969);
+    double correctionFactor = getCorrectionFactor(temp, hum).clamp(0.1, 10.0).toDouble();
+    double co2Est = calculatePPM(r135 / correctionFactor, 110.47, -2.862);
+    double nh3 = calculatePPM(r135, 102.2, -2.473);
+
+    double co = _toDouble(m['co'] ?? 0);
+    double co2 = _toDouble(m['co2'] ?? m['co2_est']);
+    if (co == 0) co = coEst;
+    if (co2 == 0) co2 = co2Est;
+
+    return {'lpg': lpg, 'co': co, 'co2': co2, 'nh3': nh3};
+  }
+
+  double _toDouble(dynamic v) {
+    if (v == null) return 0.0;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v.trim()) ?? 0.0;
+    return 0.0;
+  }
+
   // --- COLOR & STATUS HELPERS ---
 
   Color _getColor(num aqi) {
@@ -188,6 +226,8 @@ class _TrackersInfoState extends State<TrackersInfo> {
             .collection('devices')
             .doc(widget.trackerId)
             .collection('readings')
+            .orderBy('timestamp', descending: true)
+            .limit(1)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -201,7 +241,17 @@ class _TrackersInfoState extends State<TrackersInfo> {
 
           double t = hasReading ? (data['temperature'] ?? 0.0).toDouble() : 0.0;
           double h = hasReading ? (data['humidity'] ?? 0.0).toDouble() : 0.0;
-          double pm25 = hasReading ? (data['pm25'] ?? 0.0).toDouble() : 0.0;
+          double pm25 = 0.0;
+          if (hasReading) {
+            final rawPm = data['pm25'];
+            if (rawPm is num) {
+              pm25 = rawPm.toDouble();
+            } else if (rawPm is String) {
+              pm25 = double.tryParse(rawPm) ?? 0.0;
+            } else {
+              pm25 = 0.0;
+            }
+          }
 
           double v2 = hasReading ? (data['mq2_v'] ?? 0.0).toDouble() : 0.0;
           double v9 = hasReading ? (data['mq9_v'] ?? 0.0).toDouble() : 0.0;
@@ -221,14 +271,11 @@ class _TrackersInfoState extends State<TrackersInfo> {
           double r9 = (v9 > 0) ? ((5.0 - v9) / v9) : fallbackRatio;
           double r135 = (v135 > 0) ? ((5.0 - v135) / v135) : fallbackRatio;
 
-          double lpg = calculatePPM(r2, 574.25, -2.222);
-          double co = calculatePPM(r9, 1000.5, -1.969);
-          double co2 = calculatePPM(
-            r135 / (getCorrectionFactor(t, h).clamp(0.1, 10)),
-            110.47,
-            -2.862,
-          );
-          double nh3 = calculatePPM(r135, 102.2, -2.473);
+          final gases = _estimateGasesFromMap(data);
+          double lpg = gases['lpg']!;
+          double co = gases['co']!;
+          double co2 = gases['co2']!;
+          double nh3 = gases['nh3']!;
 
           int pmAqi = calculatePM25AQI(pm25);
           int finalIAQI = getCompositeIAQI(co, co2, nh3, pmAqi);
@@ -571,6 +618,7 @@ class SlidingHistoryContent extends StatefulWidget {
 class _SlidingHistoryContentState extends State<SlidingHistoryContent> {
   int selectedTabIndex = 0;
   final List<String> tabs = ["Today", "7 Days", "30 Days"];
+  Map<int, Future<Map<String, dynamic>>> _historyCache = {};
 
   @override
   Widget build(BuildContext context) {
@@ -626,25 +674,461 @@ class _SlidingHistoryContentState extends State<SlidingHistoryContent> {
           ),
         ),
         const SizedBox(height: 25),
-        _buildChartBox("Graph for ${tabs[selectedTabIndex]}", 180),
+        _buildChartBox("Graph for ${tabs[selectedTabIndex]}", 180.0),
       ],
     );
   }
 
-  Widget _buildChartBox(String text, double height) {
-    return Container(
-      height: height,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.grey, fontSize: 12),
-        ),
+  Widget _buildLegend() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _legendItem(Colors.redAccent, 'PM2.5'),
+          const SizedBox(width: 16),
+          _legendItem(Colors.teal, 'CO\u2082'),
+          const SizedBox(width: 16),
+          _legendItem(Colors.green.shade400, 'CO'),
+        ],
       ),
     );
+  }
+
+  Widget _legendItem(Color color, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 14,
+          height: 4,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+      ],
+    );
+  }
+
+ Widget _buildLineChart(List<dynamic> points, DateTime start) {
+  try {
+    final spotsPm = <FlSpot>[];
+    final spotsCo2 = <FlSpot>[];
+    final spotsCo = <FlSpot>[];
+
+    for (var p in points) {
+      final dt = p['t'] as DateTime;
+      final x = dt.difference(start).inMinutes / 60.0;
+      final pmVal = (p['pm25'] as double);
+      final co2Val = (p['co2'] as double);
+      final coVal = (p['co'] as double);
+      if (pmVal.isFinite) spotsPm.add(FlSpot(x, pmVal));
+      if (co2Val.isFinite) spotsCo2.add(FlSpot(x, co2Val));
+      if (coVal.isFinite) spotsCo.add(FlSpot(x, coVal));
+    }
+
+    if (spotsPm.isEmpty) spotsPm.add(FlSpot(0, 0));
+    if (spotsCo2.isEmpty) spotsCo2.add(FlSpot(0, 0));
+    if (spotsCo.isEmpty) spotsCo.add(FlSpot(0, 0));
+
+    final maxX = spotsPm.isNotEmpty ? spotsPm.last.x : 24.0;
+    final interval = ((maxX / 5).clamp(1, maxX)).toDouble();
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (v) =>
+              FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+        ),
+        borderData: FlBorderData(show: false),
+        titlesData: FlTitlesData(
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: interval,
+              reservedSize: 28,
+              getTitlesWidget: (v, meta) {
+                final minutes = (v * 60).round();
+                final label = start.add(Duration(minutes: minutes));
+                final fmt = selectedTabIndex == 0
+                    ? "${label.hour.toString().padLeft(2, '0')}:00"
+                    : "${label.month}/${label.day}";
+                return Text(fmt,
+                    style: const TextStyle(fontSize: 10, color: Colors.black45));
+              },
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 40,
+              getTitlesWidget: (v, meta) => Text(
+                v.toInt().toString(),
+                style: const TextStyle(fontSize: 10, color: Colors.black45),
+              ),
+            ),
+          ),
+          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        minX: 0,
+        maxX: maxX,
+        lineBarsData: [
+          LineChartBarData(
+            spots: spotsCo2,
+            color: Colors.teal,
+            isCurved: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
+                radius: 3,
+                color: Colors.teal,
+                strokeWidth: 0,
+                strokeColor: Colors.transparent,
+              ),
+            ),
+            barWidth: 2,
+          ),
+          LineChartBarData(
+            spots: spotsCo,
+            color: Colors.green.shade400,
+            isCurved: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
+                radius: 3,
+                color: Colors.green.shade400,
+                strokeWidth: 0,
+                strokeColor: Colors.transparent,
+              ),
+            ),
+            barWidth: 2,
+          ),
+          LineChartBarData(
+            spots: spotsPm,
+            color: Colors.redAccent,
+            isCurved: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
+                radius: 3,
+                color: Colors.redAccent,
+                strokeWidth: 0,
+                strokeColor: Colors.transparent,
+              ),
+            ),
+            barWidth: 2,
+          ),
+        ],
+      ),
+    );
+  } catch (e, st) {
+    if (kDebugMode) {
+      print('Error building line chart: $e');
+      print(st);
+    }
+    return const Center(child: Text('Chart error'));
+  }
+}
+
+Widget _buildBarChart(Map<String, Map<String, double>> daily) {
+  try {
+    final keys = daily.keys.toList()..sort();
+    if (keys.isEmpty) return const Center(child: Text('No daily averages'));
+
+    final groups = <BarChartGroupData>[];
+    for (int i = 0; i < keys.length; i++) {
+      final k = keys[i];
+      final vals = daily[k]!;
+      final pm = vals['pm25'] ?? 0.0;
+      final co2 = vals['co2'] ?? 0.0;
+      final co = vals['co'] ?? 0.0;
+      groups.add(BarChartGroupData(x: i, barsSpace: 3, barRods: [
+        BarChartRodData(
+          toY: pm,
+          color: Colors.redAccent,
+          width: 7,
+          borderRadius: BorderRadius.circular(3),
+        ),
+        BarChartRodData(
+          toY: co2,
+          color: Colors.teal,
+          width: 7,
+          borderRadius: BorderRadius.circular(3),
+        ),
+        BarChartRodData(
+          toY: co,
+          color: Colors.green.shade400,
+          width: 7,
+          borderRadius: BorderRadius.circular(3),
+        ),
+      ]));
+    }
+
+    return BarChart(
+      BarChartData(
+        barGroups: groups,
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (v) =>
+              FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+        ),
+        borderData: FlBorderData(show: false),
+        titlesData: FlTitlesData(
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 28,
+              getTitlesWidget: (v, meta) {
+                final idx = v.toInt();
+                if (idx < 0 || idx >= keys.length) {
+                  return const SizedBox.shrink();
+                }
+                final parts = keys[idx].split('-');
+                final label = selectedTabIndex == 0
+                    ? "${parts[2].padLeft(2, '0')}:00"
+                    : "${parts[1].padLeft(2, '0')}/${parts[2].padLeft(2, '0')}";
+                return Text(label,
+                    style: const TextStyle(fontSize: 10, color: Colors.black45));
+              },
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 40,
+              getTitlesWidget: (v, meta) => Text(
+                v.toInt().toString(),
+                style: const TextStyle(fontSize: 10, color: Colors.black45),
+              ),
+            ),
+          ),
+          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        barTouchData: BarTouchData(enabled: false),
+      ),
+    );
+  } catch (e, st) {
+    if (kDebugMode) {
+      print('Error building bar chart: $e');
+      print(st);
+    }
+    return const Center(child: Text('Bar chart error'));
+  }
+}
+
+  Widget _buildChartBox(String title, double height) {
+    final int days = selectedTabIndex == 0 ? 1 : (selectedTabIndex == 1 ? 7 : 30);
+    _historyCache[selectedTabIndex] ??= _fetchHistory(days);
+
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _historyCache[selectedTabIndex],
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return SizedBox(
+            height: height,
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snap.hasError) {
+          return SizedBox(
+            height: height,
+            child: Center(child: Text('Error: ${snap.error}')),
+          );
+        }
+
+        final data = snap.data ?? {'points': [], 'daily': {}, 'start': DateTime.now()};
+        final points = (data['points'] as List<dynamic>?) ?? [];
+        final daily = (data['daily'] as Map?)?.cast<String, Map<String, double>>() ?? {};
+        final start = data['start'] as DateTime? ?? DateTime.now();
+
+        if (points.isEmpty) {
+          return SizedBox(
+            height: height,
+            child: const Center(child: Text('No history data')),
+          );
+        }
+
+        return SizedBox(
+          height: height,
+          child: Column(
+            children: [
+              Expanded(child: _buildLineChart(points, start)),
+              _buildLegend(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  double _toDouble(dynamic v) {
+    try {
+      if (v == null) return 0.0;
+      if (v is num) return v.toDouble();
+      if (v is bool) return v ? 1.0 : 0.0;
+      if (v is String) {
+        final s = v.trim();
+        if (s.isEmpty) return 0.0;
+        // Normalize common formatting: commas as thousands separators
+        final normalized = s.replaceAll(',', '');
+        final parsed = double.tryParse(normalized);
+        if (parsed != null) return parsed;
+        // Try extracting a numeric substring (e.g. "value: 12.3")
+        final match = RegExp(r'[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?').firstMatch(normalized);
+        if (match != null) return double.tryParse(match.group(0)!) ?? 0.0;
+        return 0.0;
+      }
+      if (v is Timestamp) return v.toDate().millisecondsSinceEpoch.toDouble();
+      if (v is DateTime) return v.millisecondsSinceEpoch.toDouble();
+      if (v is GeoPoint) {
+        // GeoPoint cannot be converted to a single scalar reliably.
+        if (kDebugMode) print('[_toDouble] received GeoPoint for conversion; returning 0.0');
+        return 0.0;
+      }
+      // For maps / lists / other types, attempt best-effort conversion
+      if (v is Map || v is List) return 0.0;
+    } catch (e) {
+      if (kDebugMode) print('[_toDouble] conversion error for value=$v -> $e');
+    }
+    return 0.0;
+  }
+
+  // Local PPM calculation (kept here to avoid depending on other state classes).
+  double _localCalculatePPM(double ratio, double a, double b) {
+    if (ratio.isNaN || ratio <= 0) return 0.0;
+    const double minRatio = 0.01;
+    const double maxRatio = 100.0;
+    double safeRatio = (ratio).clamp(minRatio, maxRatio).toDouble();
+    double val = (a * pow(safeRatio, b)).toDouble();
+    if (val.isNaN || val.isInfinite) return 0.0;
+    return (val.clamp(0.0, 10000.0) as double);
+  }
+
+  double _localCorrectionFactor(double t, double h) {
+    return -0.00035 * pow(t, 2) +
+        0.0177 * t -
+        0.0000179 * pow(h, 2) +
+        0.00699 * h -
+        0.1689;
+  }
+
+  Map<String, double> _estimateGases(Map<String, dynamic> m) {
+    double mq2_v = _toDouble(m['mq2_v']);
+    double mq9_v = _toDouble(m['mq9_v']);
+    double mq135_v = _toDouble(m['mq135_v']);
+    double temp = _toDouble(m['temperature']);
+    double hum = _toDouble(m['humidity']);
+
+    if (mq2_v > 20) mq2_v = mq2_v * (5.0 / 1023.0);
+    if (mq9_v > 20) mq9_v = mq9_v * (5.0 / 1023.0);
+    if (mq135_v > 20) mq135_v = mq135_v * (5.0 / 1023.0);
+
+    const double fallbackRatio = 100.0;
+    double r2 = (mq2_v > 0) ? ((5.0 - mq2_v) / mq2_v) : fallbackRatio;
+    double r9 = (mq9_v > 0) ? ((5.0 - mq9_v) / mq9_v) : fallbackRatio;
+    double r135 = (mq135_v > 0) ? ((5.0 - mq135_v) / mq135_v) : fallbackRatio;
+
+    double lpg = _localCalculatePPM(r2, 574.25, -2.222);
+    double coEst = _localCalculatePPM(r9, 1000.5, -1.969);
+    double correctionFactor = _localCorrectionFactor(temp, hum).clamp(0.1, 10.0).toDouble();
+    double co2Est = _localCalculatePPM(r135 / correctionFactor, 110.47, -2.862);
+    double nh3 = _localCalculatePPM(r135, 102.2, -2.473);
+
+    double co = _toDouble(m['co'] ?? 0);
+    double co2 = _toDouble(m['co2'] ?? m['co2_est']);
+    if (co == 0) co = coEst;
+    if (co2 == 0) co2 = co2Est;
+
+    return {'lpg': lpg, 'co': co, 'co2': co2, 'nh3': nh3};
+  }
+
+  Future<Map<String, dynamic>> _fetchHistory(int days) async {
+    final now = DateTime.now();
+    final start = now.subtract(Duration(days: days));
+
+    try {
+      final qSnap = await FirebaseFirestore.instance
+          .collection('devices')
+          .doc(widget.trackerId)
+          .collection('readings')
+          .orderBy('timestamp', descending: true)
+          .limit(1000)
+          .get();
+
+      if (kDebugMode) {
+        print('[_fetchHistory] fetched ${qSnap.docs.length} docs for tracker ${widget.trackerId} (days=$days)');
+        for (var i = 0; i < qSnap.docs.length && i < 5; i++) {
+          try {
+            print('[_fetchHistory] doc[$i]: ${qSnap.docs[i].data()}');
+          } catch (e) {
+            print('[_fetchHistory] failed to print doc[$i]: $e');
+          }
+        }
+      }
+
+      final List<Map<String, dynamic>> points = [];
+      final Map<String, List<double>> dailyPm = {};
+      final Map<String, List<double>> dailyCo2 = {};
+      final Map<String, List<double>> dailyCo = {};
+
+      for (var d in qSnap.docs.reversed) {
+        final m = d.data() as Map<String, dynamic>;
+        DateTime? dt;
+        final ts = m['timestamp'];
+        if (ts is Timestamp) dt = ts.toDate();
+        else if (ts is DateTime) dt = ts;
+        else if (ts is String) dt = DateTime.tryParse(ts);
+        if (dt == null) continue;
+        if (dt.isBefore(start)) continue;
+
+        final pm25 = _toDouble(m['pm25']);
+        final gases = _estimateGases(m);
+        final double co = gases['co']!;
+        final double co2 = gases['co2']!;
+
+        points.add({'t': dt, 'pm25': pm25, 'co2': co2, 'co': co});
+
+        final dayKey = '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+        dailyPm.putIfAbsent(dayKey, () => []).add(pm25);
+        dailyCo2.putIfAbsent(dayKey, () => []).add(co2);
+        dailyCo.putIfAbsent(dayKey, () => []).add(co);
+      }
+
+      double avg(List<double> l) => l.isEmpty ? 0.0 : l.reduce((a, b) => a + b) / l.length;
+
+      final Map<String, Map<String, double>> daily = {};
+      if (kDebugMode) {
+        print('[_fetchHistory] processed points count=${points.length}');
+        try {
+          print('[_fetchHistory] sample points=${points.take(5).toList()}');
+        } catch (e) {
+          print('[_fetchHistory] failed to print sample points: $e');
+        }
+      }
+
+      for (var k in dailyPm.keys) {
+        daily[k] = {
+          'pm25': avg(dailyPm[k]!),
+          'co2': avg(dailyCo2[k] ?? []),
+          'co': avg(dailyCo[k] ?? []),
+        };
+      }
+
+      return {'points': points, 'daily': daily, 'start': start};
+    } catch (e, st) {
+      if (kDebugMode) {
+        print('Error fetching history: $e');
+        print(st);
+      }
+      return {'points': [], 'daily': {}, 'start': start};
+    }
+
   }
 }

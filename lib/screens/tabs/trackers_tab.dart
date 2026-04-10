@@ -130,12 +130,32 @@ class _TrackersTabState extends State<TrackersTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_showDetails && _selectedTrackerData != null) {
+      if (_showDetails && _selectedTrackerData != null) {
+      // Normalize location which may be a GeoPoint in Firestore
+      String locationStr = "Unknown Location";
+      final rawLoc = _selectedTrackerData!['location'];
+      if (rawLoc != null) {
+        if (rawLoc is GeoPoint) {
+          locationStr = "${rawLoc.latitude.toStringAsFixed(4)}, ${rawLoc.longitude.toStringAsFixed(4)}";
+        } else if (rawLoc is String) {
+          locationStr = rawLoc;
+        } else if (rawLoc is Map) {
+          try {
+            final lat = rawLoc['latitude'] ?? rawLoc['lat'] ?? rawLoc['lat'];
+            final lng = rawLoc['longitude'] ?? rawLoc['lng'] ?? rawLoc['lon'];
+            locationStr = "${lat.toString()}, ${lng.toString()}";
+          } catch (_) {
+            locationStr = rawLoc.toString();
+          }
+        } else {
+          locationStr = rawLoc.toString();
+        }
+      }
+
       return TrackersInfo(
         trackerId: _selectedTrackerId,
         trackerName: _selectedTrackerData!['device_name'] ?? "Unknown",
-        trackerLocation:
-            _selectedTrackerData!['location'] ?? "Unknown Location",
+        trackerLocation: locationStr,
         onBack: () => setState(() => _showDetails = false),
       );
     }
@@ -216,7 +236,16 @@ class _TrackersTabState extends State<TrackersTab> {
                                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(tracker['location'] ?? 'No location set', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                                Text(
+                                  (() {
+                                    final rawLoc = tracker['location'];
+                                    if (rawLoc == null) return 'No location set';
+                                    if (rawLoc is GeoPoint) return '${rawLoc.latitude.toStringAsFixed(4)}, ${rawLoc.longitude.toStringAsFixed(4)}';
+                                    if (rawLoc is String) return rawLoc;
+                                    return rawLoc.toString();
+                                  })(),
+                                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                                ),
                               ],
                             ),
                           ),

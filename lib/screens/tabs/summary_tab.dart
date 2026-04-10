@@ -122,10 +122,31 @@ class _SummaryTabState extends State<SummaryTab> {
     final results = <Map<String, dynamic>>[];
     for (var d in devicesSnap.docs) {
       final latest = await _fetchLatestForDevice(d);
+      // Normalize location field which may be stored as GeoPoint or String
+      final raw = (d.data() as Map<String, dynamic>)['location'];
+      String locStr = '';
+      if (raw != null) {
+        if (raw is GeoPoint) {
+          locStr = '${raw.latitude.toStringAsFixed(4)}, ${raw.longitude.toStringAsFixed(4)}';
+        } else if (raw is String) {
+          locStr = raw;
+        } else if (raw is Map) {
+          try {
+            final lat = raw['latitude'] ?? raw['lat'];
+            final lng = raw['longitude'] ?? raw['lng'] ?? raw['lon'];
+            locStr = '${lat.toString()}, ${lng.toString()}';
+          } catch (_) {
+            locStr = raw.toString();
+          }
+        } else {
+          locStr = raw.toString();
+        }
+      }
+
       results.add({
         'id': d.id,
         'name': (d.data() as Map<String, dynamic>)['device_name'] ?? 'Unnamed',
-        'location': (d.data() as Map<String, dynamic>)['location'] ?? '',
+        'location': locStr,
         'reading': latest,
       });
     }
