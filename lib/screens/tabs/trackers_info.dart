@@ -54,15 +54,15 @@ class _TrackersInfoState extends State<TrackersInfo> {
   }
 
   double calculatePPM(double ratio, double a, double b) {
-    if (ratio.isNaN) return 0.0;
+    if (ratio.isNaN || ratio <= 0) return 0.0;
     // Protect against extreme or invalid ratio values that cause pow() to explode.
     const double minRatio = 0.01;
     const double maxRatio = 100.0;
-    double safeRatio = ratio.clamp(minRatio, maxRatio);
-    double val = a * pow(safeRatio, b);
+    double safeRatio = (ratio).clamp(minRatio, maxRatio).toDouble();
+    double val = (a * pow(safeRatio, b)).toDouble();
     if (val.isNaN || val.isInfinite) return 0.0;
     // Cap PPM to a high but reasonable ceiling to avoid misleading huge values.
-    return val.clamp(0.0, 10000.0) as double;
+    return (val.clamp(0.0, 10000.0) as double);
   }
 
   double getCorrectionFactor(double t, double h) {
@@ -207,6 +207,7 @@ class _TrackersInfoState extends State<TrackersInfo> {
           double v9 = hasReading ? (data['mq9_v'] ?? 0.0).toDouble() : 0.0;
           double v135 = hasReading ? (data['mq135_v'] ?? 0.0).toDouble() : 0.0;
 
+          // initial resistance estimates will be computed after voltage normalization
           // Heuristic: some devices store raw ADC counts (0-1023). If values look
           // like raw ADC (>20), convert to voltage using 5.0V reference.
           if (v2 > 20) v2 = v2 * (5.0 / 1023.0);
