@@ -16,6 +16,8 @@ class _TrackersTabState extends State<TrackersTab> {
   String _selectedTrackerId = "";
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
+  final List<String> _allowedLocations = ['comfort room', 'living room', 'dining area', 'kitchen', 'bedroom'];
+
   // --- IAQI helpers (copied minimal set to render summary card) ---
   int calculatePM25AQI(double concentration) {
     if (concentration <= 0) return 0;
@@ -249,7 +251,16 @@ class _TrackersTabState extends State<TrackersTab> {
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_right, color: Colors.grey),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.black54, size: 20),
+                                onPressed: () => _showEditTrackerDialog(doc.id, tracker),
+                              ),
+                              const Icon(Icons.chevron_right, color: Colors.grey),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -341,4 +352,88 @@ class _TrackersTabState extends State<TrackersTab> {
       ),
     );
   }
+
+  void _showEditTrackerDialog(String docId, Map<String, dynamic> tracker) {
+    final nameController = TextEditingController(text: tracker['device_name'] ?? '');
+    // derive current location string if available
+    String curLoc = '';
+    final rawLoc = tracker['location'];
+    if (rawLoc != null) {
+      if (rawLoc is GeoPoint) curLoc = '${rawLoc.latitude.toStringAsFixed(4)}, ${rawLoc.longitude.toStringAsFixed(4)}';
+      else if (rawLoc is String) curLoc = rawLoc;
+      else curLoc = rawLoc.toString();
+    }
+
+    String selectedLocation = _allowedLocations.contains(curLoc.toLowerCase()) ? curLoc.toLowerCase() : _allowedLocations.first;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Tracker'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Tracker name'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedLocation,
+                items: _allowedLocations
+                    .map((l) => DropdownMenuItem(value: l, child: Text(_capitalize(l))))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) selectedLocation = v;
+                },
+                decoration: const InputDecoration(labelText: 'Location'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final newName = nameController.text.trim();
+                if (newName.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name cannot be empty')));
+                  return;
+                }
+
+                try {
+                  await FirebaseFirestore.instance.collection('devices').doc(docId).update({
+                    'device_name': newName,
+                    'location': selectedLocation,
+                  });
+
+                  if (currentUserId.isNotEmpty) {
+                    await FirebaseFirestore.instance.collection('users').doc(currentUserId).update({
+                      'trackers.$docId.device_name': newName,
+                      'trackers.$docId.location': selectedLocation,
+                    }).catchError((_) async {
+                      await FirebaseFirestore.instance.collection('users').doc(currentUserId).set({
+                        'trackers': {
+                          docId: {'device_name': newName, 'location': selectedLocation}
+                        }
+                      }, SetOptions(merge: true));
+                    });
+                  }
+
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tracker updated')));
+                } catch (e) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }

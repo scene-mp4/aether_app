@@ -220,6 +220,12 @@ class _TrackersInfoState extends State<TrackersInfo> {
             fontSize: 18,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.black87),
+            onPressed: () => _showEditDialog(),
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -385,6 +391,89 @@ class _TrackersInfoState extends State<TrackersInfo> {
           );
         },
       ),
+    );
+  }
+
+  void _showEditDialog() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final nameController = TextEditingController(text: widget.trackerName);
+    final allowed = ['comfort room', 'living room', 'dining area', 'kitchen', 'bedroom'];
+    String selectedLocation = allowed.contains(widget.trackerLocation.toLowerCase())
+      ? widget.trackerLocation.toLowerCase()
+      : 'comfort room';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Tracker'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Tracker name'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedLocation,
+                items: const [
+                  DropdownMenuItem(value: 'comfort room', child: Text('Comfort Room')),
+                  DropdownMenuItem(value: 'living room', child: Text('Living Room')),
+                  DropdownMenuItem(value: 'dining area', child: Text('Dining Area')),
+                  DropdownMenuItem(value: 'kitchen', child: Text('Kitchen')),
+                  DropdownMenuItem(value: 'bedroom', child: Text('Bedroom')),
+                ],
+                onChanged: (v) {
+                  if (v != null) selectedLocation = v;
+                },
+                decoration: const InputDecoration(labelText: 'Location'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final newName = nameController.text.trim();
+                if (newName.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name cannot be empty')));
+                  return;
+                }
+
+                try {
+                  await FirebaseFirestore.instance.collection('devices').doc(widget.trackerId).update({
+                    'device_name': newName,
+                    'location': selectedLocation,
+                  });
+
+                  if (uid != null) {
+                    await FirebaseFirestore.instance.collection('users').doc(uid).update({
+                      'trackers.${widget.trackerId}.device_name': newName,
+                      'trackers.${widget.trackerId}.location': selectedLocation,
+                    }).catchError((_) async {
+                      // If trackers map doesn't exist yet, use set with merge
+                      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+                        'trackers': {
+                          widget.trackerId: {'device_name': newName, 'location': selectedLocation}
+                        }
+                      }, SetOptions(merge: true));
+                    });
+                  }
+
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tracker updated')));
+                  setState(() {});
+                } catch (e) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 
