@@ -86,6 +86,59 @@ class _TrackersTabState extends State<TrackersTab> {
     );
   }
 
+  // Confirm and unlink a tracker from this user
+  void _confirmUnlink(String docId, Map<String, dynamic> tracker) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Unlink Tracker'),
+          content: Text('Are you sure you want to unlink "${tracker['device_name'] ?? 'this tracker'}"? It will no longer be available to your account.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              onPressed: () async {
+                Navigator.pop(context);
+                await _unlinkTracker(docId);
+              },
+              child: const Text('Unlink'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _unlinkTracker(String docId) async {
+    try {
+      // clear owner on the device document
+      await FirebaseFirestore.instance.collection('devices').doc(docId).update({'owner_id': ""});
+
+      // remove tracker entry from user's document if exists
+      if (currentUserId.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('users').doc(currentUserId).update({
+          'trackers.$docId': FieldValue.delete(),
+        }).catchError((_) async {
+          // ignore if user doc doesn't exist
+        });
+      }
+
+      // if currently viewing details for this tracker, close it
+      if (_selectedTrackerId == docId) {
+        setState(() {
+          _showDetails = false;
+          _selectedTrackerId = '';
+          _selectedTrackerData = null;
+        });
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tracker unlinked')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unlink failed: $e')));
+    }
+  }
+
   void _showAvailableTrackers() {
     showModalBottomSheet(
       context: context,
@@ -258,6 +311,11 @@ class _TrackersTabState extends State<TrackersTab> {
                                 icon: const Icon(Icons.edit, color: Colors.black54, size: 20),
                                 onPressed: () => _showEditTrackerDialog(doc.id, tracker),
                               ),
+                              IconButton(
+                                icon: const Icon(Icons.link_off, color: Colors.redAccent, size: 20),
+                                onPressed: () => _confirmUnlink(doc.id, tracker),
+                                tooltip: 'Unlink tracker',
+                              ),
                               const Icon(Icons.chevron_right, color: Colors.grey),
                             ],
                           ),
@@ -267,8 +325,8 @@ class _TrackersTabState extends State<TrackersTab> {
                   );
                 })(),
 
-                // insert summary after first tracker
-                if (i == 0 && userTrackers.length > 1)
+                // insert summary after first tracker (show even when only one tracker remains)
+                if (i == 0)
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('devices')
@@ -309,6 +367,29 @@ class _TrackersTabState extends State<TrackersTab> {
                       int pmAqi = calculatePM25AQI(pm25);
                       int finalIAQI = getCompositeIAQI(co, co2, 0.0, pmAqi);
 
+                      // derive a human-friendly location string from the tracker document
+                      final parentTrackerDoc = userTrackers.first;
+                      final parentTracker = parentTrackerDoc.data() as Map<String, dynamic>;
+                      String summaryLocation = 'Unknown Location';
+                      final locRaw = parentTracker['location'];
+                      if (locRaw != null) {
+                        if (locRaw is GeoPoint) {
+                          summaryLocation = '${locRaw.latitude.toStringAsFixed(4)}, ${locRaw.longitude.toStringAsFixed(4)}';
+                        } else if (locRaw is String) {
+                          summaryLocation = locRaw;
+                        } else if (locRaw is Map) {
+                          try {
+                            final lat = locRaw['latitude'] ?? locRaw['lat'] ?? locRaw['lat'];
+                            final lng = locRaw['longitude'] ?? locRaw['lng'] ?? locRaw['lon'];
+                            summaryLocation = '${lat.toString()}, ${lng.toString()}';
+                          } catch (_) {
+                            summaryLocation = locRaw.toString();
+                          }
+                        } else {
+                          summaryLocation = locRaw.toString();
+                        }
+                      }
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(18),
@@ -325,7 +406,7 @@ class _TrackersTabState extends State<TrackersTab> {
                                 children: [
                                   const Text('Air Quality Summary', style: TextStyle(fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 8),
-                                  const Text('Unknown Location', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                  Text(summaryLocation, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                                 ],
                               ),
                             ),
