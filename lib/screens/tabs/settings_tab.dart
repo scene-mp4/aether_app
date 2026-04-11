@@ -13,6 +13,7 @@ class SettingsTab extends StatefulWidget {
 class _SettingsTabState extends State<SettingsTab> {
   bool pushNotifications = true;
   bool darkMode = false;
+  bool _isSigningOut = false;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -75,14 +76,22 @@ Future<void> _signOut() async {
   ) ?? false;
 
   if (confirm) {
-    // Sign out from Firebase
-    await _auth.signOut();
-
-    // Navigate back to login screen and remove all previous routes
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      '/login',
-      (Route<dynamic> route) => false,
-    );
+    setState(() => _isSigningOut = true);
+    try {
+      await _auth.signOut();
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/login',
+          (Route<dynamic> route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sign out failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSigningOut = false);
+    }
   }
 }
 
@@ -130,11 +139,9 @@ Future<void> _signOut() async {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ElevatedButton.icon(
-                onPressed: _signOut,
-                icon: const Icon(Icons.logout, color: Colors.white, size: 20),
-                label: const Text("Sign Out",
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: _isSigningOut ? null : _signOut,
+                icon: _isSigningOut ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.logout, color: Colors.white, size: 20),
+                label: _isSigningOut ? const Text("Signing out...", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) : const Text("Sign Out", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Color.fromARGB(255, 82, 163, 255),
                   padding: const EdgeInsets.symmetric(vertical: 12),

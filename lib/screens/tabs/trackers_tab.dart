@@ -14,6 +14,7 @@ class _TrackersTabState extends State<TrackersTab> {
   bool _showDetails = false;
   Map<String, dynamic>? _selectedTrackerData;
   String _selectedTrackerId = "";
+  String? _unlinkingId;
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
   final List<String> _allowedLocations = ['comfort room', 'living room', 'dining area', 'kitchen', 'bedroom'];
@@ -75,15 +76,12 @@ class _TrackersTabState extends State<TrackersTab> {
 
   // Update the owner_id to the current user's UID
   Future<void> _linkTracker(String docId) async {
-    await FirebaseFirestore.instance
-        .collection('devices') // Correct collection name
-        .doc(docId)
-        .update({'owner_id': currentUserId});
-
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Tracker successfully linked!")),
-    );
+    try {
+      await FirebaseFirestore.instance.collection('devices').doc(docId).update({'owner_id': currentUserId});
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tracker successfully linked!")));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Link failed: $e')));
+    }
   }
 
   // Confirm and unlink a tracker from this user
@@ -98,9 +96,13 @@ class _TrackersTabState extends State<TrackersTab> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-              onPressed: () async {
+              onPressed: () {
                 Navigator.pop(context);
-                await _unlinkTracker(docId);
+                setState(() {
+                  _unlinkingId = docId;
+                });
+                // fire-and-forget unlink to avoid blocking UI
+                _unlinkTracker(docId);
               },
               child: const Text('Unlink'),
             ),
@@ -136,6 +138,13 @@ class _TrackersTabState extends State<TrackersTab> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tracker unlinked')));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unlink failed: $e')));
+    }
+    finally {
+      if (mounted) {
+        setState(() {
+          if (_unlinkingId == docId) _unlinkingId = null;
+        });
+      }
     }
   }
 
@@ -173,7 +182,11 @@ class _TrackersTabState extends State<TrackersTab> {
                   leading: const Icon(Icons.add_link),
                   title: Text(data['device_name'] ?? "Unknown Device"),
                   subtitle: Text("ID: ${available[index].id}"),
-                  onTap: () => _linkTracker(available[index].id),
+                  onTap: () {
+                    // close the bottom sheet first, then link (avoids accidentally popping main routes)
+                    Navigator.pop(context);
+                    _linkTracker(available[index].id);
+                  },
                 );
               },
             );
@@ -311,11 +324,15 @@ class _TrackersTabState extends State<TrackersTab> {
                                 icon: const Icon(Icons.edit, color: Colors.black54, size: 20),
                                 onPressed: () => _showEditTrackerDialog(doc.id, tracker),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.link_off, color: Colors.redAccent, size: 20),
-                                onPressed: () => _confirmUnlink(doc.id, tracker),
-                                tooltip: 'Unlink tracker',
-                              ),
+                              // show small progress indicator while unlinking
+                              if (_unlinkingId == doc.id)
+                                const SizedBox(width: 36, height: 36, child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))))
+                              else
+                                IconButton(
+                                  icon: const Icon(Icons.link_off, color: Colors.redAccent, size: 20),
+                                  onPressed: () => _confirmUnlink(doc.id, tracker),
+                                  tooltip: 'Unlink tracker',
+                                ),
                               const Icon(Icons.chevron_right, color: Colors.grey),
                             ],
                           ),
