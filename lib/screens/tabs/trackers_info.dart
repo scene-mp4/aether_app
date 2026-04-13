@@ -334,6 +334,11 @@ class _TrackersInfoState extends State<TrackersInfo> {
             children: [
               _buildAQICard(finalIAQI, "Just now", widget.trackerLocation),
               const SizedBox(height: 30),
+              _buildSectionCard(
+                title: "Advice",
+                child: _buildDynamicAdvice(t, h, lpg, co, co2, pmAqi),
+              ),
+              const SizedBox(height: 30),
               const Text(
                 "Air Metrics",
                 style: TextStyle(
@@ -378,11 +383,6 @@ class _TrackersInfoState extends State<TrackersInfo> {
               _buildSectionCard(
                 title: "History",
                 child: SlidingHistoryContent(trackerId: widget.trackerId),
-              ),
-              const SizedBox(height: 20),
-              _buildSectionCard(
-                title: "Advice",
-                child: _buildDynamicAdvice(t, h, lpg, co, co2, pmAqi),
               ),
               const SizedBox(height: 40),
             ],
