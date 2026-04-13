@@ -455,7 +455,7 @@ class _SummaryTabState extends State<SummaryTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Overall Indoor Air Quality',
+                    const Text('Overall Indoor Air Quality (AQI Average)',
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 14),
                     LayoutBuilder(builder: (context, constraints) {
@@ -493,7 +493,7 @@ class _SummaryTabState extends State<SummaryTab> {
                                           fontWeight: FontWeight.bold,
                                           color: _getColor(avg))),
                                   const SizedBox(height: 6),
-                                  const Text('AQI Average',
+                                  const Text('AQI',
                                       style: TextStyle(
                                           color: Colors.grey,
                                           fontSize: 12)),
