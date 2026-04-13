@@ -137,7 +137,8 @@ class _TrackersInfoState extends State<TrackersInfo> {
     double co   = calculatePPM(r9, 1000.5, -1.969);
 
     double correctionFactor = getCorrectionFactor(temp, hum);
-    double co2 = calculatePPM(r135, 110.47, -2.862) * correctionFactor;
+    double rawCo2 = calculatePPM(r135, 110.47, -2.862) * correctionFactor;
+    double co2 = rawCo2 < 420 ? 420.0 : rawCo2;
     double nh3  = calculatePPM(r135, 102.2, -2.473);
 
     // Override with explicit Firestore fields if present
@@ -316,16 +317,21 @@ class _TrackersInfoState extends State<TrackersInfo> {
           double absHum = calculateAbsoluteHumidity(t, h);
 
           if (kDebugMode) {
-            final v2   = _toDouble(data['mq2_v']);
-            final v9   = _toDouble(data['mq9_v']);
-            final v135 = _toDouble(data['mq135_v']);
-            print('--- Tracker Debug (${widget.trackerName}) ---');
-            print('voltages  → v2: $v2  v9: $v9  v135: $v135');
-            print('ratios    → r2: ${getRsRatio(v2, RL_MQ2, Ro_MQ2).toStringAsFixed(3)}'
-                '  r9: ${getRsRatio(v9, RL_MQ9, Ro_MQ9).toStringAsFixed(3)}'
-                '  r135: ${getRsRatio(v135, RL_MQ135, Ro_MQ135).toStringAsFixed(3)}');
-            print('gases     → lpg: $lpg  co: $co  co2: $co2  nh3: $nh3');
-            print('pm25: $pm25  pmAqi: $pmAqi  finalIAQI: $finalIAQI');
+            double v135 = _toDouble(data['mq135_v']);
+            double rs135 = ((Vc - v135) / v135) * RL_MQ135;
+            double ro135_calc = rs135 / 3.6; // 3.6 = MQ-135 clean air ratio from datasheet
+            print('Suggested Ro_MQ135 = $ro135_calc (from current voltage $v135)');
+
+            double v9 = _toDouble(data['mq9_v']);
+            double rs9 = ((Vc - v9) / v9) * RL_MQ9;
+            double ro9_calc = rs9 / 9.9;
+            print('Suggested Ro_MQ9 = $ro9_calc (from current voltage $v9)');
+
+            double v2 = _toDouble(data['mq2_v']);
+            double rs2 = ((Vc - v2) / v2) * RL_MQ2;
+            double ro2_calc = rs2 / 9.83;
+            print('Suggested Ro_MQ2 = $ro2_calc (from current voltage $v2)');
+            
           }
 
           return ListView(
@@ -713,9 +719,9 @@ class _SlidingHistoryContentState extends State<SlidingHistoryContent> {
   final Map<int, Future<Map<String, dynamic>>> _historyCache = {};
 
   // ── Calibration constants (mirrored from parent) ──────────────────────────
-  static const double Ro_MQ2   = 6.55;
-  static const double Ro_MQ9   = 8.2;
-  static const double Ro_MQ135 = 70.3;
+  static const double Ro_MQ2   = 8.5;
+  static const double Ro_MQ9   = 7.9;
+  static const double Ro_MQ135 = 78.9;
   static const double RL_MQ2   = 5.0;
   static const double RL_MQ9   = 5.0;
   static const double RL_MQ135 = 10.0;
@@ -762,7 +768,8 @@ class _SlidingHistoryContentState extends State<SlidingHistoryContent> {
 
     double co  = _localCalculatePPM(r9, 1000.5, -1.969);
     double cf  = _localCorrectionFactor(temp, hum);
-    double co2 = _localCalculatePPM(r135 / cf, 110.47, -2.862);
+    double rawCo2 = _localCalculatePPM(r135, 110.47, -2.862) * cf;
+    double co2 = rawCo2 < 420 ? 420.0 : rawCo2;
 
     double coOverride  = _toDouble(m['co']);
     double co2Override = _toDouble(m['co2'] ?? m['co2_est']);
