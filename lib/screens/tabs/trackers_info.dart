@@ -33,9 +33,9 @@ class _TrackersInfoState extends State<TrackersInfo> {
   //   MQ-2:   Rs/Ro = 9.83  → Ro = Rs_clean / 9.83
   //   MQ-9:   Rs/Ro = 9.9   → Ro = Rs_clean / 9.9
   //   MQ-135: Rs/Ro = 3.6   → Ro = Rs_clean / 3.6
-  static const double Ro_MQ2   = 10.0; // kΩ — replace with calibrated value
-  static const double Ro_MQ9   = 10.0; // kΩ — replace with calibrated value
-  static const double Ro_MQ135 = 10.0; // kΩ — replace with calibrated value
+      static const double Ro_MQ2   = 6.55;
+      static const double Ro_MQ9   = 8.2;
+      static const double Ro_MQ135 = 70.3; // kΩ — replace with calibrated value
 
   // Load resistor values on your sensor modules (measure with multimeter
   // between GND and AOUT on each module board — commonly 1kΩ or 10kΩ).
@@ -137,7 +137,7 @@ class _TrackersInfoState extends State<TrackersInfo> {
     double co   = calculatePPM(r9, 1000.5, -1.969);
 
     double correctionFactor = getCorrectionFactor(temp, hum);
-    double co2  = calculatePPM(r135 / correctionFactor, 110.47, -2.862);
+    double co2 = calculatePPM(r135, 110.47, -2.862) * correctionFactor;
     double nh3  = calculatePPM(r135, 102.2, -2.473);
 
     // Override with explicit Firestore fields if present
@@ -713,9 +713,9 @@ class _SlidingHistoryContentState extends State<SlidingHistoryContent> {
   final Map<int, Future<Map<String, dynamic>>> _historyCache = {};
 
   // ── Calibration constants (mirrored from parent) ──────────────────────────
-  static const double Ro_MQ2   = 10.0;
-  static const double Ro_MQ9   = 10.0;
-  static const double Ro_MQ135 = 10.0;
+  static const double Ro_MQ2   = 6.55;
+  static const double Ro_MQ9   = 8.2;
+  static const double Ro_MQ135 = 70.3;
   static const double RL_MQ2   = 5.0;
   static const double RL_MQ9   = 5.0;
   static const double RL_MQ135 = 10.0;
