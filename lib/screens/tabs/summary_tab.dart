@@ -185,7 +185,7 @@ class _SummaryTabState extends State<SummaryTab> {
     if (r.isEmpty) return 0;
     double t = (r['temperature'] ?? 0).toDouble();
     double h = (r['humidity'] ?? 0).toDouble();
-    double pm25 = (r['pm25'] ?? 0).toDouble();
+    double pm25 = (r['pm2_5'] ?? 0).toDouble();
     double v2 = (r['mq2_v'] ?? 0).toDouble();
     double v9 = (r['mq9_v'] ?? 0).toDouble();
     double v135 = (r['mq135_v'] ?? 0).toDouble();
@@ -318,7 +318,7 @@ class _SummaryTabState extends State<SummaryTab> {
             statusCounts[status] = (statusCounts[status] ?? 0) + 1;
           }
 
-          final pm25Avg = _averageForKey(devices, 'pm25');
+          final pm25Avg = _averageForKey(devices, 'pm2_5');
           final co2Avg = _averageForKey(devices, 'co2') == 0 ? _averageForKey(devices, 'co2_est') : _averageForKey(devices, 'co2');
           final lastUpdated = _latestTimestamp(devices);
 
@@ -483,7 +483,7 @@ class _SummaryTabState extends State<SummaryTab> {
 
                 double t = (reading['temperature'] ?? 0).toDouble();
                 double h = (reading['humidity'] ?? 0).toDouble();
-                double pm25 = (reading['pm25'] ?? 0).toDouble();
+                double pm25 = (reading['pm2_5'] ?? 0).toDouble();
                 double v2 = (reading['mq2_v'] ?? 0).toDouble();
                 double v9 = (reading['mq9_v'] ?? 0).toDouble();
                 double v135 = (reading['mq135_v'] ?? 0).toDouble();
