@@ -109,25 +109,25 @@ Future<void> _signOut() async {
             _buildProfileHeader(user),
             const Divider(height: 1, thickness: 0.5, color: Colors.black12),
 
-            _buildSectionHeader('App Settings'),
+            // _buildSectionHeader('App Settings'),
  //           _buildActionTile('Tracking settings', Icons.chevron_right),
  //           _buildActionTile('Add new saved locations', Icons.add),
 
-            _buildSwitchTile(
-              'Push notifications',
-              pushNotifications,
-              (val) => setState(() => pushNotifications = val),
-            ),
-            _buildSwitchTile(
-              'Dark mode',
-              themeNotifier.value == ThemeMode.dark,
-              (val) {
-                themeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
-                setState(() {});
-              },
-            ),
+            // _buildSwitchTile(
+            //   'Push notifications',
+            //   pushNotifications,
+            //   (val) => setState(() => pushNotifications = val),
+            // ),
+            // _buildSwitchTile(
+            //   'Dark mode',
+            //   themeNotifier.value == ThemeMode.dark,
+            //   (val) {
+            //     themeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
+            //     setState(() {});
+            //   },
+            // ),
 
-            const Divider(height: 32, thickness: 0.5, color: Colors.black12),
+            // const Divider(height: 32, thickness: 0.5, color: Colors.black12),
 
             _buildSectionHeader('More'),
             _buildAboutUsDropdown(),
