@@ -291,7 +291,7 @@ class _TrackersInfoState extends State<TrackersInfo> {
             } else if (_lastReadingId != currentReadingId) {
               _lastReadingId = currentReadingId;
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                _showTopNotification('${widget.trackerName} updated — IAQI $finalIAQI', alert: finalIAQI >= 200, seconds: finalIAQI >= 200 ? 6 : 3);
+                _showTopNotification('${widget.trackerName} updated — IAQI $finalIAQI', alert: finalIAQI >= 300, seconds: finalIAQI >= 300 ? 6 : 3);
               });
             }
           }

@@ -923,7 +923,7 @@ class _TrackersTabState extends State<TrackersTab> {
               }
 
               // high-alert notification (only when crossing threshold)
-              const int alertThreshold = 200; // IAQI threshold for alert
+              const int alertThreshold = 300; // IAQI threshold for alert
               final wasAlerted = _lastAlertedHigh[doc.id] ?? false;
               if (iaqi >= alertThreshold && !wasAlerted) {
                 _lastAlertedHigh[doc.id] = true;
