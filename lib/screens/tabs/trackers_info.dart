@@ -26,9 +26,9 @@ class _TrackersInfoState extends State<TrackersInfo> {
   final Color primaryGreen = const Color(0xFFD1EBE9);
 
   // ── Calibration constants ─────────────────────────────────────────────────
-  static const double Ro_MQ2   = 8.5;
-  static const double Ro_MQ9   = 7.3;
-  static const double Ro_MQ135 = 78.9;
+  static const double Ro_MQ2   = 2.7;
+  static const double Ro_MQ9   = 6;
+  static const double Ro_MQ135 = 18;
   static const double RL_MQ2   = 5.0;
   static const double RL_MQ9   = 5.0;
   static const double RL_MQ135 = 10.0;

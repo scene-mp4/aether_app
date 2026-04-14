@@ -15,9 +15,9 @@ class _SummaryTabState extends State<SummaryTab> {
 
   // ── Calibration constants (must match trackers_info.dart) ─────────────────
   // Update these whenever you update them in trackers_info.dart.
-  static const double Ro_MQ2   = 8.7;
-  static const double Ro_MQ9   = 7.7;
-  static const double Ro_MQ135 = 78.9;
+  static const double Ro_MQ2   = 2.7;
+  static const double Ro_MQ9   = 6;
+  static const double Ro_MQ135 = 18;
   static const double RL_MQ2   = 5.0;   // kΩ
   static const double RL_MQ9   = 5.0;   // kΩ
   static const double RL_MQ135 = 10.0;  // kΩ
