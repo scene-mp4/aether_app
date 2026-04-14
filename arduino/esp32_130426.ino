@@ -3,15 +3,15 @@
 #include <ArduinoJson.h>
 #include <time.h>
 
-const char* WIFI_SSID     = "";
+const char* WIFI_SSID = "T.I.P.ian Student";
 const char* WIFI_PASSWORD = "";
 
 const char* PROJECT_ID = "pollutracker-bf276";
-const char* TRACKER_ID = "tracker_001";
+const char* TRACKER_ID = "tracker_002";
 
 const char* NTP_SERVER      = "pool.ntp.org";
-const long  GMT_OFFSET_SEC  = 28800; //Timezone
-const int   DAYLIGHT_OFFSET = 0;     //DaylightSaving
+const long  GMT_OFFSET_SEC  = 28800;
+const int   DAYLIGHT_OFFSET = 0;
 
 HardwareSerial pmsSerial(1); // RX=16, TX=17
 HardwareSerial unoSerial(2); // RX=18, TX=19
@@ -26,44 +26,45 @@ struct PMS5003Data {
 PMS5003Data pmsData;
 
 bool readPMS5003(PMS5003Data &data) {
-  if (pmsSerial.available() < 32) {
-    return false;
-  }
-  if (pmsSerial.read() != 0x42) {
-    return false;
-  }
-  if (pmsSerial.read() != 0x4D) {
-    return false;
+  while (pmsSerial.available() >= 32) {
+
+    if (pmsSerial.peek() == 0x42) {
+      pmsSerial.read();
+
+      if (pmsSerial.peek() == 0x4D) {
+        pmsSerial.read();
+
+        byte buf[30];
+        for (int i = 0; i < 30; i++) {
+          buf[i] = pmsSerial.read();
+        }
+
+        int checksum = 0x42 + 0x4D;
+        for (int i = 0; i < 28; i++) {
+          checksum += buf[i];
+        }
+
+        int receivedChecksum = (buf[28] << 8) | buf[29];
+
+        if (checksum == receivedChecksum) {
+          data.pm1_0 = (buf[4] << 8) | buf[5];
+          data.pm2_5 = (buf[6] << 8) | buf[7];
+          data.pm10  = (buf[8] << 8) | buf[9];
+          data.valid = true;
+          return true;
+        }
+      }
+    }
+
+    pmsSerial.read();
   }
 
-  byte buf[30];
-  for (int i = 0; i < 30; i++) {
-    buf[i] = pmsSerial.read();
-  }
-
-  int checksum = 0x42 + 0x4D;
-  for (int i = 0; i < 28; i++) {
-    checksum += buf[i];
-  }
-
-  int receivedChecksum = (buf[28] << 8 ) | buf[29];
-  if (checksum != receivedChecksum) {
-    return false;
-  }
-
-  data.pm1_0 = (buf[4] << 8 ) | buf[5];
-  data.pm2_5 = (buf[6] << 8 ) | buf[7];
-  data.pm10  = (buf[8] << 8 ) | buf[9];
-  data.valid = true;
-
-  return true;
+  return false;
 }
 
 String getTimestamp() {
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-    return "unavailable";
-  }
+  if (!getLocalTime(&timeinfo)) return "unavailable";
   char buf[30];
   strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S+08:00", &timeinfo);
   return String(buf);
@@ -71,9 +72,7 @@ String getTimestamp() {
 
 String getDateOnly() {
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-    return "unavailable";
-  }
+  if (!getLocalTime(&timeinfo)) return "unavailable";
   char buf[12];
   strftime(buf, sizeof(buf), "%Y-%m-%d", &timeinfo);
   return String(buf);
@@ -81,9 +80,7 @@ String getDateOnly() {
 
 String getTimeOnly() {
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-    return "unavailable";
-  }
+  if (!getLocalTime(&timeinfo)) return "unavailable";
   char buf[10];
   strftime(buf, sizeof(buf), "%H:%M:%S", &timeinfo);
   return String(buf);
@@ -116,7 +113,7 @@ void syncTime() {
   if (retries < 10) {
     Serial.println("\nTime synced: " + getTimestamp());
   } else {
-    Serial.println("\nNTP sync failed - timestamps will be unavailable.");
+    Serial.println("\nNTP sync failed.");
   }
 }
 
@@ -125,6 +122,7 @@ void sendToFirebase(int mq2,   float mq2_v,
                     int mq135, float mq135_v,
                     int temp,  int hum,
                     int pm1_0, int pm2_5, int pm10) {
+
   HTTPClient http;
   String url = "https://firestore.googleapis.com/v1/projects/" + String(PROJECT_ID) +
                "/databases/(default)/documents/devices/" + String(TRACKER_ID) +
@@ -155,9 +153,9 @@ void sendToFirebase(int mq2,   float mq2_v,
     fields["pm2_5"]["integerValue"] = String(pm2_5);
     fields["pm10"]["integerValue"]  = String(pm10);
   } else {
-    fields["pm1_0"]["nullValue"]    = nullptr;
-    fields["pm2_5"]["nullValue"]    = nullptr;
-    fields["pm10"]["nullValue"]     = nullptr;
+    fields["pm1_0"]["nullValue"] = nullptr;
+    fields["pm2_5"]["nullValue"] = nullptr;
+    fields["pm10"]["nullValue"]  = nullptr;
   }
 
   String body;
@@ -181,20 +179,28 @@ void sendToFirebase(int mq2,   float mq2_v,
 
 void setup() {
   Serial.begin(115200);
-  pmsSerial.begin(9600, SERIAL_8N1, 16, 17); // PMS5003
-  unoSerial.begin(9600, SERIAL_8N1, 18, 19); // Arduino Uno
+
+  pmsSerial.begin(9600, SERIAL_8N1, 16, 17);
+  unoSerial.begin(9600, SERIAL_8N1, 18, 19);
+
   connectWiFi();
   syncTime();
+
+  Serial.println("Warming up PMS5003...");
+  delay(30000);
 }
 
 void loop() {
-  readPMS5003(pmsData);
+  if (readPMS5003(pmsData)) {
+    Serial.print("PM2.5: ");
+    Serial.println(pmsData.pm2_5);
+  }
 
   if (unoSerial.available()) {
     String line = unoSerial.readStringUntil('\n');
     line.trim();
 
-    int   mq2, mq9, mq135, temp, hum;
+    int mq2, mq9, mq135, temp, hum;
     float mq2_v, mq9_v, mq135_v;
 
     int matched = sscanf(line.c_str(), "%d,%f,%d,%f,%d,%f,%d,%d",
@@ -203,19 +209,19 @@ void loop() {
                          &mq135, &mq135_v,
                          &temp, &hum);
 
-    if (matched == 8 ) {
-      if (pmsData.valid) {
-        Serial.println("PMS5003 data valid.");
-      } else {
-        Serial.println("PMS5003 no valid reading.");
-      }
-
+    if (matched == 8) {
       Serial.println("Timestamp: " + getTimestamp());
 
-      sendToFirebase(mq2,   mq2_v,
-                     mq9,   mq9_v,
+      if (pmsData.valid) {
+        Serial.println("PMS5003 VALID");
+      } else {
+        Serial.println("PMS5003 NOT READY");
+      }
+
+      sendToFirebase(mq2, mq2_v,
+                     mq9, mq9_v,
                      mq135, mq135_v,
-                     temp,  hum,
+                     temp, hum,
                      pmsData.pm1_0,
                      pmsData.pm2_5,
                      pmsData.pm10);
