@@ -55,18 +55,21 @@ class _TrackersTabState extends State<TrackersTab> {
 
   void _showTopNotification(String message, {bool alert = false, int seconds = 3}) {
     _topNotificationTimer?.cancel();
+    if (!mounted) return;
     setState(() {
       _topNotificationMessage = message;
       _topNotificationAlert = alert;
       _topNotificationVisible = true;
     });
     _topNotificationTimer = Timer(Duration(seconds: seconds), () {
+      if (!mounted) return;
       _hideTopNotification();
     });
   }
 
   void _hideTopNotification() {
     _topNotificationTimer?.cancel();
+    if (!mounted) return;
     setState(() {
       _topNotificationVisible = false;
       _topNotificationMessage = null;
@@ -966,6 +969,7 @@ class _TrackersTabState extends State<TrackersTab> {
     _creationTimers.clear();
     _lastReadingIds.clear();
     _lastAlertedHigh.clear();
+    _topNotificationTimer?.cancel();
     super.dispose();
   }
 

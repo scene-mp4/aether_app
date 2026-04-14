@@ -31,7 +31,6 @@ class _TrackersInfoState extends State<TrackersInfo> {
   bool _topNotificationAlert = false;
   bool _topNotificationVisible = false;
   Timer? _topNotificationTimer;
-  StreamSubscription<QuerySnapshot>? _readingSub;
   String? _lastReadingId;
 
   // ── Calibration constants ─────────────────────────────────────────────────
@@ -283,6 +282,19 @@ class _TrackersInfoState extends State<TrackersInfo> {
 
           int pmAqi     = calculatePM25AQI(pm25);
           int finalIAQI = getCompositeIAQI(co, co2, nh3, pmAqi);
+
+          // Notifications: detect new reading and show banner (use post-frame to avoid setState during build)
+          final currentReadingId = hasReading ? snapshot.data!.docs.first.id : null;
+          if (hasReading && currentReadingId != null) {
+            if (_lastReadingId == null) {
+              _lastReadingId = currentReadingId; // initial load - don't notify
+            } else if (_lastReadingId != currentReadingId) {
+              _lastReadingId = currentReadingId;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _showTopNotification('${widget.trackerName} updated — IAQI $finalIAQI', alert: finalIAQI >= 200, seconds: finalIAQI >= 200 ? 6 : 3);
+              });
+            }
+          }
           double absHum = calculateAbsoluteHumidity(t, h);
 
           if (kDebugMode) {
@@ -435,45 +447,7 @@ class _TrackersInfoState extends State<TrackersInfo> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    // subscribe to latest reading for this tracker to show local notifications
-    try {
-      _readingSub = FirebaseFirestore.instance
-          .collection('devices')
-          .doc(widget.trackerId)
-          .collection('readings')
-          .orderBy('timestamp', descending: true)
-          .limit(1)
-          .snapshots()
-          .listen((snap) {
-        if (!mounted) return;
-        if (snap.docs.isEmpty) return;
-        final doc = snap.docs.first;
-        final id = doc.id;
-        if (_lastReadingId == null) {
-          _lastReadingId = id;
-          return; // don't notify for initial fetch
-        }
-        if (_lastReadingId == id) return;
-        _lastReadingId = id;
-
-        try {
-          final r = doc.data() as Map<String, dynamic>;
-          final metrics = _estimateGasesFromMap(r);
-          final pm25 = _toDouble(r['pm2_5']);
-          final pmAqi = calculatePM25AQI(pm25);
-          final iaqi = getCompositeIAQI(metrics['co']!, metrics['co2']!, metrics['nh3']!.toDouble(), pmAqi);
-          final text = '${widget.trackerName} updated — IAQI $iaqi';
-          _showTopNotification(text, alert: iaqi >= 200, seconds: iaqi >= 200 ? 6 : 3);
-        } catch (_) {}
-      }, onError: (_) {});
-    } catch (_) {}
-  }
-
-  @override
   void dispose() {
-    _readingSub?.cancel();
     _topNotificationTimer?.cancel();
     super.dispose();
   }
