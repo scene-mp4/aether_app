@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'trackers_info.dart';
@@ -14,6 +15,16 @@ class _TrackersTabState extends State<TrackersTab> {
   Map<String, dynamic>? _selectedTrackerData;
   String _selectedTrackerId = "";
   String? _unlinkingId;
+  final Map<String, StreamSubscription<QuerySnapshot>> _readingSubs = {};
+  final Map<String, String> _lastReadingIds = {};
+  Set<String> _subscribedTrackerIds = {};
+  final Map<String, bool> _lastAlertedHigh = {};
+  final Map<String, Timer> _creationTimers = {};
+  // top notification banner state
+  String? _topNotificationMessage;
+  bool _topNotificationAlert = false;
+  bool _topNotificationVisible = false;
+  Timer? _topNotificationTimer;
   final String currentUserId =
       FirebaseAuth.instance.currentUser?.uid ?? "";
 
@@ -40,6 +51,27 @@ class _TrackersTabState extends State<TrackersTab> {
     if (vout <= 0 || vout >= Vc) return 100.0;
     double rs = ((Vc - vout) / vout) * rl;
     return rs / ro;
+  }
+
+  void _showTopNotification(String message, {bool alert = false, int seconds = 3}) {
+    _topNotificationTimer?.cancel();
+    setState(() {
+      _topNotificationMessage = message;
+      _topNotificationAlert = alert;
+      _topNotificationVisible = true;
+    });
+    _topNotificationTimer = Timer(Duration(seconds: seconds), () {
+      _hideTopNotification();
+    });
+  }
+
+  void _hideTopNotification() {
+    _topNotificationTimer?.cancel();
+    setState(() {
+      _topNotificationVisible = false;
+      _topNotificationMessage = null;
+      _topNotificationAlert = false;
+    });
   }
 
   // ── PPM from Rs/Ro ratio ──────────────────────────────────────────────────
@@ -381,53 +413,137 @@ class _TrackersTabState extends State<TrackersTab> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAF5),
-      appBar: AppBar(
-        title: const Text(
-          "My Trackers",
-          style: TextStyle(
-              color: Colors.black87, fontWeight: FontWeight.bold),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: const Color(0xFFF8FAF5),
+          appBar: AppBar(
+            title: const Text(
+              "My Trackers",
+              style: TextStyle(
+                  color: Colors.black87, fontWeight: FontWeight.bold),
+            ),
+            centerTitle: true,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
+          body: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('devices')
+                .where('owner_id', isEqualTo: currentUserId)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting)
+                return const Center(child: CircularProgressIndicator());
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(
+                  child: Text("No trackers linked to this account.",
+                      style: TextStyle(color: Colors.grey)),
+                );
+              }
+
+              final userTrackers = snapshot.data!.docs;
+
+              // schedule reading subscription updates after this frame to avoid
+              // doing subscription management during build (can freeze UI).
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _updateReadingSubscriptions(userTrackers);
+              });
+
+              return ListView(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 10),
+                children: [
+                  for (final doc in userTrackers) ...[
+                    _buildTrackerTile(doc),
+                    _buildSummaryCard(doc),
+                  ],
+                ],
+              );
+            },
+          ),
+          floatingActionButton: FloatingActionButton(
+            backgroundColor: const Color(0xFF4B5563),
+            onPressed: _showAvailableTrackers,
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('devices')
-            .where('owner_id', isEqualTo: currentUserId)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting)
-            return const Center(child: CircularProgressIndicator());
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Text("No trackers linked to this account.",
-                  style: TextStyle(color: Colors.grey)),
-            );
-          }
-
-          final userTrackers = snapshot.data!.docs;
-
-          return ListView(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 10),
-            children: [
-              for (final doc in userTrackers) ...[
-                _buildTrackerTile(doc),
-                _buildSummaryCard(doc),
-              ],
-            ],
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF4B5563),
-        onPressed: _showAvailableTrackers,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+        // Top notification banner
+        if (_topNotificationVisible && _topNotificationMessage != null)
+          Positioned(
+            top: 12,
+            left: 12,
+            right: 12,
+            child: SafeArea(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.decelerate,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _topNotificationAlert ? Colors.red.shade700 : Colors.black87,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 12, offset: const Offset(0, 6))],
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _topNotificationAlert ? Colors.red.shade900 : Colors.white24,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _topNotificationAlert ? Icons.error_outline : Icons.notifications, 
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _topNotificationAlert ? 'ALERT' : 'Update',
+                          style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _topNotificationMessage!,
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_topNotificationAlert)
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _topNotificationVisible = false;
+                        });
+                        if (_selectedTrackerId.isNotEmpty) {
+                          setState(() {
+                            _showDetails = true;
+                          });
+                        }
+                      },
+                      child: const Text('View', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () {
+                      _hideTopNotification();
+                    },
+                  ),
+                ]),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -742,6 +858,115 @@ class _TrackersTabState extends State<TrackersTab> {
         );
       },
     );
+  }
+
+  // ── Notifications: subscribe to each tracker's latest reading and show a SnackBar
+  void _updateReadingSubscriptions(List<DocumentSnapshot> trackers) {
+    final ids = trackers.map((d) => d.id).toSet();
+
+    // cancel subs that are no longer needed
+    final removed = _subscribedTrackerIds.difference(ids);
+    for (var id in removed) {
+      _readingSubs[id]?.cancel();
+      _readingSubs.remove(id);
+      _lastReadingIds.remove(id);
+      _lastAlertedHigh.remove(id);
+      _creationTimers[id]?.cancel();
+      _creationTimers.remove(id);
+    }
+
+    // subscribe to new trackers (stagger creation to avoid bursts)
+    final added = ids.difference(_subscribedTrackerIds).toList();
+    for (int idx = 0; idx < added.length; idx++) {
+      final id = added[idx];
+      final int docIndex = trackers.indexWhere((d) => d.id == id);
+      if (docIndex == -1) continue;
+      final doc = trackers[docIndex];
+      // schedule creation with a small stagger to avoid freezing/network bursts
+      _creationTimers[id]?.cancel();
+      _creationTimers[id] = Timer(Duration(milliseconds: 100 * idx), () {
+        try {
+          final trackerName = (doc.data() as Map<String, dynamic>)['device_name'] ?? 'Tracker';
+          final sub = FirebaseFirestore.instance
+              .collection('devices')
+              .doc(doc.id)
+              .collection('readings')
+              .orderBy('timestamp', descending: true)
+              .limit(1)
+              .snapshots()
+              .listen((snap) {
+            if (!mounted) return;
+            if (snap.docs.isEmpty) return;
+            final rdoc = snap.docs.first;
+            final rid = rdoc.id;
+            // initial read: register id but don't notify
+            if (_lastReadingIds[doc.id] == null) {
+              _lastReadingIds[doc.id] = rid;
+              return;
+            }
+            if (_lastReadingIds[doc.id] == rid) return;
+            _lastReadingIds[doc.id] = rid;
+
+            // compute IAQI for notification
+            try {
+              final r = rdoc.data() as Map<String, dynamic>;
+              final metrics = _computeMetrics(r);
+              final iaqi = metrics['iaqi'] ?? 0;
+              final text = '$trackerName updated — IAQI $iaqi';
+
+              // regular update notification (top banner)
+              if (mounted) {
+                _showTopNotification(text, alert: false, seconds: 3);
+              }
+
+              // high-alert notification (only when crossing threshold)
+              const int alertThreshold = 200; // IAQI threshold for alert
+              final wasAlerted = _lastAlertedHigh[doc.id] ?? false;
+              if (iaqi >= alertThreshold && !wasAlerted) {
+                _lastAlertedHigh[doc.id] = true;
+                if (mounted) {
+                  // set selected tracker so the 'View' action on the banner can open details
+                  setState(() {
+                    _selectedTrackerId = doc.id;
+                    _selectedTrackerData = doc.data() as Map<String, dynamic>;
+                  });
+                  _showTopNotification('ALERT: $trackerName IAQI $iaqi — immediate action recommended', alert: true, seconds: 6);
+                }
+              } else if (iaqi < alertThreshold && wasAlerted) {
+                // clear alerted state when it falls back
+                _lastAlertedHigh[doc.id] = false;
+              }
+            } catch (_) {
+              // ignore parse errors
+            }
+          }, onError: (e) {
+            // log or ignore subscription errors
+          });
+          _readingSubs[doc.id] = sub;
+        } catch (e) {
+          // ignore creation errors
+        } finally {
+          _creationTimers.remove(id);
+        }
+      });
+    }
+
+    _subscribedTrackerIds = ids;
+  }
+
+  @override
+  void dispose() {
+    for (var s in _readingSubs.values) {
+      s.cancel();
+    }
+    _readingSubs.clear();
+    for (var t in _creationTimers.values) {
+      t.cancel();
+    }
+    _creationTimers.clear();
+    _lastReadingIds.clear();
+    _lastAlertedHigh.clear();
+    super.dispose();
   }
 
   // ── Metric chip ───────────────────────────────────────────────────────────
