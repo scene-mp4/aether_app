@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:math';
+import 'dart:async';
 
 class TrackersInfo extends StatefulWidget {
   final VoidCallback onBack;
@@ -24,6 +25,14 @@ class TrackersInfo extends StatefulWidget {
 
 class _TrackersInfoState extends State<TrackersInfo> {
   final Color primaryGreen = const Color(0xFFD1EBE9);
+
+  // top notification banner state (local to this screen)
+  String? _topNotificationMessage;
+  bool _topNotificationAlert = false;
+  bool _topNotificationVisible = false;
+  Timer? _topNotificationTimer;
+  StreamSubscription<QuerySnapshot>? _readingSub;
+  String? _lastReadingId;
 
   // ── Calibration constants ─────────────────────────────────────────────────
   static const double Ro_MQ2   = 2.7;
@@ -237,7 +246,8 @@ class _TrackersInfoState extends State<TrackersInfo> {
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
+      body: Stack(children: [
+        StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('devices')
             .doc(widget.trackerId)
@@ -359,8 +369,136 @@ class _TrackersInfoState extends State<TrackersInfo> {
             ],
           );
         },
-      ),
+        ),
+
+        // Top notification banner (local)
+        if (_topNotificationVisible && _topNotificationMessage != null)
+          Positioned(
+            top: 12,
+            left: 12,
+            right: 12,
+            child: SafeArea(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.decelerate,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _topNotificationAlert ? Colors.red.shade700 : Colors.black87,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 12, offset: const Offset(0, 6))],
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _topNotificationAlert ? Colors.red.shade900 : Colors.white24,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _topNotificationAlert ? Icons.error_outline : Icons.notifications,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _topNotificationAlert ? 'ALERT' : 'Update',
+                          style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _topNotificationMessage!,
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () {
+                      _hideTopNotification();
+                    },
+                  ),
+                ]),
+              ),
+            ),
+          ),
+      ]),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // subscribe to latest reading for this tracker to show local notifications
+    try {
+      _readingSub = FirebaseFirestore.instance
+          .collection('devices')
+          .doc(widget.trackerId)
+          .collection('readings')
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .snapshots()
+          .listen((snap) {
+        if (!mounted) return;
+        if (snap.docs.isEmpty) return;
+        final doc = snap.docs.first;
+        final id = doc.id;
+        if (_lastReadingId == null) {
+          _lastReadingId = id;
+          return; // don't notify for initial fetch
+        }
+        if (_lastReadingId == id) return;
+        _lastReadingId = id;
+
+        try {
+          final r = doc.data() as Map<String, dynamic>;
+          final metrics = _estimateGasesFromMap(r);
+          final pm25 = _toDouble(r['pm2_5']);
+          final pmAqi = calculatePM25AQI(pm25);
+          final iaqi = getCompositeIAQI(metrics['co']!, metrics['co2']!, metrics['nh3']!.toDouble(), pmAqi);
+          final text = '${widget.trackerName} updated — IAQI $iaqi';
+          _showTopNotification(text, alert: iaqi >= 200, seconds: iaqi >= 200 ? 6 : 3);
+        } catch (_) {}
+      }, onError: (_) {});
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _readingSub?.cancel();
+    _topNotificationTimer?.cancel();
+    super.dispose();
+  }
+
+  void _showTopNotification(String message, {bool alert = false, int seconds = 3}) {
+    _topNotificationTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _topNotificationMessage = message;
+      _topNotificationAlert = alert;
+      _topNotificationVisible = true;
+    });
+    _topNotificationTimer = Timer(Duration(seconds: seconds), () {
+      _hideTopNotification();
+    });
+  }
+
+  void _hideTopNotification() {
+    _topNotificationTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _topNotificationVisible = false;
+      _topNotificationMessage = null;
+      _topNotificationAlert = false;
+    });
   }
 
   // ── Edit dialog ───────────────────────────────────────────────────────────
