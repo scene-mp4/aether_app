@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:pollutracker_app/screens/tabs/analytics_new.dart';
+import 'package:pollutracker_app/screens/tabs/settings_new.dart';
+import 'package:pollutracker_app/screens/tabs/summary_new.dart';
+import 'package:pollutracker_app/screens/tabs/trackers_new.dart';
 import '../main.dart';
-import 'tabs/map_tab.dart';
-import 'tabs/trackers_tab.dart';
-import 'tabs/summary_tab.dart';
-import 'tabs/settings_tab.dart';
 
 // Contains the bottom navigation bar. All other tabs will be in separate files, and when a tab is pressed on the bottom navigation bar, the current screen should change.
 // TODO: 
@@ -17,10 +17,10 @@ class _BottomNavbarState extends State<BottomNavbar> {
 int _currentIndex = 1;
 
 final List<Widget> tabs = [
-  MapTab(),
-  TrackersTab(),
-  SummaryTab(),
-  SettingsTab()
+  TrackersNewPage(),
+  SummaryNewPage(),
+  AnalyticsNewPage(),
+  SettingsNewPage()
 ];
 
   @override
@@ -37,16 +37,16 @@ final List<Widget> tabs = [
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: "Map",
-            ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.radio_button_checked),
+            icon: Icon(Icons.track_changes),
             label: "Trackers",
             ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
+            icon: Icon(Icons.analytics_outlined),
             label: "Summary",
+            ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.stacked_line_chart_rounded),
+            label: "Analytics",
             ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
