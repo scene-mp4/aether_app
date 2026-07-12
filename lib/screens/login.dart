@@ -9,8 +9,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Contains the main login screen and is the first screen that shows up on app startup.
 // TODO (for Login):
-// - add show/hide button for password
-// - polish UI
+// - Change login screen to reflect UI in storyboard
+
 
 
 class LoginScreen extends StatefulWidget {
@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                "PolluTracker",
+                "AETHER",
                 style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold)
               ),
               Image.asset('assets/logo.png', width: 120, height: 120),

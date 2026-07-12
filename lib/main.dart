@@ -29,8 +29,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "Pollutracker",
-      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 0, 255, 106))),
+      title: "AETHER App",
+      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 0, 81, 255))),
       debugShowCheckedModeBanner: false,
       initialRoute: '/login',
       routes: {
