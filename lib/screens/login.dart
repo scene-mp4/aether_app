@@ -90,15 +90,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   
                   // ==================== NEW PNG LOGO REPLACEMENT ====================
                   Image.asset(
                     'assets/Aether_logo_v1.png', // Replace with your actual asset string if it differs
-                    height: 54,        // Controls how tall your logo renders visually
+                    height: 90,        // Controls how tall your logo renders visually
                     fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 14), // Margin space below logo image
+                  const SizedBox(height: 20), // Margin space below logo image
                   // ==================================================================
                   
                   // Project Description

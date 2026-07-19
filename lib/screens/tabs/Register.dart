@@ -119,25 +119,10 @@ class _RegisterState extends State<Register> {
                   const SizedBox(height: 16),
                   
                   // App Circle Icon / Logo
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF2B52F3),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 6,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.air_rounded,
-                      color: Colors.white,
-                      size: 34,
-                    ),
+                  Image.asset(
+                    'assets/Aether_logo_v1.png',
+                    height: 90.0, // 👈 Change this number directly to make it larger or smaller
+                    fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 12),
                   
