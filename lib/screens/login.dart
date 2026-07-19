@@ -92,40 +92,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 16),
                   
-                  // App Circle Icon / Logo
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF2B52F3),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 6,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.air_rounded,
-                      color: Colors.white,
-                      size: 34,
-                    ),
+                  // ==================== NEW PNG LOGO REPLACEMENT ====================
+                  Image.asset(
+                    'assets/Aether_logo_v1.png', // Replace with your actual asset string if it differs
+                    height: 54,        // Controls how tall your logo renders visually
+                    fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 12),
-                  
-                  // Brand Name
-                  const Text(
-                    "AETHER",
-                    style: TextStyle(
-                      fontSize: 24, 
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 14), // Margin space below logo image
+                  // ==================================================================
                   
                   // Project Description
                   const Text(
