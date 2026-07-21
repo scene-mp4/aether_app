@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'tracker_details_page.dart';
 
 class TrackersNewPage extends StatelessWidget {
   final String title;
@@ -57,7 +58,7 @@ class TrackersNewPage extends StatelessWidget {
                   // "Add New Tracker" button
                   GestureDetector(
                     onTap: () {
-                      print("Add tracker clicked!");
+                      debugPrint("Add tracker clicked!");
                     },
                     child: Container(
                       width: double.infinity,
@@ -92,6 +93,7 @@ class TrackersNewPage extends StatelessWidget {
 
                   // =================== TRACKER 1 PLACEHOLDER ===================
                   _buildTrackerPlaceholderCard(
+                    context,
                     trackerPlaceholderName: "Tracker Name",
                     locationPlaceholder: "Location",
                   ),
@@ -99,6 +101,7 @@ class TrackersNewPage extends StatelessWidget {
 
                   // =================== TRACKER 2 PLACEHOLDER ===================
                   _buildTrackerPlaceholderCard(
+                    context,
                     trackerPlaceholderName: "Tracker Name",
                     locationPlaceholder: "Location",
                   ),
@@ -113,7 +116,8 @@ class TrackersNewPage extends StatelessWidget {
   }
 
   // Helper method to build a complete placeholder card without const issues
-  Widget _buildTrackerPlaceholderCard({
+  Widget _buildTrackerPlaceholderCard(
+    BuildContext context, {
     required String trackerPlaceholderName,
     required String locationPlaceholder,
   }) {
@@ -129,15 +133,24 @@ class TrackersNewPage extends StatelessWidget {
       {"label": "Humid", "value": "--", "unit": "%"},
     ];
 
-    return Card(
-      color: Colors.white,
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.0),
+return GestureDetector(
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const TrackerDetailsPage(),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+    );
+  },
+  child: Card(
+    color: Colors.white,
+    elevation: 2,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Card Header Row (Tracker Name, Arrow Icon)
@@ -212,7 +225,7 @@ class TrackersNewPage extends StatelessWidget {
                 // =================== "WHAT IS AQI?" BUTTON ===================
                 GestureDetector(
                   onTap: () {
-                    print("What is AQI? clicked!");
+                    debugPrint("What is AQI? clicked!");
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -343,6 +356,7 @@ class TrackersNewPage extends StatelessWidget {
               },
             ),
           ],
+      ),
         ),
       ),
     );
