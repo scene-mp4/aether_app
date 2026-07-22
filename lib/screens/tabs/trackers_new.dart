@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'tracker_details_page.dart';
 
-class TrackersNewPage extends StatelessWidget {
+class TrackersNewPage extends StatefulWidget {
   final String title;
   final IconData icon;
   final String message;
@@ -14,9 +14,125 @@ class TrackersNewPage extends StatelessWidget {
   });
 
   @override
+  State<TrackersNewPage> createState() => _TrackersNewPageState();
+}
+
+class _TrackersNewPageState extends State<TrackersNewPage> {
+  // Active trackers list state
+  final List<Map<String, String>> _activeTrackers = [
+    {"name": "Tracker Name", "location": "Location"},
+    {"name": "Tracker Name", "location": "Location"},
+  ];
+
+  // List of available nearby trackers to select from the pop-up
+  final List<Map<String, String>> _availableTrackers = [
+    {"name": "Tracker Name", "location": "Location"},
+    {"name": "Tracker Name", "location": "Location"},
+  ];
+
+  // Function to show the "Add New Tracker" modal pop-up
+  void _showAddTrackerDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Available Trackers",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _availableTrackers.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: Text(
+                            "No nearby trackers found.",
+                            style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                          ),
+                        ),
+                      )
+                    : Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: _availableTrackers.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                          itemBuilder: (context, index) {
+                            final tracker = _availableTrackers[index];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                tracker["name"]!,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                              subtitle: Text(
+                                tracker["location"]!,
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              ),
+                              trailing: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0052FF),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _activeTrackers.add({
+                                      "name": tracker["name"]!,
+                                      "location": tracker["location"]!,
+                                    });
+                                    _availableTrackers.removeAt(index);
+                                  });
+                                  Navigator.of(dialogContext).pop();
+                                },
+                                child: const Text("Add"),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9), // Soft grayish-blue background
+      backgroundColor: const Color(0xFFF1F5F9),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -25,12 +141,12 @@ class TrackersNewPage extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.only(left: 20, right: 20, top: 48, bottom: 24),
               decoration: const BoxDecoration(
-                color: Color(0xFF0052FF), // Primary vibrant blue
+                color: Color(0xFF0052FF),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
+                children: [
+                  const Text(
                     "My Trackers",
                     style: TextStyle(
                       fontSize: 26,
@@ -38,10 +154,10 @@ class TrackersNewPage extends StatelessWidget {
                       color: Colors.white,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    "-- active devices", // Placeholder count
-                    style: TextStyle(
+                    "${_activeTrackers.length} active devices",
+                    style: const TextStyle(
                       fontSize: 14,
                       color: Colors.white70,
                     ),
@@ -57,9 +173,7 @@ class TrackersNewPage extends StatelessWidget {
                 children: [
                   // "Add New Tracker" button
                   GestureDetector(
-                    onTap: () {
-                      debugPrint("Add tracker clicked!");
-                    },
+                    onTap: () => _showAddTrackerDialog(context),
                     child: Container(
                       width: double.infinity,
                       height: 52,
@@ -91,17 +205,20 @@ class TrackersNewPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // =================== TRACKER 1 ===================
-                  const TrackerCard(
-                    trackerName: "Tracker Name",
-                    locationName: "Location",
-                  ),
-                  const SizedBox(height: 16),
-
-                  // =================== TRACKER 2 ===================
-                  const TrackerCard(
-                    trackerName: "Tracker Name",
-                    locationName: "Location",
+                  // Active Trackers List
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _activeTrackers.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final item = _activeTrackers[index];
+                      return TrackerCard(
+                        key: ValueKey("${item['name']}_$index"),
+                        trackerName: item["name"]!,
+                        locationName: item["location"]!,
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -114,7 +231,7 @@ class TrackersNewPage extends StatelessWidget {
   }
 }
 
-// Stateful Tracker Card to handle inline toggling of the AQI Info Box
+// Stateful Tracker Card
 class TrackerCard extends StatefulWidget {
   final String trackerName;
   final String locationName;
@@ -130,7 +247,7 @@ class TrackerCard extends StatefulWidget {
 }
 
 class _TrackerCardState extends State<TrackerCard> {
-  // State boolean to toggle the inline "What is AQI?" info card
+  // HIDE AQI INFO BOX BY DEFAULT
   bool _showAqiInfo = false;
 
   final List<Map<String, String>> _placeholderReadings = [
@@ -166,7 +283,7 @@ class _TrackerCardState extends State<TrackerCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Card Header Row (Tracker Name, Arrow Icon)
+              // Card Header Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -187,7 +304,7 @@ class _TrackerCardState extends State<TrackerCard> {
               ),
               const SizedBox(height: 4),
 
-              // Location row with Map Pin Icon
+              // Location row
               Row(
                 children: [
                   const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF475569)),
@@ -204,7 +321,7 @@ class _TrackerCardState extends State<TrackerCard> {
               ),
               const SizedBox(height: 16),
 
-              // AQI Row with Status badge and "What is AQI?" toggle button
+              // AQI Row
               Row(
                 children: [
                   const Text(
@@ -217,7 +334,7 @@ class _TrackerCardState extends State<TrackerCard> {
                   ),
                   const SizedBox(width: 10),
 
-                  // Status Chip Placeholder
+                  // Status Chip
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
@@ -273,7 +390,7 @@ class _TrackerCardState extends State<TrackerCard> {
               ),
               const SizedBox(height: 8),
 
-              // ================= INLINE AQI INFO CARD (TOGGLED) =================
+              // INLINE AQI INFO CARD (Hidden by default, shown when _showAqiInfo == true)
               if (_showAqiInfo) ...[
                 const SizedBox(height: 4),
                 Container(
@@ -361,7 +478,7 @@ class _TrackerCardState extends State<TrackerCard> {
 
               const Divider(height: 24, thickness: 1, color: Color(0xFFE2E8F0)),
 
-              // "Current Readings" Title
+              // Sensor Readings Grid Title
               const Text(
                 "Current Readings",
                 style: TextStyle(
