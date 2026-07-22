@@ -20,7 +20,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
 
   // User & Loading State
   String username = "User";
-  String userRole = "Member";
+  String userRole = "User";
   String email = "";
   bool _isSigningOut = false;
   bool _isLoadingUser = true;

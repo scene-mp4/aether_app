@@ -68,6 +68,7 @@ class _RegisterState extends State<Register> {
         'username': usernameField.text.trim(),
         'email': emailField.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
+        'role': 'user',
       });
 
       _showSnackBar('Account created successfully!');
