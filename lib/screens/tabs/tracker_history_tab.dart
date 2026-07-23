@@ -8,8 +8,85 @@ class TrackerHistoryTab extends StatefulWidget {
 }
 
 class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
-  // Selected time frame for Particulate Matter History
-  String _selectedTimeFrame = 'Today';
+  // 1. Independent State Variables for Each Card
+  String _selectedPmTimeFrame = 'Today';
+  String _selectedCoO3TimeFrame = 'Today';
+  String _selectedCo2TimeFrame = 'Today';
+
+  // --- HELPER METHODS FOR PM CHART ---
+  List<String> get _pmXLabels {
+    switch (_selectedPmTimeFrame) {
+      case '7 Days':
+        return const ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      case '30 Days':
+        return const ["Week 1", "Week 2", "Week 3", "Week 4"];
+      case 'Today':
+      default:
+        return const ["12am", "4am", "8am", "12pm", "4pm", "8pm"];
+    }
+  }
+
+  List<double> get _pmPoints {
+    switch (_selectedPmTimeFrame) {
+      case '7 Days':
+        return const [0.20, 0.35, 0.28, 0.40, 0.22, 0.18, 0.25];
+      case '30 Days':
+        return const [0.30, 0.45, 0.25, 0.20];
+      case 'Today':
+      default:
+        return const [0.15, 0.12, 0.22, 0.32, 0.20, 0.16];
+    }
+  }
+
+  // --- HELPER METHODS FOR CO & O3 CHART ---
+  List<String> get _coO3XLabels {
+    switch (_selectedCoO3TimeFrame) {
+      case '7 Days':
+        return const ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      case '30 Days':
+        return const ["Week 1", "Week 2", "Week 3", "Week 4"];
+      case 'Today':
+      default:
+        return const ["12am", "4am", "8am", "12pm", "4pm", "8pm"];
+    }
+  }
+
+  List<double> get _coO3Points {
+    switch (_selectedCoO3TimeFrame) {
+      case '7 Days':
+        return const [0.08, 0.12, 0.10, 0.15, 0.09, 0.07, 0.06];
+      case '30 Days':
+        return const [0.10, 0.14, 0.08, 0.06];
+      case 'Today':
+      default:
+        return const [0.06, 0.05, 0.07, 0.07, 0.06, 0.05];
+    }
+  }
+
+  // --- HELPER METHODS FOR CO2 CHART ---
+  List<String> get _co2XLabels {
+    switch (_selectedCo2TimeFrame) {
+      case '7 Days':
+        return const ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      case '30 Days':
+        return const ["Week 1", "Week 2", "Week 3", "Week 4"];
+      case 'Today':
+      default:
+        return const ["12am", "4am", "8am", "12pm", "4pm", "8pm"];
+    }
+  }
+
+  List<double> get _co2Points {
+    switch (_selectedCo2TimeFrame) {
+      case '7 Days':
+        return const [0.70, 0.85, 0.78, 0.90, 0.82, 0.65, 0.60];
+      case '30 Days':
+        return const [0.75, 0.88, 0.70, 0.65];
+      case 'Today':
+      default:
+        return const [0.65, 0.62, 0.82, 0.96, 0.82, 0.72];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +142,71 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
     );
   }
 
-  // --- UI Components ---
+  // --- REUSABLE HEADER WITH INDEPENDENT CALLBACK ---
+
+  Widget _buildCardHeader({
+    required String title,
+    String? subtitle,
+    required String selectedValue,
+    required ValueChanged<String> onSelected,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                  height: 1.2,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Row(
+          children: ['Today', '7 Days', '30 Days'].map((tf) {
+            final isSelected = selectedValue == tf;
+            return GestureDetector(
+              onTap: () => onSelected(tf),
+              child: Container(
+                margin: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  tf.replaceAll(' ', '\n'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.white : const Color(0xFF475569),
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // --- UI COMPONENTS ---
 
   Widget _buildHistorySummaryCard() {
     return Container(
@@ -195,51 +336,14 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Expanded(
-                child: Text(
-                  "Particulate Matter\nHistory",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                    height: 1.2,
-                  ),
-                ),
-              ),
-              Row(
-                children: ['Today', '7 Days', '30 Days'].map((tf) {
-                  final isSelected = _selectedTimeFrame == tf;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedTimeFrame = tf;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(left: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        tf.replaceAll(' ', '\n'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? Colors.white : const Color(0xFF475569),
-                          height: 1.1,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
+          _buildCardHeader(
+            title: "Particulate Matter\nHistory",
+            selectedValue: _selectedPmTimeFrame,
+            onSelected: (newValue) {
+              setState(() {
+                _selectedPmTimeFrame = newValue;
+              });
+            },
           ),
           const SizedBox(height: 12),
           Row(
@@ -259,8 +363,8 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
               painter: ChartPainter(
                 lineColor: const Color(0xFFEA580C),
                 yLabels: const ["24", "18", "12", "6", "0"],
-                xLabels: const ["12am", "4am", "8am", "12pm", "4pm", "8pm"],
-                normalizedPoints: const [0.15, 0.12, 0.22, 0.32, 0.20, 0.16],
+                xLabels: _pmXLabels,
+                normalizedPoints: _pmPoints,
               ),
             ),
           ),
@@ -279,18 +383,15 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "CO & O₃ History",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            "CO in ppm · O₃ in ppb — different units, similar numeric scale",
-            style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+          _buildCardHeader(
+            title: "CO & O₃ History",
+            subtitle: "CO in ppm · O₃ in ppb — different units, similar numeric scale",
+            selectedValue: _selectedCoO3TimeFrame,
+            onSelected: (newValue) {
+              setState(() {
+                _selectedCoO3TimeFrame = newValue;
+              });
+            },
           ),
           const SizedBox(height: 12),
           Row(
@@ -308,8 +409,8 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
               painter: ChartPainter(
                 lineColor: const Color(0xFF0D9488),
                 yLabels: const ["24", "18", "12", "6", "0"],
-                xLabels: const ["12am", "4am", "8am", "12pm", "4pm", "8pm"],
-                normalizedPoints: const [0.06, 0.05, 0.07, 0.07, 0.06, 0.05],
+                xLabels: _coO3XLabels,
+                normalizedPoints: _coO3Points,
               ),
             ),
           ),
@@ -328,18 +429,15 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "CO₂ History",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            "Carbon Dioxide in ppm — shown separately due to different scale",
-            style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+          _buildCardHeader(
+            title: "CO₂ History",
+            subtitle: "Carbon Dioxide in ppm — shown separately due to different scale",
+            selectedValue: _selectedCo2TimeFrame,
+            onSelected: (newValue) {
+              setState(() {
+                _selectedCo2TimeFrame = newValue;
+              });
+            },
           ),
           const SizedBox(height: 12),
           const _DotLegend(color: Color(0xFF3B82F6), label: "CO₂ (ppm)"),
@@ -351,8 +449,8 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
               painter: ChartPainter(
                 lineColor: const Color(0xFF3B82F6),
                 yLabels: const ["600", "300", "150", "0"],
-                xLabels: const ["12am", "4am", "8am", "12pm", "4pm", "8pm"],
-                normalizedPoints: const [0.65, 0.62, 0.82, 0.96, 0.82, 0.72],
+                xLabels: _co2XLabels,
+                normalizedPoints: _co2Points,
               ),
             ),
           ),
