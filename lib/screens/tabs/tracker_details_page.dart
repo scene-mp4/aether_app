@@ -188,6 +188,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _StickyTabBarDelegate(
+                  selectedTabIndex: _selectedTabIndex,
                   child: _buildTabBar(),
                 ),
               ),
@@ -1168,10 +1169,15 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
 }
 
 // Delegate for Sticky TabBar
+// Delegate for Sticky TabBar
 class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
+  final int selectedTabIndex; // Add active tab index tracker
 
-  _StickyTabBarDelegate({required this.child});
+  _StickyTabBarDelegate({
+    required this.child,
+    required this.selectedTabIndex,
+  });
 
   @override
   Widget build(
@@ -1187,6 +1193,8 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _StickyTabBarDelegate oldDelegate) {
-    return false;
+    // Rebuild when active tab index or child changes so UI updates immediately
+    return oldDelegate.selectedTabIndex != selectedTabIndex ||
+        oldDelegate.child != child;
   }
 }
