@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
 
-class TrackerClimateTab extends StatelessWidget {
+class TrackerClimateTab extends StatefulWidget {
   const TrackerClimateTab({super.key});
+
+  @override
+  State<TrackerClimateTab> createState() => _TrackerClimateTabState();
+}
+
+class _TrackerClimateTabState extends State<TrackerClimateTab> {
+  // Independent expand/collapse states for Temperature and Humidity cards
+  bool _isTempExpanded = false;
+  bool _isHumidityExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +27,13 @@ class TrackerClimateTab extends StatelessWidget {
           statusBgColor: const Color(0xFFDCFCE7),
           statusTextColor: const Color(0xFF15803D),
           subText: "Very Comfortable: 20–25.9°C",
+          isExpanded: _isTempExpanded,
+          onToggleInfo: () {
+            setState(() {
+              _isTempExpanded = !_isTempExpanded;
+            });
+          },
+          infoContent: _buildTemperatureInfoContent(),
         ),
         const SizedBox(height: 12),
 
@@ -31,6 +47,13 @@ class TrackerClimateTab extends StatelessWidget {
           statusBgColor: const Color(0xFFDCFCE7),
           statusTextColor: const Color(0xFF15803D),
           subText: "Very Comfortable: 40–49.9%",
+          isExpanded: _isHumidityExpanded,
+          onToggleInfo: () {
+            setState(() {
+              _isHumidityExpanded = !_isHumidityExpanded;
+            });
+          },
+          infoContent: _buildHumidityInfoContent(),
         ),
         const SizedBox(height: 16),
 
@@ -45,6 +68,7 @@ class TrackerClimateTab extends StatelessWidget {
     );
   }
 
+  // --- REUSABLE METRIC CARD ---
   Widget _buildMetricCard({
     required IconData icon,
     required Color iconColor,
@@ -54,6 +78,9 @@ class TrackerClimateTab extends StatelessWidget {
     required Color statusBgColor,
     required Color statusTextColor,
     required String subText,
+    required bool isExpanded,
+    required VoidCallback onToggleInfo,
+    required Widget infoContent,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -64,6 +91,7 @@ class TrackerClimateTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -81,32 +109,55 @@ class TrackerClimateTab extends StatelessWidget {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFDBEAFE)),
-                ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.info_outline, size: 14, color: Color(0xFF2563EB)),
-                    SizedBox(width: 4),
-                    Text(
-                      "More Info",
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF2563EB),
-                        fontWeight: FontWeight.w500,
-                      ),
+              InkWell(
+                onTap: onToggleInfo,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isExpanded ? const Color(0xFF2563EB) : const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isExpanded ? const Color(0xFF2563EB) : const Color(0xFFDBEAFE),
                     ),
-                    Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF2563EB)),
-                  ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 14,
+                        color: isExpanded ? Colors.white : const Color(0xFF2563EB),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "More Info",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isExpanded ? Colors.white : const Color(0xFF2563EB),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Icon(
+                        isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        size: 14,
+                        color: isExpanded ? Colors.white : const Color(0xFF2563EB),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+
+          // Expanded Info Container
+          if (isExpanded) ...[
+            const SizedBox(height: 12),
+            infoContent,
+          ],
+
+          const SizedBox(height: 12),
+
+          // Value Display
           Text(
             value,
             style: const TextStyle(
@@ -116,6 +167,8 @@ class TrackerClimateTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+
+          // Status Badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -132,11 +185,85 @@ class TrackerClimateTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
+
+          // Subtext
           Text(
             subText,
             style: const TextStyle(
               fontSize: 11,
               color: Color(0xFF94A3B8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- TEMPERATURE INFO CONTENT ---
+  Widget _buildTemperatureInfoContent() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text(
+            "This is the air temperature inside the room. It rises when many people are present, when sunlight enters, or when ventilation is poor.",
+            style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8), height: 1.4),
+          ),
+          SizedBox(height: 8),
+          Text(
+            "Elderly and ill residents are more sensitive to heat. A too-warm room can cause dehydration, fatigue, and heat-related illness.",
+            style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8), height: 1.4),
+          ),
+          SizedBox(height: 8),
+          Text(
+            "Very Comfortable: 20–25.9°C · Comfortable: 17–19°C or 26–28.9°C (ATMO, 2025)",
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1D4ED8),
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- HUMIDITY INFO CONTENT ---
+  Widget _buildHumidityInfoContent() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text(
+            "Humidity measures how much moisture is in the air. It rises with many occupants, bathing activities, or rainy weather.",
+            style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8), height: 1.4),
+          ),
+          SizedBox(height: 8),
+          Text(
+            "Too much humidity promotes mold growth and worsens breathing problems. Too little causes dry skin and irritated airways.",
+            style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8), height: 1.4),
+          ),
+          SizedBox(height: 8),
+          Text(
+            "Very Comfortable: 40–49.9% · Comfortable: 35–39.9% or 50–64.9% (ATMO, 2025)",
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1D4ED8),
+              height: 1.3,
             ),
           ),
         ],
@@ -178,8 +305,8 @@ class TrackerClimateTab extends StatelessWidget {
               painter: DualChartPainter(
                 yLabels: const ["60", "45", "30", "15", "0"],
                 xLabels: const ["12am", "4am", "8am", "12pm", "4pm", "8pm"],
-                humidityPoints: const [0.93, 0.96, 0.86, 0.80, 0.83, 0.90], // Normalized to 60 max
-                tempPoints: const [0.40, 0.38, 0.42, 0.45, 0.43, 0.41],     // Normalized to 60 max
+                humidityPoints: const [0.93, 0.96, 0.86, 0.80, 0.83, 0.90],
+                tempPoints: const [0.40, 0.38, 0.42, 0.45, 0.43, 0.41],
               ),
             ),
           ),
@@ -385,7 +512,6 @@ class DualChartPainter extends CustomPainter {
       );
     }
 
-    // Helper method to draw curved paths
     void drawSeries(List<double> points, Color color) {
       if (points.isEmpty) return;
 
@@ -424,10 +550,8 @@ class DualChartPainter extends CustomPainter {
       canvas.drawPath(path, linePaint);
     }
 
-    // 3. Draw Humidity Line (Blue)
+    // 3. Draw Lines
     drawSeries(humidityPoints, const Color(0xFF3B82F6));
-
-    // 4. Draw Temperature Line (Orange)
     drawSeries(tempPoints, const Color(0xFFEAB308));
   }
 
