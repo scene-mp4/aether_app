@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'tracker_history_tab.dart';
+import 'tracker_climate_tab.dart';
+import 'tracker_advice_tab.dart';
 
 class TrackerDetailsPage extends StatefulWidget {
   final String trackerName;
@@ -194,56 +196,60 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  child: _selectedTabIndex == 1
-                      ? const TrackerHistoryTab()
-                      : _selectedTabIndex == 0
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildAqiReferenceCard(),
-                                const SizedBox(height: 12),
-                                _buildCurrentAqiPositionCard(),
-                                const SizedBox(height: 16),
-                                RichText(
-                                  text: const TextSpan(
+                  child: _selectedTabIndex == 0
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildAqiReferenceCard(),
+                            const SizedBox(height: 12),
+                            _buildCurrentAqiPositionCard(),
+                            const SizedBox(height: 16),
+                            RichText(
+                              text: const TextSpan(
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF64748B),
+                                    height: 1.4),
+                                children: [
+                                  TextSpan(text: "Tap "),
+                                  TextSpan(
+                                    text: "More Info ",
                                     style: TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF64748B),
-                                        height: 1.4),
-                                    children: [
-                                      TextSpan(text: "Tap "),
-                                      TextSpan(
-                                        text: "More Info ",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF0052FF)),
-                                      ),
-                                      TextSpan(
-                                          text:
-                                              "on each card to see what the pollutant means and its full threshold scale."),
-                                    ],
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0052FF)),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  "Pollutant thresholds are based on ATMO (2025) indoor air quality classifications.",
-                                  style:
-                                      TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
-                                ),
-                                const SizedBox(height: 16),
-                                _buildPollutantGrid(),
-                                const SizedBox(height: 24),
-                              ],
-                            )
-                          : Center(
-                              child: Text(
-                                _tabs[_selectedTabIndex],
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  color: Color(0xFF64748B),
-                                ),
+                                  TextSpan(
+                                      text:
+                                          "on each card to see what the pollutant means and its full threshold scale."),
+                                ],
                               ),
                             ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              "Pollutant thresholds are based on ATMO (2025) indoor air quality classifications.",
+                              style:
+                                  TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildPollutantGrid(),
+                            const SizedBox(height: 24),
+                          ],
+                        )
+                      : _selectedTabIndex == 1
+                          ? const TrackerHistoryTab()
+                          : _selectedTabIndex == 2
+                              ? const TrackerClimateTab()
+                              :_selectedTabIndex == 3
+                                  ? const TrackerAdviceTab()
+                                    : Center(
+                                        child: Text(
+                                          _tabs[_selectedTabIndex],
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ),
                 ),
               ),
             ],
