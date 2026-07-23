@@ -139,7 +139,7 @@ class _TrackersNewPageState extends State<TrackersNewPage> {
             // Blue Header section
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.only(left: 20, right: 20, top: 48, bottom: 24),
+              padding: const EdgeInsets.only(left: 20, right: 20, top: 15, bottom: 24),
               decoration: const BoxDecoration(
                 color: Color(0xFF0052FF),
               ),
