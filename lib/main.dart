@@ -8,7 +8,6 @@ import 'screens/pollutracker_legacy/settings_tab.dart';
 
 // firebase imports
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 
 ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);

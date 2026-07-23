@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import '../main.dart';
-import 'bottom_navbar.dart'; 
-import 'tabs/Register.dart'; 
+import 'bottom_navbar.dart';
+import 'tabs/Register.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
