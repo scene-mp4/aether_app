@@ -507,7 +507,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
   }
 
   Widget _sectionTitle(String text) => Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 2),
+        padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 20),
         child: Text(
           text,
           style: const TextStyle(

@@ -139,7 +139,7 @@ class _TrackersNewPageState extends State<TrackersNewPage> {
             // Blue Header section
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.only(left: 20, right: 20, top: 15, bottom: 24),
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 20),
               decoration: const BoxDecoration(
                 color: Color(0xFF0052FF),
               ),
@@ -149,7 +149,7 @@ class _TrackersNewPageState extends State<TrackersNewPage> {
                   const Text(
                     "My Trackers",
                     style: TextStyle(
-                      fontSize: 26,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
