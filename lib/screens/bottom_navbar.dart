@@ -3,7 +3,6 @@ import 'package:pollutracker_app/screens/tabs/analytics_new.dart';
 import 'package:pollutracker_app/screens/tabs/settings_new.dart';
 import 'package:pollutracker_app/screens/tabs/summary_new.dart';
 import 'package:pollutracker_app/screens/tabs/trackers_new.dart';
-import '../main.dart';
 
 // Contains the bottom navigation bar. All other tabs will be in separate files, and when a tab is pressed on the bottom navigation bar, the current screen should change.
 // TODO: 
@@ -26,7 +25,10 @@ final List<Widget> tabs = [
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: tabs[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: tabs,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
