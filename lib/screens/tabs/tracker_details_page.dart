@@ -173,89 +173,84 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
-      body: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 56.0),
-          child: CustomScrollView(
-            slivers: [
-              // 1. Blue Top Header
-              SliverToBoxAdapter(
-                child: _buildTopHeader(context),
-              ),
-
-              // 2. Sticky Tab Bar
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _StickyTabBarDelegate(
-                  selectedTabIndex: _selectedTabIndex,
-                  child: _buildTabBar(),
-                ),
-              ),
-
-              // 3. Main Body Content
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  child: _selectedTabIndex == 0
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildAqiReferenceCard(),
-                            const SizedBox(height: 12),
-                            _buildCurrentAqiPositionCard(),
-                            const SizedBox(height: 16),
-                            RichText(
-                              text: const TextSpan(
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF64748B),
-                                    height: 1.4),
-                                children: [
-                                  TextSpan(text: "Tap "),
-                                  TextSpan(
-                                    text: "More Info ",
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF0052FF)),
-                                  ),
-                                  TextSpan(
-                                      text:
-                                          "on each card to see what the pollutant means and its full threshold scale."),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              "Pollutant thresholds are based on ATMO (2025) indoor air quality classifications.",
-                              style:
-                                  TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildPollutantGrid(),
-                            const SizedBox(height: 24),
-                          ],
-                        )
-                      : _selectedTabIndex == 1
-                          ? const TrackerHistoryTab()
-                          : _selectedTabIndex == 2
-                              ? const TrackerClimateTab()
-                              :_selectedTabIndex == 3
-                                  ? const TrackerAdviceTab()
-                                    : Center(
-                                        child: Text(
-                                          _tabs[_selectedTabIndex],
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            color: Color(0xFF64748B),
-                                          ),
-                                        ),
-                                      ),
-                ),
-              ),
-            ],
+      body: CustomScrollView(
+        slivers: [
+          // 1. Blue Top Header
+          SliverToBoxAdapter(
+            child: _buildTopHeader(context),
           ),
-        ),
+
+          // 2. Sticky Tab Bar
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickyTabBarDelegate(
+              selectedTabIndex: _selectedTabIndex,
+              child: _buildTabBar(),
+            ),
+          ),
+
+          // 3. Main Body Content
+          SliverToBoxAdapter(
+            child: Padding(
+              // Normal padding: 16px bottom ensures nice spacing above the FAB/BottomBar
+              padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 12.0, bottom: 24.0),
+              child: _selectedTabIndex == 0
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildAqiReferenceCard(),
+                        const SizedBox(height: 12),
+                        _buildCurrentAqiPositionCard(),
+                        const SizedBox(height: 16),
+                        RichText(
+                          text: const TextSpan(
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                                height: 1.4),
+                            children: [
+                              TextSpan(text: "Tap "),
+                              TextSpan(
+                                text: "More Info ",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0052FF)),
+                              ),
+                              TextSpan(
+                                  text:
+                                      "on each card to see what the pollutant means and its full threshold scale."),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          "Pollutant thresholds are based on ATMO (2025) indoor air quality classifications.",
+                          style:
+                              TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildPollutantGrid(),
+                        const SizedBox(height: 24),
+                      ],
+                    )
+                  : _selectedTabIndex == 1
+                      ? const TrackerHistoryTab()
+                      : _selectedTabIndex == 2
+                          ? const TrackerClimateTab()
+                          : _selectedTabIndex == 3
+                              ? const TrackerAdviceTab()
+                              : Center(
+                                  child: Text(
+                                    _tabs[_selectedTabIndex],
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
@@ -286,7 +281,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
       ),
     );
   }
-
+  
   // Header Section
   Widget _buildTopHeader(BuildContext context) {
     return Container(
