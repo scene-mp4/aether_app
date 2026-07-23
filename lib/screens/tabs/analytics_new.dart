@@ -166,12 +166,6 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFF2563EB),
-        shape: const CircleBorder(),
-        child: const Icon(Icons.chat_bubble, color: Colors.white, size: 24),
-      ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
