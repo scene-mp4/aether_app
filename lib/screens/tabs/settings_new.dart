@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'manage_account_page.dart';
 
 class SettingsNewPage extends StatefulWidget {
   const SettingsNewPage({Key? key}) : super(key: key);
@@ -20,9 +21,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
 
   // User & Loading State (explicit non-null defaults)
   String username = "User";
-  String userRole = "User";
   String email = "";
-  String phoneNumber = "";
   bool _isSigningOut = false;
   bool _isLoadingUser = true;
 
@@ -46,13 +45,11 @@ class _SettingsTabState extends State<SettingsNewPage> {
             if (userDoc.exists && userDoc.data() != null) {
               final Map<String, dynamic> data =
                   userDoc.data() as Map<String, dynamic>;
-              
-              username = (data['username'] ?? user.displayName ?? "User").toString();
-              userRole = (data['role'] ?? "Member").toString();
-              phoneNumber = (data['phone'] ?? data['phoneNumber'] ?? user.phoneNumber ?? "").toString();
+
+              username =
+                  (data['username'] ?? user.displayName ?? "User").toString();
             } else {
               username = (user.displayName ?? "User").toString();
-              phoneNumber = (user.phoneNumber ?? "").toString();
             }
             email = (user.email ?? "").toString();
             _isLoadingUser = false;
@@ -63,7 +60,6 @@ class _SettingsTabState extends State<SettingsNewPage> {
           setState(() {
             username = (user.displayName ?? user.email ?? "User").toString();
             email = (user.email ?? "").toString();
-            phoneNumber = (user.phoneNumber ?? "").toString();
             _isLoadingUser = false;
           });
         }
@@ -92,7 +88,8 @@ class _SettingsTabState extends State<SettingsNewPage> {
             onPressed: () => Navigator.pop(context, true),
             child: const Text(
               "Log Out",
-              style: TextStyle(color: Color(0xFFEF323B), fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: Color(0xFFEF323B), fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -197,9 +194,13 @@ class _SettingsTabState extends State<SettingsNewPage> {
                             title: 'Push notifications',
                             subtitle: 'Receive air quality alerts',
                             value: pushNotifications,
-                            onChanged: (val) => setState(() => pushNotifications = val),
+                            onChanged: (val) =>
+                                setState(() => pushNotifications = val),
                           ),
-                          const Divider(height: 1, indent: 50, color: Color(0xFFEEF2F6)),
+                          const Divider(
+                              height: 1,
+                              indent: 50,
+                              color: Color(0xFFEEF2F6)),
                           _buildSwitchRow(
                             icon: Icons.notifications_none_rounded,
                             title: 'Dark mode',
@@ -231,9 +232,15 @@ class _SettingsTabState extends State<SettingsNewPage> {
                           ),
                           const Divider(height: 1, color: Color(0xFFEEF2F6)),
                           _buildAboutUsDropdown(primaryBlue),
-                          const Divider(height: 1, indent: 50, color: Color(0xFFEEF2F6)),
+                          const Divider(
+                              height: 1,
+                              indent: 50,
+                              color: Color(0xFFEEF2F6)),
                           _buildPrivacyPolicyDropdown(primaryBlue),
-                          const Divider(height: 1, indent: 50, color: Color(0xFFEEF2F6)),
+                          const Divider(
+                              height: 1,
+                              indent: 50,
+                              color: Color(0xFFEEF2F6)),
                           _buildTermsDropdown(primaryBlue),
                         ],
                       ),
@@ -296,19 +303,22 @@ class _SettingsTabState extends State<SettingsNewPage> {
     );
   }
 
-  /// Profile Card Design - Completely Safe Against Null JS Errors
+  /// Profile Card Design
   Widget _buildProfileCard(Color primaryColor) {
     // Safe string parsing for initial avatar
     final String safeUsername = username.isEmpty ? "User" : username;
     final String initial = safeUsername[0].toUpperCase();
 
-    final String displayEmail = email.trim().isEmpty ? "No email provided" : email;
-    final String displayPhone = phoneNumber.trim().isEmpty ? "+63 912 345 6789" : phoneNumber;
+    final String displayEmail =
+        email.trim().isEmpty ? "No email provided" : email;
 
     return _buildCardWrapper(
       child: InkWell(
         onTap: () {
-          // Account Management Tap Action
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ManageAccountPage()),
+          );
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
@@ -344,14 +354,6 @@ class _SettingsTabState extends State<SettingsNewPage> {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          userRole,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
                         const Text(
                           "Tap to manage account",
                           style: TextStyle(
@@ -375,25 +377,13 @@ class _SettingsTabState extends State<SettingsNewPage> {
               // Email Row
               Row(
                 children: [
-                  const Icon(Icons.email_outlined, size: 18, color: Color(0xFF475569)),
+                  const Icon(Icons.email_outlined,
+                      size: 18, color: Color(0xFF475569)),
                   const SizedBox(width: 10),
                   Text(
                     displayEmail,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 8),
-
-              // Telephone / Phone Row
-              Row(
-                children: [
-                  const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF475569)),
-                  const SizedBox(width: 10),
-                  Text(
-                    displayPhone,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                    style:
+                        const TextStyle(fontSize: 13, color: Color(0xFF475569)),
                   ),
                 ],
               ),
@@ -476,8 +466,10 @@ class _SettingsTabState extends State<SettingsNewPage> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle("Empowering Communities Through Real-Time Air Quality Insights"),
-          _bodyText("AETHER is an innovative IoT-based air quality tracking system designed to bridge the gap between air pollutant data and senior citizen health."),
+          _sectionTitle(
+              "Empowering Communities Through Real-Time Air Quality Insights"),
+          _bodyText(
+              "AETHER is an innovative IoT-based air quality tracking system designed to bridge the gap between air pollutant data and senior citizen health."),
         ],
       ),
     );
@@ -494,7 +486,8 @@ class _SettingsTabState extends State<SettingsNewPage> {
         children: [
           _bodyText("Last Updated: March 2026"),
           _sectionTitle("Data We Collect"),
-          _bodyText("User Profile Information: Name and email stored via Firebase Authentication."),
+          _bodyText(
+              "User Profile Information: Name and email stored via Firebase Authentication."),
         ],
       ),
     );
@@ -511,7 +504,8 @@ class _SettingsTabState extends State<SettingsNewPage> {
         children: [
           _bodyText("Last Updated: March 2026"),
           _sectionTitle("Use of Service"),
-          _bodyText("AETHER is provided for educational and informational purposes."),
+          _bodyText(
+              "AETHER is provided for educational and informational purposes."),
         ],
       ),
     );
