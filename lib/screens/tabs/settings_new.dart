@@ -26,8 +26,6 @@ class _SettingsTabState extends State<SettingsNewPage> {
   bool _isSigningOut = false;
   bool _isLoadingUser = true;
 
-  int _selectedBottomIndex = 3;
-
   @override
   void initState() {
     super.initState();
@@ -294,40 +292,6 @@ class _SettingsTabState extends State<SettingsNewPage> {
             ],
           ),
         ),
-      ),
-
-      // --- Bottom Navigation Bar ---
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedBottomIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedBottomIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: primaryBlue,
-        unselectedItemColor: Colors.grey,
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart_rounded),
-            label: 'Trackers',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_rounded),
-            label: 'Summary',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.trending_up_rounded),
-            label: 'Analytics',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
       ),
     );
   }
