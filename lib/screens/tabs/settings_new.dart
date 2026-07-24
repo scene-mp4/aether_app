@@ -18,12 +18,15 @@ class _SettingsTabState extends State<SettingsNewPage> {
   bool pushNotifications = true;
   bool darkMode = false;
 
-  // User & Loading State
+  // User & Loading State (explicit non-null defaults)
   String username = "User";
   String userRole = "User";
   String email = "";
+  String phoneNumber = "";
   bool _isSigningOut = false;
   bool _isLoadingUser = true;
+
+  int _selectedBottomIndex = 3;
 
   @override
   void initState() {
@@ -31,7 +34,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
     _loadUserData();
   }
 
-  /// Fetch user profile data from Firebase Auth and Firestore
+  /// Fetch user profile data safely from Firebase Auth and Firestore
   Future<void> _loadUserData() async {
     User? user = _auth.currentUser;
 
@@ -42,21 +45,27 @@ class _SettingsTabState extends State<SettingsNewPage> {
 
         if (mounted) {
           setState(() {
-            if (userDoc.exists) {
-              username = userDoc['username'] ?? user.displayName ?? "User";
-              userRole = userDoc['role'] ?? "Member";
+            if (userDoc.exists && userDoc.data() != null) {
+              final Map<String, dynamic> data =
+                  userDoc.data() as Map<String, dynamic>;
+              
+              username = (data['username'] ?? user.displayName ?? "User").toString();
+              userRole = (data['role'] ?? "Member").toString();
+              phoneNumber = (data['phone'] ?? data['phoneNumber'] ?? user.phoneNumber ?? "").toString();
             } else {
-              username = user.displayName ?? "User";
+              username = (user.displayName ?? "User").toString();
+              phoneNumber = (user.phoneNumber ?? "").toString();
             }
-            email = user.email ?? "";
+            email = (user.email ?? "").toString();
             _isLoadingUser = false;
           });
         }
       } catch (e) {
         if (mounted) {
           setState(() {
-            username = user.displayName ?? user.email ?? "User";
-            email = user.email ?? "";
+            username = (user.displayName ?? user.email ?? "User").toString();
+            email = (user.email ?? "").toString();
+            phoneNumber = (user.phoneNumber ?? "").toString();
             _isLoadingUser = false;
           });
         }
@@ -68,7 +77,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
     }
   }
 
-  /// Sign Out Logic with Confirmation Dialog
+  /// Sign Out Logic
   Future<void> _signOut() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -118,9 +127,8 @@ class _SettingsTabState extends State<SettingsNewPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Dynamic Primary Blue Color matching the image header
-    const primaryBlue = Color(0xFF0052FF);
-    const lightBg = Color(0xFFE8EFFD);
+    const primaryBlue = Color(0xFF2563EB);
+    const lightBg = Color(0xFFEBF2FF);
 
     return Scaffold(
       backgroundColor: lightBg,
@@ -130,7 +138,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- Blue Header Section ---
+              // --- Header Section ---
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
@@ -233,15 +241,15 @@ class _SettingsTabState extends State<SettingsNewPage> {
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
-                    // --- Functional Log Out Button ---
+                    // --- Log Out Button ---
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: _isSigningOut ? null : _signOut,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEE2B2E),
+                          backgroundColor: const Color(0xFFEF233C),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -276,9 +284,8 @@ class _SettingsTabState extends State<SettingsNewPage> {
                       'Version 1.0.0',
                       style: TextStyle(fontSize: 11, color: Colors.grey),
                     ),
-                    const SizedBox(height: 2),
                     const Text(
-                      'PolluTracker Air Quality Monitoring System',
+                      'Home Medix Physical Therapy, Caregiving & Nursing Services',
                       style: TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   ],
@@ -288,70 +295,146 @@ class _SettingsTabState extends State<SettingsNewPage> {
           ),
         ),
       ),
+
+      // --- Bottom Navigation Bar ---
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedBottomIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedBottomIndex = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: primaryBlue,
+        unselectedItemColor: Colors.grey,
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.show_chart_rounded),
+            label: 'Trackers',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart_rounded),
+            label: 'Summary',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.trending_up_rounded),
+            label: 'Analytics',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
+      ),
     );
   }
 
-  /// Profile Card Design
+  /// Profile Card Design - Completely Safe Against Null JS Errors
   Widget _buildProfileCard(Color primaryColor) {
-    String initial = username.isNotEmpty ? username[0].toUpperCase() : "U";
+    // Safe string parsing for initial avatar
+    final String safeUsername = username.isEmpty ? "User" : username;
+    final String initial = safeUsername[0].toUpperCase();
+
+    final String displayEmail = email.trim().isEmpty ? "No email provided" : email;
+    final String displayPhone = phoneNumber.trim().isEmpty ? "+63 912 345 6789" : phoneNumber;
 
     return _buildCardWrapper(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 32,
-                  backgroundColor: primaryColor,
-                  child: Text(
-                    initial,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+      child: InkWell(
+        onTap: () {
+          // Account Management Tap Action
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: primaryColor,
+                    child: Text(
+                      initial,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _isLoadingUser ? "Loading..." : username,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isLoadingUser ? "Loading..." : safeUsername,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        userRole,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey,
+                        const SizedBox(height: 2),
+                        Text(
+                          userRole,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        const Text(
+                          "Tap to manage account",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF3B82F6),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.email_outlined, size: 16, color: Colors.grey),
-                const SizedBox(width: 8),
-                Text(
-                  email,
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
-                ),
-              ],
-            ),
-          ],
+                  const Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Email Row
+              Row(
+                children: [
+                  const Icon(Icons.email_outlined, size: 18, color: Color(0xFF475569)),
+                  const SizedBox(width: 10),
+                  Text(
+                    displayEmail,
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              // Telephone / Phone Row
+              Row(
+                children: [
+                  const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF475569)),
+                  const SizedBox(width: 10),
+                  Text(
+                    displayPhone,
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -366,7 +449,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -388,7 +471,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF2A52BE), size: 22),
+          Icon(icon, color: const Color(0xFF2563EB), size: 22),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -413,7 +496,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
             value: value,
             onChanged: onChanged,
             activeColor: Colors.white,
-            activeTrackColor: const Color(0xFF2A52BE),
+            activeTrackColor: const Color(0xFF2563EB),
           ),
         ],
       ),
@@ -431,10 +514,6 @@ class _SettingsTabState extends State<SettingsNewPage> {
         children: [
           _sectionTitle("Empowering Communities Through Real-Time Air Quality Insights"),
           _bodyText("AETHER is an innovative IoT-based air quality tracking system designed to bridge the gap between air pollutant data and senior citizen health."),
-          _sectionTitle("Our Technology"),
-          _bodyText("Using Arduino microcontrollers and sensors (MQ9, MQ135, MQ2, MQ131, PMS5003) to monitor PM1.0, PM2.5, PM10, O3, CO₂, and CO."),
-          _sectionTitle("The Developers"),
-          _bodyText("Developed by 4th year IT students: Gaspar, Edward, Dela Cruz, Alvin Ken, Gatapia, Clarence Joaquin, and Gonzales, Stephen Andrei."),
         ],
       ),
     );
@@ -452,7 +531,6 @@ class _SettingsTabState extends State<SettingsNewPage> {
           _bodyText("Last Updated: March 2026"),
           _sectionTitle("Data We Collect"),
           _bodyText("User Profile Information: Name and email stored via Firebase Authentication."),
-          _bodyText("Sensor Data: Pollutant concentrations (PM1.0, PM2.5, PM10, O3, CO₂, and CO) stored to generate real-time trends."),
         ],
       ),
     );
@@ -469,9 +547,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
         children: [
           _bodyText("Last Updated: March 2026"),
           _sectionTitle("Use of Service"),
-          _bodyText("AETHER is provided for educational and informational purposes. Data provided should not replace professional medical advice."),
-          _sectionTitle("Disclaimer"),
-          _bodyText("AETHER shall not be held liable for health issues arising from environmental exposure."),
+          _bodyText("AETHER is provided for educational and informational purposes."),
         ],
       ),
     );
@@ -496,6 +572,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
             color: Color(0xFF1E293B),
           ),
         ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -507,7 +584,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
   }
 
   Widget _sectionTitle(String text) => Padding(
-        padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 20),
+        padding: const EdgeInsets.only(top: 8, bottom: 4),
         child: Text(
           text,
           style: const TextStyle(
