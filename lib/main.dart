@@ -26,6 +26,7 @@ void main() async {
 // TODO: 
 // - Set specific colors for the theme instead of using fromSeed
 
+const Color kPrimaryColor = Color(0xFF0052FF);
 
 class MyApp extends StatelessWidget {
   @override
@@ -34,7 +35,8 @@ class MyApp extends StatelessWidget {
       title: "AETHER App",
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Color.fromARGB(255, 0, 4, 255)
+          seedColor: kPrimaryColor,
+          primary: kPrimaryColor,
           )
         ),
       debugShowCheckedModeBanner: false,
