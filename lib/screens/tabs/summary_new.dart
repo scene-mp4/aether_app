@@ -34,44 +34,46 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Blue Top Header Banner
-              _buildHeaderBanner(),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 2. Overall AQI Card
-                    _buildOverallAqiCard(),
-                    const SizedBox(height: 16),
-
-                    // 3. Tracker Status Breakdown Card
-                    _buildTrackerStatusCard(),
-                    const SizedBox(height: 16),
-
-                    // 4. Average Readings Grid Card
-                    _buildAverageReadingsCard(),
-                    const SizedBox(height: 16),
-
-                    // 5. Individual Trackers List Card
-                    _buildIndividualTrackersCard(),
-                    const SizedBox(height: 16),
-
-                    // 6. Health Supervising Manual Card
-                    _buildHealthManualCard(),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+      body: Column(
+        children: [
+          _buildHeaderBanner(),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 2. Overall AQI Card
+                        _buildOverallAqiCard(),
+                        const SizedBox(height: 16),
+          
+                        // 3. Tracker Status Breakdown Card
+                        _buildTrackerStatusCard(),
+                        const SizedBox(height: 16),
+          
+                        // 4. Average Readings Grid Card
+                        _buildAverageReadingsCard(),
+                        const SizedBox(height: 16),
+          
+                        // 5. Individual Trackers List Card
+                        _buildIndividualTrackersCard(),
+                        const SizedBox(height: 16),
+          
+                        // 6. Health Supervising Manual Card
+                        _buildHealthManualCard(),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -80,27 +82,27 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
   Widget _buildHeaderBanner() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 20),
       decoration: const BoxDecoration(
-        color: Color(0xFF2563EB),
+        color: Color(0xFF0052FF),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            "Summary",
-            style: TextStyle(
-              fontSize: 26,
+        children: [
+          const Text(
+            "Tracker Summary", // title Text
+             style: TextStyle(
+              fontSize: 22,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
-            "All trackers · Overall air quality",
-            style: TextStyle(
+            "All trackers · Overall Air Quality",
+            style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFFDBEAFE),
+              color: Colors.white70,
             ),
           ),
         ],

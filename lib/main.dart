@@ -32,7 +32,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: "AETHER App",
-      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 0, 4, 255))),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Color.fromARGB(255, 0, 4, 255)
+          )
+        ),
       debugShowCheckedModeBanner: false,
       initialRoute: '/login',
       routes: {

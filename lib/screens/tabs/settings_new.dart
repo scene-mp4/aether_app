@@ -127,178 +127,182 @@ class _SettingsTabState extends State<SettingsNewPage> {
 
     return Scaffold(
       backgroundColor: lightBg,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 30),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- Header Section ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                color: primaryBlue,
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Settings',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+      body: Column(
+        children: [
+                      Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(
+                  left: 16, right: 16, top: 24, bottom: 20),
+              color: const Color(0xFF0052FF),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    "App Settings",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Manage your account and preferences',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                      ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    "Manage your account and user preferences",
+                    style: TextStyle(
+                      color: Color(0xFFBFDBFE),
+                      fontSize: 13,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-
-              const SizedBox(height: 16),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    // --- Profile Info Card ---
-                    _buildProfileCard(primaryBlue),
-
-                    const SizedBox(height: 16),
-
-                    // --- App Settings Card ---
-                    _buildCardWrapper(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
-                            child: Text(
-                              'App Settings',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B),
-                              ),
-                            ),
-                          ),
-                          const Divider(height: 1, color: Color(0xFFEEF2F6)),
-                          _buildSwitchRow(
-                            icon: Icons.notifications_none_rounded,
-                            title: 'Push notifications',
-                            subtitle: 'Receive air quality alerts',
-                            value: pushNotifications,
-                            onChanged: (val) =>
-                                setState(() => pushNotifications = val),
-                          ),
-                          const Divider(
-                              height: 1,
-                              indent: 50,
-                              color: Color(0xFFEEF2F6)),
-                          _buildSwitchRow(
-                            icon: Icons.notifications_none_rounded,
-                            title: 'Dark mode',
-                            subtitle: 'Adjust theme appearance',
-                            value: darkMode,
-                            onChanged: (val) => setState(() => darkMode = val),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // --- More Info Card ---
-                    _buildCardWrapper(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
-                            child: Text(
-                              'More',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B),
-                              ),
-                            ),
-                          ),
-                          const Divider(height: 1, color: Color(0xFFEEF2F6)),
-                          _buildAboutUsDropdown(primaryBlue),
-                          const Divider(
-                              height: 1,
-                              indent: 50,
-                              color: Color(0xFFEEF2F6)),
-                          _buildPrivacyPolicyDropdown(primaryBlue),
-                          const Divider(
-                              height: 1,
-                              indent: 50,
-                              color: Color(0xFFEEF2F6)),
-                          _buildTermsDropdown(primaryBlue),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // --- Log Out Button ---
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _isSigningOut ? null : _signOut,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEF233C),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        icon: _isSigningOut
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
+            ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 30),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+          
+                  const SizedBox(height: 16),
+          
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      children: [
+                        // --- Profile Info Card ---
+                        _buildProfileCard(primaryBlue),
+          
+                        const SizedBox(height: 16),
+          
+                        // --- App Settings Card ---
+                        _buildCardWrapper(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+                                child: Text(
+                                  'App Settings',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1E293B),
+                                  ),
                                 ),
-                              )
-                            : const Icon(Icons.logout_rounded, size: 20),
-                        label: Text(
-                          _isSigningOut ? 'Signing out...' : 'Log Out',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                              ),
+                              const Divider(height: 1, color: Color(0xFFEEF2F6)),
+                              _buildSwitchRow(
+                                icon: Icons.notifications_none_rounded,
+                                title: 'Push notifications',
+                                subtitle: 'Receive air quality alerts',
+                                value: pushNotifications,
+                                onChanged: (val) =>
+                                    setState(() => pushNotifications = val),
+                              ),
+                              const Divider(
+                                  height: 1,
+                                  indent: 50,
+                                  color: Color(0xFFEEF2F6)),
+                              _buildSwitchRow(
+                                icon: Icons.notifications_none_rounded,
+                                title: 'Dark mode',
+                                subtitle: 'Adjust theme appearance',
+                                value: darkMode,
+                                onChanged: (val) => setState(() => darkMode = val),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
+          
+                        const SizedBox(height: 16),
+          
+                        // --- More Info Card ---
+                        _buildCardWrapper(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+                                child: Text(
+                                  'More',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
+                              ),
+                              const Divider(height: 1, color: Color(0xFFEEF2F6)),
+                              _buildAboutUsDropdown(primaryBlue),
+                              const Divider(
+                                  height: 1,
+                                  indent: 50,
+                                  color: Color(0xFFEEF2F6)),
+                              _buildPrivacyPolicyDropdown(primaryBlue),
+                              const Divider(
+                                  height: 1,
+                                  indent: 50,
+                                  color: Color(0xFFEEF2F6)),
+                              _buildTermsDropdown(primaryBlue),
+                            ],
+                          ),
+                        ),
+          
+                        const SizedBox(height: 20),
+          
+                        // --- Log Out Button ---
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _isSigningOut ? null : _signOut,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFEF233C),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            icon: _isSigningOut
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.logout_rounded, size: 20),
+                            label: Text(
+                              _isSigningOut ? 'Signing out...' : 'Log Out',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+          
+                        const SizedBox(height: 16),
+          
+                        // --- Footer Version Info ---
+                        const Text(
+                          'Version 1.0.0',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                        const Text(
+                          'Home Medix Physical Therapy, Caregiving & Nursing Services',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ],
                     ),
-
-                    const SizedBox(height: 16),
-
-                    // --- Footer Version Info ---
-                    const Text(
-                      'Version 1.0.0',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                    const Text(
-                      'Home Medix Physical Therapy, Caregiving & Nursing Services',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

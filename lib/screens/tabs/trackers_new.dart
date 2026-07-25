@@ -133,99 +133,104 @@ class _TrackersNewPageState extends State<TrackersNewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Blue Header section
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 20),
-              decoration: const BoxDecoration(
-                color: Color(0xFF0052FF),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "My Trackers",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+      body: Column(
+        children: [
+                // Blue Header section
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 20),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0052FF),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "${_activeTrackers.length} active devices",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.white70,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Padding wrapper for dashboard items
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-              child: Column(
-                children: [
-                  // "Add New Tracker" button
-                  GestureDetector(
-                    onTap: () => _showAddTrackerDialog(context),
-                    child: Container(
-                      width: double.infinity,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF0052FF),
-                          style: BorderStyle.solid,
-                          width: 1.2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "My Trackers",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.add, color: Color(0xFF0052FF), size: 20),
-                          SizedBox(width: 6),
-                          Text(
-                            "Add New Tracker",
-                            style: TextStyle(
-                              color: Color(0xFF0052FF),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                      const SizedBox(height: 4),
+                      Text(
+                        "${_activeTrackers.length} active devices",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Padding wrapper for dashboard items
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    child: Column(
+                      children: [
+                        // "Add New Tracker" button
+                        GestureDetector(
+                          onTap: () => _showAddTrackerDialog(context),
+                          child: Container(
+                            width: double.infinity,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF0052FF),
+                                style: BorderStyle.solid,
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.add, color: Color(0xFF0052FF), size: 20),
+                                SizedBox(width: 6),
+                                Text(
+                                  "Add New Tracker",
+                                  style: TextStyle(
+                                    color: Color(0xFF0052FF),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 16),
+            
+                        // Active Trackers List
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _activeTrackers.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 16),
+                          itemBuilder: (context, index) {
+                            final item = _activeTrackers[index];
+                            return TrackerCard(
+                              key: ValueKey("${item['name']}_$index"),
+                              trackerName: item["name"]!,
+                              locationName: item["location"]!,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Active Trackers List
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _activeTrackers.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      final item = _activeTrackers[index];
-                      return TrackerCard(
-                        key: ValueKey("${item['name']}_$index"),
-                        trackerName: item["name"]!,
-                        locationName: item["location"]!,
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

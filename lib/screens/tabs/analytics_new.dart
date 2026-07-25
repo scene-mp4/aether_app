@@ -166,12 +166,9 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Blue Header Banner
-            Container(
+      body: Column(
+        children: [
+                      Container(
               width: double.infinity,
               padding: const EdgeInsets.only(
                   left: 16, right: 16, top: 24, bottom: 20),
@@ -198,69 +195,77 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                 ],
               ),
             ),
-
-            Padding(
-              padding: const EdgeInsets.all(12.0),
+          Expanded(
+            child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Status Alert Banner Box
-                  _buildLowRiskBanner(),
-                  const SizedBox(height: 12),
-
-                  // "How to Use This Page" Info Box
-                  _buildHowToUseCard(),
-                  const SizedBox(height: 12),
-
-                  // Risk Level Guide Card
-                  _buildRiskLevelGuide(),
-                  const SizedBox(height: 20),
-
-                  // Pollutant Forecasts Header Section
-                  const Text(
-                    "All Pollutant Forecasts",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
+                  // Top Blue Header Banne
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Status Alert Banner Box
+                        _buildLowRiskBanner(),
+                        const SizedBox(height: 12),
+            
+                        // "How to Use This Page" Info Box
+                        _buildHowToUseCard(),
+                        const SizedBox(height: 12),
+            
+                        // Risk Level Guide Card
+                        _buildRiskLevelGuide(),
+                        const SizedBox(height: 20),
+            
+                        // Pollutant Forecasts Header Section
+                        const Text(
+                          "All Pollutant Forecasts",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          "Tap any card to expand and see the forecast chart.",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+            
+                        // List of Pollutants
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _pollutants.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final item = _pollutants[index];
+                            final isExpanded = _expandedCards.contains(index);
+                            final isInfoExpanded =
+                                _expandedInfoCards.contains(index);
+            
+                            return _buildPollutantCard(
+                              index: index,
+                              item: item,
+                              isExpanded: isExpanded,
+                              isInfoExpanded: isInfoExpanded,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 40),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    "Tap any card to expand and see the forecast chart.",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // List of Pollutants
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _pollutants.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final item = _pollutants[index];
-                      final isExpanded = _expandedCards.contains(index);
-                      final isInfoExpanded =
-                          _expandedInfoCards.contains(index);
-
-                      return _buildPollutantCard(
-                        index: index,
-                        item: item,
-                        isExpanded: isExpanded,
-                        isInfoExpanded: isInfoExpanded,
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 40),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
