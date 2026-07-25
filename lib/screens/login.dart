@@ -28,42 +28,64 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // Firebase email and password sign-in function
   Future<void> _signIn() async {
-    // Validation check
-    if (emailField.text.trim().isEmpty || passwordField.text.trim().isEmpty) {
-      _showSnackBar('Please fill in all fields.');
+  if (emailField.text.trim().isEmpty || passwordField.text.trim().isEmpty) {
+    _showSnackBar('Please fill in all fields.');
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: emailField.text.trim(),
+      password: passwordField.text.trim(),
+    );
+
+    final uid = userCredential.user!.uid;
+
+    // Look up the user's role in Firestore
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+
+    if (!userDoc.exists) {
+      _showSnackBar('User record not found.');
+      setState(() => _isLoading = false);
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    final role = userDoc.data()?['role'] ?? 'user';
 
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: emailField.text.trim(), 
-        password: passwordField.text.trim(),
-      );
-      
-      // Go to home navigation screen after successful login
+    if (!mounted) return;
+
+    if (role == 'admin') {
+      Navigator.pushReplacementNamed(context, '/admin_navbar');
+    } else {
       Navigator.pushReplacementNamed(context, '/bottom_navbar');
-    } on FirebaseAuthException catch (e) {
-      String message = '';
-      if (e.code == 'user-not-found') {
-        message = 'No user found for that email.';
-      } else if (e.code == 'wrong-password') {
-        message = 'Wrong password provided.';
-      } else {
-        message = 'Login failed: ${e.message}';
-      }
-      _showSnackBar(message);
-    } catch (e) {
-      _showSnackBar('An unexpected error occurred: $e');
-    } finally {
+    }
+  } on FirebaseAuthException catch (e) {
+    String message = '';
+    if (e.code == 'user-not-found') {
+      message = 'No user found for that email.';
+    } else if (e.code == 'wrong-password') {
+      message = 'Wrong password provided.';
+    } else {
+      message = 'Login failed: ${e.message}';
+    }
+    _showSnackBar(message);
+  } catch (e) {
+    _showSnackBar('An unexpected error occurred: $e');
+  } finally {
+    if (mounted) {
       setState(() {
         _isLoading = false;
       });
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   
                   // Project Description
                   const Text(
-                    "Air Quality Monitoring System",
+                    "AETHER Air Quality Monitoring System",
                     style: TextStyle(
                       fontSize: 11, 
                       color: Color(0xFF64748B),
