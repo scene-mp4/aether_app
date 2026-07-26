@@ -7,12 +7,12 @@ class AdminDashboardTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
+      endDrawer: const _NotificationsEndDrawer(),
       body: SingleChildScrollView(
         child: Column(
           children: [
             // Top Header Banner
             _buildHeader(context),
-
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -54,7 +54,7 @@ class AdminDashboardTab extends StatelessWidget {
       color: const Color(0xFF2B52F3), // Blue background
       padding: EdgeInsets.only(
         top: topPadding + 16,
-        bottom: 20,
+        bottom: 15,
         left: 16,
         right: 16,
       ),
@@ -100,30 +100,33 @@ class AdminDashboardTab extends StatelessWidget {
                 ],
               ),
 // Clickable Notification Bell Icon
-              GestureDetector(
-                onTap: () => _showNotificationsBottomSheet(context),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.notifications, color: Colors.white, size: 26),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF2B52F3), width: 1.5),
+              Builder(
+                builder: (innerContext) {
+                  return GestureDetector(
+                    onTap: () => Scaffold.of(innerContext).openEndDrawer(),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.notifications, color: Colors.white, size: 26),
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 9,
+                            height: 9,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0xFF2B52F3), width: 1.5),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ],
           ),
-          const SizedBox(height: 20),
           const Text(
             'Dashboard',
             style: TextStyle(
@@ -134,128 +137,6 @@ class AdminDashboardTab extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  // Method to show the notifications bottom sheet
-  void _showNotificationsBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.55,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              // Drag Indicator
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFCBD5E1),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: const [
-                        Text(
-                          'Notifications',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        CircleAvatar(
-                          radius: 10,
-                          backgroundColor: Color(0xFFEFF6FF),
-                          child: Text(
-                            '3',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF3B82F6),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    TextButton(
-                      onPressed: () {},
-                      child: const Text(
-                        'Mark all as read',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF3B82F6)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFFF1F5F9)),
-              // List Items
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  children: const [
-                    _NotificationTile(
-                      icon: Icons.warning_amber_rounded,
-                      iconBgColor: Color(0xFFFEF3C7),
-                      iconColor: Color(0xFFD97706),
-                      title: 'High PM2.5 Level Alert',
-                      subtitle: 'Common Area AQI reached 125 (Unhealthy).',
-                      time: '10 min ago',
-                      isUnread: true,
-                    ),
-                    _NotificationTile(
-                      icon: Icons.air,
-                      iconBgColor: Color(0xFFFEE2E2),
-                      iconColor: Color(0xFFDC2626),
-                      title: 'Critical CO2 Elevation',
-                      subtitle: 'Senior Care Unit B CO2 level exceeded 850 ppm.',
-                      time: '25 min ago',
-                      isUnread: true,
-                    ),
-                    _NotificationTile(
-                      icon: Icons.check_circle_outline,
-                      iconBgColor: Color(0xFFDCFCE7),
-                      iconColor: Color(0xFF16A34A),
-                      title: 'Alert Resolved',
-                      subtitle: 'Therapy Wing O3 levels returned to normal limits.',
-                      time: '1 hour ago',
-                      isUnread: true,
-                    ),
-                    _NotificationTile(
-                      icon: Icons.person_add_alt_1,
-                      iconBgColor: Color(0xFFDBEAFE),
-                      iconColor: Color(0xFF2563EB),
-                      title: 'New Tracker Assigned',
-                      subtitle: 'Device #AETH-07 registered to Nursing Station.',
-                      time: '3 hours ago',
-                      isUnread: false,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
   // 2x2 Top Summary Cards Grid
@@ -576,6 +457,121 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+class _NotificationsEndDrawer extends StatelessWidget {
+  const _NotificationsEndDrawer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      width: MediaQuery.of(context).size.width * 0.85,
+      backgroundColor: Colors.white,
+      elevation: 16,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          bottomLeft: Radius.circular(24),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            // Header Row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: const [
+                      Text(
+                        'Notifications',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      CircleAvatar(
+                        radius: 10,
+                        backgroundColor: Color(0xFFEFF6FF),
+                        child: Text(
+                          '3',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF3B82F6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                    IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Color(0xFF64748B),
+                      size: 22,
+                    ),
+                    tooltip: 'Close',
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Closes the end drawer
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            // Notification Items List
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: const [
+                  _NotificationTile(
+                    icon: Icons.warning_amber_rounded,
+                    iconBgColor: Color(0xFFFEF3C7),
+                    iconColor: Color(0xFFD97706),
+                    title: 'High PM2.5 Level Alert',
+                    subtitle: 'Common Area AQI reached 125 (Unhealthy).',
+                    time: '10 min ago',
+                    isUnread: true,
+                  ),
+                  _NotificationTile(
+                    icon: Icons.air,
+                    iconBgColor: Color(0xFFFEE2E2),
+                    iconColor: Color(0xFFDC2626),
+                    title: 'Critical CO2 Elevation',
+                    subtitle: 'Senior Care Unit B CO2 level exceeded 850 ppm.',
+                    time: '25 min ago',
+                    isUnread: true,
+                  ),
+                  _NotificationTile(
+                    icon: Icons.check_circle_outline,
+                    iconBgColor: Color(0xFFDCFCE7),
+                    iconColor: Color(0xFF16A34A),
+                    title: 'Alert Resolved',
+                    subtitle: 'Therapy Wing O3 levels returned to normal limits.',
+                    time: '1 hour ago',
+                    isUnread: true,
+                  ),
+                  _NotificationTile(
+                    icon: Icons.person_add_alt_1,
+                    iconBgColor: Color(0xFFDBEAFE),
+                    iconColor: Color(0xFF2563EB),
+                    title: 'New Tracker Assigned',
+                    subtitle: 'Device #AETH-07 registered to Nursing Station.',
+                    time: '3 hours ago',
+                    isUnread: false,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 // Single Notification Tile Widget
 class _NotificationTile extends StatelessWidget {
   final IconData icon;
