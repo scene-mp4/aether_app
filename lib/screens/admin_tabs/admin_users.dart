@@ -1,30 +1,183 @@
 import 'package:flutter/material.dart';
 
-class AdminUsersTab extends StatelessWidget {
-  const AdminUsersTab ({super.key});
+class AdminUsersTab extends StatefulWidget {
+  const AdminUsersTab({super.key});
+
+  @override
+  State<AdminUsersTab> createState() => _AdminUsersTabState();
+}
+
+class _AdminUsersTabState extends State<AdminUsersTab> {
+  // Simple Add/Edit Modal
+  void _showUserModal({
+    String? name,
+    String? email,
+  }) {
+    final bool isEditing = name != null;
+    final nameController = TextEditingController(text: name ?? '');
+    final emailController = TextEditingController(text: email ?? '');
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: Colors.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isEditing ? 'Edit User' : 'Add New User',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Full Name
+                  _buildModalInputField(
+                    'Full Name',
+                    nameController,
+                    'Enter full name',
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Email
+                  _buildModalInputField(
+                    'Email',
+                    emailController,
+                    'user@homemedix.com',
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Modal Actions
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF3B62F6),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              isEditing ? 'Edit User' : 'Add User',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildModalInputField(
+    String label,
+    TextEditingController controller,
+    String hint,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF334155),
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            hintText: hint,
+            hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF3B62F6)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Grey background to match the card edges
       backgroundColor: const Color(0xFFF8FAFC),
-      // Right-side sliding notification drawer
       endDrawer: const _NotificationsEndDrawer(),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Top Blue Header Banner
             _buildHeader(context),
-
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // Prominent Add New Button
                   _buildAddNewButton(),
                   const SizedBox(height: 20),
-                  // User Cards List (From Image)
-                  const _UserCard(
+                  _UserCard(
                     initials: 'NA',
                     name: 'User Name 1',
                     userId: 'user ID',
@@ -33,10 +186,13 @@ class AdminUsersTab extends StatelessWidget {
                     email: 'email@gmail.com',
                     trackersCount: 0,
                     lastActive: '2 min ago',
+                    onEdit: () => _showUserModal(
+                      name: 'User Name 1',
+                      email: 'email@gmail.com',
+                    ),
                   ),
                   const SizedBox(height: 16),
-
-                  const _UserCard(
+                  _UserCard(
                     initials: 'Name',
                     name: 'User Name 2',
                     userId: 'USR-002',
@@ -45,8 +201,12 @@ class AdminUsersTab extends StatelessWidget {
                     email: 'email@gmail.com',
                     trackersCount: 0,
                     lastActive: '15 min ago',
+                    onEdit: () => _showUserModal(
+                      name: 'User Name 2',
+                      email: 'email@gmail.com',
+                    ),
                   ),
-                  const SizedBox(height: 40), // Extra space at bottom
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -56,12 +216,11 @@ class AdminUsersTab extends StatelessWidget {
     );
   }
 
-  // AETHER Branded Header
   Widget _buildHeader(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
     return Container(
       width: double.infinity,
-      color: const Color(0xFF2B52F3), // Blue background
+      color: const Color(0xFF2B52F3),
       padding: EdgeInsets.only(
         top: topPadding + 16,
         bottom: 15,
@@ -109,7 +268,6 @@ class AdminUsersTab extends StatelessWidget {
                   ),
                 ],
               ),
-              // Clickable Notification Bell Icon (Opens End Drawer from Right)
               Builder(
                 builder: (innerContext) {
                   return GestureDetector(
@@ -150,17 +308,16 @@ class AdminUsersTab extends StatelessWidget {
     );
   }
 
-  // Floating Action Button Style Add Tracker
   Widget _buildAddNewButton() {
     return Container(
       width: double.infinity,
       height: 52,
       decoration: BoxDecoration(
-        color: const Color(0xFF2563EB), // Brighter blue
+        color: const Color(0xFF2563EB),
         borderRadius: BorderRadius.circular(14),
         boxShadow: const [
           BoxShadow(
-            color: Color(0xFF1D4ED8), // Dark blue shadow
+            color: Color(0xFF1D4ED8),
           ),
         ],
       ),
@@ -168,7 +325,7 @@ class AdminUsersTab extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: () {},
+          onTap: () => _showUserModal(),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
@@ -199,6 +356,7 @@ class _UserCard extends StatelessWidget {
   final String email;
   final int trackersCount;
   final String lastActive;
+  final VoidCallback onEdit;
 
   const _UserCard({
     required this.initials,
@@ -209,6 +367,7 @@ class _UserCard extends StatelessWidget {
     required this.email,
     required this.trackersCount,
     required this.lastActive,
+    required this.onEdit,
   });
 
   @override
@@ -229,18 +388,16 @@ class _UserCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Row: Avatar, Name, Role Badge, and Active Status Badge
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Circular Initials Avatar
               CircleAvatar(
                 radius: 26,
-                backgroundColor: const Color(0xFFDBEAFE), // Light blue background
+                backgroundColor: const Color(0xFFDBEAFE),
                 child: Text(
                   initials,
                   style: const TextStyle(
-                    color: Color(0xFF2563EB), // Darker blue text
+                    color: Color(0xFF2563EB),
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -267,7 +424,6 @@ class _UserCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    // Role Tag (Light blue chip)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -286,11 +442,10 @@ class _UserCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Status Badge ("Active")
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5), // Light green bg
+                  color: const Color(0xFFECFDF5),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -316,8 +471,6 @@ class _UserCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-
-          // Contact Info: Email
           Row(
             children: [
               const Icon(Icons.email, size: 16, color: Color(0xFF94A3B8)),
@@ -336,8 +489,6 @@ class _UserCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-
-          // Trackers & Last Active Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -360,19 +511,16 @@ class _UserCard extends StatelessWidget {
           const SizedBox(height: 12),
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
           const SizedBox(height: 12),
-
-          // Bottom Action Buttons: Edit & Delete
           Row(
             children: [
-              // Edit Button
               Expanded(
                 child: InkWell(
-                  onTap: () {},
+                  onTap: onEdit,
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF), // Soft light blue button
+                      color: const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -394,7 +542,6 @@ class _UserCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              // Delete Button
               Expanded(
                 child: InkWell(
                   onTap: () {},
@@ -402,7 +549,7 @@ class _UserCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2), // Soft light red button
+                      color: const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -450,7 +597,6 @@ class _NotificationsEndDrawer extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 12),
-            // Header Row
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Row(
@@ -489,14 +635,13 @@ class _NotificationsEndDrawer extends StatelessWidget {
                     ),
                     tooltip: 'Close',
                     onPressed: () {
-                      Navigator.of(context).pop(); // Closes the drawer
+                      Navigator.of(context).pop();
                     },
                   ),
                 ],
               ),
             ),
             const Divider(height: 1, color: Color(0xFFF1F5F9)),
-            // List of Notifications
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -547,7 +692,6 @@ class _NotificationsEndDrawer extends StatelessWidget {
   }
 }
 
-// Single Notification Item Component
 class _NotificationTile extends StatelessWidget {
   final IconData icon;
   final Color iconBgColor;

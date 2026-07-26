@@ -1,44 +1,196 @@
 import 'package:flutter/material.dart';
 
-class AdminTrackersTab extends StatelessWidget {
+class AdminTrackersTab extends StatefulWidget {
   const AdminTrackersTab({super.key});
+
+  @override
+  State<AdminTrackersTab> createState() => _AdminTrackersTabState();
+}
+
+class _AdminTrackersTabState extends State<AdminTrackersTab> {
+  // Modal for Add / Edit Tracker
+  void _showTrackerModal({
+    String? trackerName,
+    String? location,
+  }) {
+    final bool isEditing = trackerName != null;
+    final nameController = TextEditingController(text: trackerName ?? '');
+    final locationController = TextEditingController(text: location ?? '');
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: Colors.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isEditing ? 'Edit Tracker' : 'Add New Tracker',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Tracker Name Field
+                  _buildModalInputField(
+                    'Tracker Name',
+                    nameController,
+                    'e.g., Nursing Station',
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Location Field
+                  _buildModalInputField(
+                    'Location',
+                    locationController,
+                    'e.g., Main Building, Floor 2',
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Modal Actions
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF3B62F6),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              isEditing ? 'Edit Tracker' : 'Add Tracker',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildModalInputField(
+    String label,
+    TextEditingController controller,
+    String hint,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF334155),
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            hintText: hint,
+            hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF3B62F6)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Grey background to match the card edges
       backgroundColor: const Color(0xFFF8FAFC),
-      // Right-side sliding notification drawer
       endDrawer: const _NotificationsEndDrawer(),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Top Blue Header Banner
             _buildHeader(context),
-
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // Prominent Add New Button
                   _buildAddNewButton(),
                   const SizedBox(height: 20),
-
-                  // List of Trackers
                   _buildTrackerCard(
                     title: 'Tracker 1',
                     status: 'Active',
-                    location: 'Location',
+                    location: 'Location 1',
                     lastUpdate: '2 min ago',
                   ),
                   const SizedBox(height: 16),
                   _buildTrackerCard(
                     title: 'Tracker 2',
                     status: 'Active',
-                    location: 'Location',
+                    location: 'Location 2',
                     lastUpdate: '5 min ago',
                   ),
-                  const SizedBox(height: 40), // Extra space at bottom
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -48,12 +200,11 @@ class AdminTrackersTab extends StatelessWidget {
     );
   }
 
-  // AETHER Branded Header
   Widget _buildHeader(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
     return Container(
       width: double.infinity,
-      color: const Color(0xFF2B52F3), // Blue background
+      color: const Color(0xFF2B52F3),
       padding: EdgeInsets.only(
         top: topPadding + 16,
         bottom: 15,
@@ -101,7 +252,6 @@ class AdminTrackersTab extends StatelessWidget {
                   ),
                 ],
               ),
-              // Clickable Notification Bell Icon (Opens End Drawer from Right)
               Builder(
                 builder: (innerContext) {
                   return GestureDetector(
@@ -142,17 +292,16 @@ class AdminTrackersTab extends StatelessWidget {
     );
   }
 
-  // Floating Action Button Style Add Tracker
   Widget _buildAddNewButton() {
     return Container(
       width: double.infinity,
       height: 52,
       decoration: BoxDecoration(
-        color: const Color(0xFF2563EB), // Brighter blue
+        color: const Color(0xFF2563EB),
         borderRadius: BorderRadius.circular(14),
         boxShadow: const [
           BoxShadow(
-            color: Color(0xFF1D4ED8), // Dark blue shadow
+            color: Color(0xFF1D4ED8),
           ),
         ],
       ),
@@ -160,7 +309,7 @@ class AdminTrackersTab extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: () {},
+          onTap: () => _showTrackerModal(),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
@@ -181,7 +330,6 @@ class AdminTrackersTab extends StatelessWidget {
     );
   }
 
-  // Generic Tracker Details Card
   Widget _buildTrackerCard({
     required String title,
     required String status,
@@ -206,7 +354,6 @@ class AdminTrackersTab extends StatelessWidget {
         padding: const EdgeInsets.all(18.0),
         child: Column(
           children: [
-            // Top Row: Name and Status
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,7 +370,7 @@ class AdminTrackersTab extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7), // Light green background
+                    color: const Color(0xFFDCFCE7),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFFBBF7D0)),
                   ),
@@ -245,8 +392,6 @@ class AdminTrackersTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-
-            // Middle Row: Location and Timestamp
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -281,13 +426,26 @@ class AdminTrackersTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-
-            // Bottom Buttons
             Row(
               children: [
-                Expanded(child: _buildCardActionButton(icon: Icons.edit_note, label: 'Edit')),
+                Expanded(
+                  child: _buildCardActionButton(
+                    icon: Icons.edit_note,
+                    label: 'Edit',
+                    onTap: () => _showTrackerModal(
+                      trackerName: title,
+                      location: location,
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: _buildCardActionButton(icon: Icons.delete_outline, label: 'Delete')),
+                Expanded(
+                  child: _buildCardActionButton(
+                    icon: Icons.delete_outline,
+                    label: 'Delete',
+                    onTap: () {},
+                  ),
+                ),
               ],
             ),
           ],
@@ -296,12 +454,15 @@ class AdminTrackersTab extends StatelessWidget {
     );
   }
 
-  // Generic Grey Edit/Delete Button inside cards
-  Widget _buildCardActionButton({required IconData icon, required String label}) {
+  Widget _buildCardActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9), // Light grey
+        color: const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
@@ -309,7 +470,7 @@ class AdminTrackersTab extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
-          onTap: () {},
+          onTap: onTap,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -331,7 +492,6 @@ class AdminTrackersTab extends StatelessWidget {
   }
 }
 
-// Right-Side Notifications Drawer
 class _NotificationsEndDrawer extends StatelessWidget {
   const _NotificationsEndDrawer();
 
@@ -351,7 +511,6 @@ class _NotificationsEndDrawer extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 12),
-            // Header Row
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Row(
@@ -382,7 +541,7 @@ class _NotificationsEndDrawer extends StatelessWidget {
                       ),
                     ],
                   ),
-                    IconButton(
+                  IconButton(
                     icon: const Icon(
                       Icons.close,
                       color: Color(0xFF64748B),
@@ -390,14 +549,13 @@ class _NotificationsEndDrawer extends StatelessWidget {
                     ),
                     tooltip: 'Close',
                     onPressed: () {
-                      Navigator.of(context).pop(); // Closes the end drawer
+                      Navigator.of(context).pop();
                     },
                   ),
                 ],
               ),
             ),
             const Divider(height: 1, color: Color(0xFFF1F5F9)),
-            // Notification Items List
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -448,7 +606,6 @@ class _NotificationsEndDrawer extends StatelessWidget {
   }
 }
 
-// Single Notification List Item Tile
 class _NotificationTile extends StatelessWidget {
   final IconData icon;
   final Color iconBgColor;
