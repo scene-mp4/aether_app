@@ -6,8 +6,8 @@
 #include <Adafruit_ADS1X15.h>
 #include <DHT11.h>
 
-const char* WIFI_SSID     = "PLDTHOMEFIBRrMQ32";
-const char* WIFI_PASSWORD = "EDMA4ever2k@";
+const char* WIFI_SSID     = "";
+const char* WIFI_PASSWORD = "";
 
 const char* PROJECT_ID = "pollutracker-bf276";
 const char* TRACKER_ID = "tracker_002";
