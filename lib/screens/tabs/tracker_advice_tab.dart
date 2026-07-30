@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
+import '../../stores/app_data_store.dart';
+import '../../models/tracker_reading.dart';
 
 class TrackerAdviceTab extends StatelessWidget {
-  const TrackerAdviceTab({super.key});
+  final String deviceId;
+  final TrackerReading? reading;
+
+  const TrackerAdviceTab({
+    super.key,
+    required this.deviceId,
+    required this.reading,
+    });
 
   @override
   Widget build(BuildContext context) {

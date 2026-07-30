@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../stores/app_data_store.dart';
+import '../../models/tracker_reading.dart';
 import 'tracker_history_tab.dart';
 import 'tracker_climate_tab.dart';
 import 'tracker_advice_tab.dart';
@@ -20,272 +23,361 @@ class TrackerDetailsPage extends StatefulWidget {
 }
 
 class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
-  int _selectedTabIndex = 0; // Top tab index
-  int _bottomNavIndex = 0;   // Bottom bar index
+  int  _selectedTabIndex      = 0;
+  int  _bottomNavIndex        = 0;
   bool _isAqiReferenceExpanded = false;
 
   final List<String> _tabs = ['Pollutants', 'History', 'Climate', 'Advice'];
 
-  // Colors matching the standard AQI air quality scale
   final List<Color> _scaleColors = const [
-    Color(0xFF4CAF50), // Good (Green)
-    Color(0xFFFFC107), // Moderate (Yellow)
-    Color(0xFFFF9800), // Sensitive/Polluted (Orange)
-    Color(0xFFF44336), // Unhealthy / Very Polluted (Red)
-    Color(0xFF9C27B0), // Very Unhealthy / Severely Polluted (Purple/Brown)
+    Color(0xFF4CAF50),
+    Color(0xFFFFC107),
+    Color(0xFFFF9800),
+    Color(0xFFF44336),
+    Color(0xFF9C27B0),
   ];
 
-  // Pollutant Data Model List with State
-  late List<Map<String, dynamic>> _pollutantData;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializePollutantData();
+  // ── AQI helpers ─────────────────────────────────────────────────────────────
+  Color _aqiColor(int aqi) {
+    if (aqi <= 50)  return const Color(0xFF22C55E);
+    if (aqi <= 100) return const Color(0xFFEAB308);
+    if (aqi <= 150) return const Color(0xFFF97316);
+    if (aqi <= 200) return const Color(0xFFEF4444);
+    if (aqi <= 300) return const Color(0xFF9333EA);
+    return const Color(0xFF7F1D1D);
   }
 
-  void _initializePollutantData() {
-    _pollutantData = [
+  String _aqiLabel(int aqi) {
+    if (aqi <= 50)  return 'Good';
+    if (aqi <= 100) return 'Moderate';
+    if (aqi <= 150) return 'Unhealthy (Sensitive)';
+    if (aqi <= 200) return 'Unhealthy';
+    if (aqi <= 300) return 'Very Unhealthy';
+    return 'Hazardous';
+  }
+
+  String _safeBreathe(int aqi) {
+    if (aqi <= 50)  return 'Safe to Breathe';
+    if (aqi <= 100) return 'Acceptable';
+    if (aqi <= 150) return 'Sensitive Groups';
+    if (aqi <= 200) return 'Limit Exposure';
+    if (aqi <= 300) return 'Avoid Exposure';
+    return 'Evacuate';
+  }
+
+  String _timeAgo(DateTime? dt) {
+    if (dt == null) return 'No readings yet';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inSeconds < 60)  return 'Updated ${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60)  return 'Updated ${diff.inMinutes}m ago';
+    if (diff.inHours < 24)    return 'Updated ${diff.inHours}h ago';
+    return 'Updated ${diff.inDays}d ago';
+  }
+
+  // ── Pollutant card data built from live reading ───────────────────────────
+  List<Map<String, dynamic>> _buildPollutantData(TrackerReading? r) {
+    String fmt(double v, int decimals) =>
+        r == null ? '--' : v.toStringAsFixed(decimals);
+
+    int _pmIndex(double v, List<double> breaks) {
+      for (int i = 0; i < breaks.length; i++) {
+        if (v <= breaks[i]) return i;
+      }
+      return breaks.length;
+    }
+
+    String _pmStatus(int idx) {
+      const labels = ['Good', 'Moderate', 'Polluted', 'Very Polluted', 'Severely Polluted'];
+      return idx < labels.length ? labels[idx] : 'Severely Polluted';
+    }
+
+    Color _pmColor(int idx) {
+      const colors = [
+        Color(0xFF22C55E), Color(0xFFEAB308), Color(0xFFF97316),
+        Color(0xFFEF4444), Color(0xFF7F1D1D),
+      ];
+      return idx < colors.length ? colors[idx] : colors.last;
+    }
+
+    final pm1Idx  = r == null ? 0 : _pmIndex(r.pm1Ugm3,  [14, 34, 61, 95]);
+    final pm25Idx = r == null ? 0 : _pmIndex(r.pm25Ugm3, [20, 50, 90, 140]);
+    final pm10Idx = r == null ? 0 : _pmIndex(r.pm10Ugm3, [30, 75, 125, 200]);
+    final coIdx   = r == null ? 0 : _pmIndex(r.coPpm,    [1.7, 8.7, 10, 15]);
+    final co2Idx  = r == null ? 0 : _pmIndex(r.co2Ppm,   [599, 999, 1499, 2499]);
+    final o3Idx   = r == null ? 0 : _pmIndex(r.o3Ppm * 1000, [50, 100, 150, 200]);
+
+    return [
       {
         "id": "PM1.0",
         "name": "PM1.0",
-        "value": "5.2",
+        "value": fmt(r?.pm1Ugm3 ?? 0, 1),
         "unit": "µg/m³",
-        "status": "Good",
+        "status": _pmStatus(pm1Idx),
+        "statusColor": _pmColor(pm1Idx),
+        "currentRangeIndex": pm1Idx,
         "infoExpanded": false,
         "thresholdExpanded": false,
-        "description":
-            "Ultra-fine particles smaller than 1 micrometer. They penetrate deep into the lungs and may enter the bloodstream.",
+        "description": "Ultra-fine particles smaller than 1 micrometer. They penetrate deep into the lungs and may enter the bloodstream.",
         "goodHeadline": "Good below 14 µg/m³ (ATMO, 2025)",
-        "currentRangeIndex": 0,
         "thresholds": [
-          {"label": "Good", "range": "0–14 µg/m³", "color": const Color(0xFF22C55E)},
-          {"label": "Moderate", "range": "15–34 µg/m³", "color": const Color(0xFFEAB308)},
-          {"label": "Polluted", "range": "35–61 µg/m³", "color": const Color(0xFFF97316)},
-          {"label": "Very Polluted", "range": "62–95 µg/m³", "color": const Color(0xFFEF4444)},
-          {"label": "Severely Polluted", "range": "96+ µg/m³", "color": const Color(0xFF7F1D1D)},
+          {"label": "Good",              "range": "0–14 µg/m³",   "color": const Color(0xFF22C55E)},
+          {"label": "Moderate",          "range": "15–34 µg/m³",  "color": const Color(0xFFEAB308)},
+          {"label": "Polluted",          "range": "35–61 µg/m³",  "color": const Color(0xFFF97316)},
+          {"label": "Very Polluted",     "range": "62–95 µg/m³",  "color": const Color(0xFFEF4444)},
+          {"label": "Severely Polluted", "range": "96+ µg/m³",    "color": const Color(0xFF7F1D1D)},
         ],
       },
       {
         "id": "PM2.5",
         "name": "PM2.5",
-        "value": "9",
+        "value": fmt(r?.pm25Ugm3 ?? 0, 1),
         "unit": "µg/m³",
-        "status": "Good",
+        "status": _pmStatus(pm25Idx),
+        "statusColor": _pmColor(pm25Idx),
+        "currentRangeIndex": pm25Idx,
         "infoExpanded": false,
         "thresholdExpanded": false,
-        "description":
-            "Fine particles smaller than 2.5 micrometers. Linked to respiratory and cardiovascular diseases, especially in older adults.",
+        "description": "Fine particles smaller than 2.5 micrometers. Linked to respiratory and cardiovascular diseases, especially in older adults.",
         "goodHeadline": "Good below 20 µg/m³ (ATMO, 2025)",
-        "currentRangeIndex": 0,
         "thresholds": [
-          {"label": "Good", "range": "0–20 µg/m³", "color": const Color(0xFF22C55E)},
-          {"label": "Moderate", "range": "21–50 µg/m³", "color": const Color(0xFFEAB308)},
-          {"label": "Polluted", "range": "51–90 µg/m³", "color": const Color(0xFFF97316)},
-          {"label": "Very Polluted", "range": "91–140 µg/m³", "color": const Color(0xFFEF4444)},
-          {"label": "Severely Polluted", "range": "141+ µg/m³", "color": const Color(0xFF7F1D1D)},
+          {"label": "Good",              "range": "0–20 µg/m³",   "color": const Color(0xFF22C55E)},
+          {"label": "Moderate",          "range": "21–50 µg/m³",  "color": const Color(0xFFEAB308)},
+          {"label": "Polluted",          "range": "51–90 µg/m³",  "color": const Color(0xFFF97316)},
+          {"label": "Very Polluted",     "range": "91–140 µg/m³", "color": const Color(0xFFEF4444)},
+          {"label": "Severely Polluted", "range": "141+ µg/m³",   "color": const Color(0xFF7F1D1D)},
         ],
       },
       {
         "id": "PM10",
         "name": "PM10",
-        "value": "18.5",
+        "value": fmt(r?.pm10Ugm3 ?? 0, 1),
         "unit": "µg/m³",
-        "status": "Good",
+        "status": _pmStatus(pm10Idx),
+        "statusColor": _pmColor(pm10Idx),
+        "currentRangeIndex": pm10Idx,
         "infoExpanded": false,
         "thresholdExpanded": false,
-        "description":
-            "Coarser particles smaller than 10 micrometers. They irritate the nose, throat, and airways when inhaled.",
+        "description": "Coarser particles smaller than 10 micrometers. They irritate the nose, throat, and airways when inhaled.",
         "goodHeadline": "Good below 30 µg/m³ (ATMO, 2025)",
-        "currentRangeIndex": 0,
         "thresholds": [
-          {"label": "Good", "range": "0–30 µg/m³", "color": const Color(0xFF22C55E)},
-          {"label": "Moderate", "range": "31–75 µg/m³", "color": const Color(0xFFEAB308)},
-          {"label": "Polluted", "range": "76–125 µg/m³", "color": const Color(0xFFF97316)},
-          {"label": "Very Polluted", "range": "126–200 µg/m³", "color": const Color(0xFFEF4444)},
-          {"label": "Severely Polluted", "range": "201+ µg/m³", "color": const Color(0xFF7F1D1D)},
+          {"label": "Good",              "range": "0–30 µg/m³",    "color": const Color(0xFF22C55E)},
+          {"label": "Moderate",          "range": "31–75 µg/m³",   "color": const Color(0xFFEAB308)},
+          {"label": "Polluted",          "range": "76–125 µg/m³",  "color": const Color(0xFFF97316)},
+          {"label": "Very Polluted",     "range": "126–200 µg/m³", "color": const Color(0xFFEF4444)},
+          {"label": "Severely Polluted", "range": "201+ µg/m³",    "color": const Color(0xFF7F1D1D)},
         ],
       },
       {
         "id": "CO",
         "name": "CO",
-        "value": "1.2",
+        "value": fmt(r?.coPpm ?? 0, 1),
         "unit": "ppm",
-        "status": "Good",
+        "status": _pmStatus(coIdx),
+        "statusColor": _pmColor(coIdx),
+        "currentRangeIndex": coIdx,
         "infoExpanded": false,
         "thresholdExpanded": false,
-        "description":
-            "Carbon monoxide — a colorless, odorless gas produced by incomplete combustion. High levels are life-threatening.",
+        "description": "Carbon monoxide — a colorless, odorless gas produced by incomplete combustion. High levels are life-threatening.",
         "goodHeadline": "Good below 1.7 ppm (ATMO, 2025)",
-        "currentRangeIndex": 0,
         "thresholds": [
-          {"label": "Good", "range": "0–1.7 ppm", "color": const Color(0xFF22C55E)},
-          {"label": "Moderate", "range": "1.8–8.7 ppm", "color": const Color(0xFFEAB308)},
-          {"label": "Polluted", "range": "8.8–10 ppm", "color": const Color(0xFFF97316)},
-          {"label": "Very Polluted", "range": "10.1–15 ppm", "color": const Color(0xFFEF4444)},
-          {"label": "Severely Polluted", "range": "15.1–999 ppm", "color": const Color(0xFF7F1D1D)},
+          {"label": "Good",              "range": "0–1.7 ppm",    "color": const Color(0xFF22C55E)},
+          {"label": "Moderate",          "range": "1.8–8.7 ppm",  "color": const Color(0xFFEAB308)},
+          {"label": "Polluted",          "range": "8.8–10 ppm",   "color": const Color(0xFFF97316)},
+          {"label": "Very Polluted",     "range": "10.1–15 ppm",  "color": const Color(0xFFEF4444)},
+          {"label": "Severely Polluted", "range": "15.1+ ppm",    "color": const Color(0xFF7F1D1D)},
         ],
       },
       {
         "id": "CO2",
         "name": "CO₂",
-        "value": "420",
+        "value": fmt(r?.co2Ppm ?? 0, 0),
         "unit": "ppm",
-        "status": "Good",
+        "status": _pmStatus(co2Idx),
+        "statusColor": _pmColor(co2Idx),
+        "currentRangeIndex": co2Idx,
         "infoExpanded": false,
         "thresholdExpanded": false,
-        "description":
-            "Carbon dioxide from breathing. Builds up in rooms with many people and poor ventilation, causing drowsiness and poor concentration.",
+        "description": "Carbon dioxide from breathing. Builds up in rooms with many people and poor ventilation, causing drowsiness.",
         "goodHeadline": "Good below 600 ppm (ATMO, 2025)",
-        "currentRangeIndex": 0,
-        "footnote":
-            "CO₂ is not part of the EPA AQI. Ranges are based on ATMO (2025) indoor air quality guidelines.",
+        "footnote": "CO₂ is not part of the EPA AQI. Ranges based on ATMO (2025) indoor guidelines.",
         "thresholds": [
-          {"label": "Good", "range": "0–599 ppm", "color": const Color(0xFF22C55E)},
-          {"label": "Moderate", "range": "600–999 ppm", "color": const Color(0xFFEAB308)},
-          {"label": "Polluted", "range": "1000–1499 ppm", "color": const Color(0xFFF97316)},
-          {"label": "Very Polluted", "range": "1500–2499 ppm", "color": const Color(0xFFEF4444)},
-          {"label": "Severely Polluted", "range": "2500+ ppm", "color": const Color(0xFF7F1D1D)},
+          {"label": "Good",              "range": "0–599 ppm",    "color": const Color(0xFF22C55E)},
+          {"label": "Moderate",          "range": "600–999 ppm",  "color": const Color(0xFFEAB308)},
+          {"label": "Polluted",          "range": "1000–1499 ppm","color": const Color(0xFFF97316)},
+          {"label": "Very Polluted",     "range": "1500–2499 ppm","color": const Color(0xFFEF4444)},
+          {"label": "Severely Polluted", "range": "2500+ ppm",    "color": const Color(0xFF7F1D1D)},
         ],
       },
       {
         "id": "O3",
         "name": "O₃",
-        "value": "22",
+        // o3_ppm from Cloud Function → convert to ppb for display
+        "value": r == null ? '--' : (r.o3Ppm * 1000).toStringAsFixed(1),
         "unit": "ppb",
-        "status": "Good",
+        "status": _pmStatus(o3Idx),
+        "statusColor": _pmColor(o3Idx),
+        "currentRangeIndex": o3Idx,
         "infoExpanded": false,
         "thresholdExpanded": false,
-        "description":
-            "Ground-level ozone formed by chemical reactions between oxides of nitrogen and volatile organic compounds.",
+        "description": "Ground-level ozone formed by chemical reactions between oxides of nitrogen and volatile organic compounds.",
         "goodHeadline": "Good below 50 ppb (ATMO, 2025)",
-        "currentRangeIndex": 0,
         "thresholds": [
-          {"label": "Good", "range": "0–50 ppb", "color": const Color(0xFF22C55E)},
-          {"label": "Moderate", "range": "51–100 ppb", "color": const Color(0xFFEAB308)},
-          {"label": "Polluted", "range": "101–150 ppb", "color": const Color(0xFFF97316)},
-          {"label": "Very Polluted", "range": "151–200 ppb", "color": const Color(0xFFEF4444)},
-          {"label": "Severely Polluted", "range": "201+ ppb", "color": const Color(0xFF7F1D1D)},
+          {"label": "Good",              "range": "0–50 ppb",   "color": const Color(0xFF22C55E)},
+          {"label": "Moderate",          "range": "51–100 ppb", "color": const Color(0xFFEAB308)},
+          {"label": "Polluted",          "range": "101–150 ppb","color": const Color(0xFFF97316)},
+          {"label": "Very Polluted",     "range": "151–200 ppb","color": const Color(0xFFEF4444)},
+          {"label": "Severely Polluted", "range": "201+ ppb",   "color": const Color(0xFF7F1D1D)},
         ],
       },
     ];
   }
 
+  late List<Map<String, dynamic>> _pollutantData;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initial build with whatever the store already has
+    final store = context.read<AppDataStore>();
+    _pollutantData = _buildPollutantData(store.readingFor(widget.deviceId));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
-      body: CustomScrollView(
-        slivers: [
-          // 1. Blue Top Header
-          SliverToBoxAdapter(
-            child: _buildTopHeader(context),
-          ),
+    return Consumer<AppDataStore>(
+      builder: (context, store, _) {
+        final reading = store.readingFor(widget.deviceId);
 
-          // 2. Sticky Tab Bar
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _StickyTabBarDelegate(
-              selectedTabIndex: _selectedTabIndex,
-              child: _buildTabBar(),
-            ),
-          ),
+        // Rebuild pollutant data whenever the reading changes,
+        // but preserve the infoExpanded / thresholdExpanded toggle state.
+        final newData = _buildPollutantData(reading);
+        for (int i = 0; i < _pollutantData.length && i < newData.length; i++) {
+          newData[i]['infoExpanded']      = _pollutantData[i]['infoExpanded'];
+          newData[i]['thresholdExpanded'] = _pollutantData[i]['thresholdExpanded'];
+        }
+        _pollutantData = newData;
 
-          // 3. Main Body Content
-          SliverToBoxAdapter(
-            child: Padding(
-              // Normal padding: 16px bottom ensures nice spacing above the FAB/BottomBar
-              padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 12.0, bottom: 24.0),
-              child: _selectedTabIndex == 0
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildAqiReferenceCard(),
-                        const SizedBox(height: 12),
-                        _buildCurrentAqiPositionCard(),
-                        const SizedBox(height: 16),
-                        RichText(
-                          text: const TextSpan(
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF64748B),
-                                height: 1.4),
-                            children: [
-                              TextSpan(text: "Tap "),
-                              TextSpan(
-                                text: "More Info ",
+        final iaqi      = reading?.iaqi      ?? 0;
+        final aqiColor  = _aqiColor(iaqi);
+        final aqiLabel  = _aqiLabel(iaqi);
+        final safeLabel = _safeBreathe(iaqi);
+        final updatedAt = _timeAgo(reading?.timestamp);
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF1F5F9),
+          body: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: _buildTopHeader(
+                  context,
+                  iaqi:       iaqi,
+                  aqiColor:   aqiColor,
+                  aqiLabel:   aqiLabel,
+                  safeLabel:  safeLabel,
+                  updatedAt:  updatedAt,
+                ),
+              ),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _StickyTabBarDelegate(
+                  selectedTabIndex: _selectedTabIndex,
+                  child: _buildTabBar(),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                      left: 16, right: 16, top: 12, bottom: 24),
+                  child: _selectedTabIndex == 0
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildAqiReferenceCard(),
+                            const SizedBox(height: 12),
+                            _buildCurrentAqiPositionCard(
+                                iaqi, aqiColor, aqiLabel),
+                            const SizedBox(height: 16),
+                            RichText(
+                              text: const TextSpan(
                                 style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0052FF)),
-                              ),
-                              TextSpan(
-                                  text:
-                                      "on each card to see what the pollutant means and its full threshold scale."),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          "Pollutant thresholds are based on ATMO (2025) indoor air quality classifications.",
-                          style:
-                              TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildPollutantGrid(),
-                        const SizedBox(height: 24),
-                      ],
-                    )
-                  : _selectedTabIndex == 1
-                      ? const TrackerHistoryTab()
-                      : _selectedTabIndex == 2
-                          ? const TrackerClimateTab()
-                          : _selectedTabIndex == 3
-                              ? const TrackerAdviceTab()
-                              : Center(
-                                  child: Text(
-                                    _tabs[_selectedTabIndex],
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      color: Color(0xFF64748B),
-                                    ),
+                                    fontSize: 12,
+                                    color: Color(0xFF64748B),
+                                    height: 1.4),
+                                children: [
+                                  TextSpan(text: "Tap "),
+                                  TextSpan(
+                                    text: "More Info ",
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0052FF)),
                                   ),
+                                  TextSpan(
+                                      text:
+                                          "on each card to see what the pollutant means and its full threshold scale."),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              "Pollutant thresholds are based on ATMO (2025) indoor air quality classifications.",
+                              style: TextStyle(
+                                  fontSize: 10, color: Color(0xFF94A3B8)),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildPollutantGrid(),
+                            const SizedBox(height: 24),
+                          ],
+                        )
+                      : _selectedTabIndex == 1
+                          ? TrackerHistoryTab(deviceId: widget.deviceId)
+                          : _selectedTabIndex == 2
+                              ? TrackerClimateTab(deviceId: widget.deviceId)
+                              : TrackerAdviceTab(
+                                  deviceId: widget.deviceId,
+                                  reading:  reading,
                                 ),
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFF2563EB),
-        shape: const CircleBorder(),
-        child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _bottomNavIndex < 4 ? _bottomNavIndex : 0,
-        selectedItemColor: const Color(0xFF0052FF),
-        unselectedItemColor: const Color(0xFF64748B),
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          setState(() {
-            _bottomNavIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.track_changes), label: "Trackers"),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.analytics_outlined), label: "Summary"),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.stacked_line_chart_rounded), label: "Analytics"),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.settings), label: "Settings"),
-        ],
-      ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {},
+            backgroundColor: const Color(0xFF2563EB),
+            shape: const CircleBorder(),
+            child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+          ),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _bottomNavIndex,
+            selectedItemColor: const Color(0xFF0052FF),
+            unselectedItemColor: const Color(0xFF64748B),
+            type: BottomNavigationBarType.fixed,
+            onTap: (i) => setState(() => _bottomNavIndex = i),
+            items: const [
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.track_changes), label: "Trackers"),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.analytics_outlined), label: "Summary"),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.stacked_line_chart_rounded),
+                  label: "Analytics"),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.settings), label: "Settings"),
+            ],
+          ),
+        );
+      },
     );
   }
-  
-  // Header Section
-  Widget _buildTopHeader(BuildContext context) {
+
+  // ── Top header ─────────────────────────────────────────────────────────────
+  Widget _buildTopHeader(
+    BuildContext context, {
+    required int    iaqi,
+    required Color  aqiColor,
+    required String aqiLabel,
+    required String safeLabel,
+    required String updatedAt,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(left: 16, right: 16, top: 48, bottom: 16),
@@ -293,112 +385,84 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.trackerName,
-                    style: const TextStyle(
+          Row(children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 12),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(widget.trackerName,
+                  style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    widget.location,
-                    style: const TextStyle(fontSize: 12, color: Colors.white70),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                      color: Colors.white)),
+              Text(widget.location,
+                  style: const TextStyle(
+                      fontSize: 12, color: Colors.white70)),
+            ]),
+          ]),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: Colors.white.withOpacity(0.15),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Air Quality Index (AQI)",
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: const [
-                        Text(
-                          "42",
-                          style: TextStyle(
-                            fontSize: 36,
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text("Air Quality Index (AQI)",
+                      style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text('$iaqi',
+                          style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white)),
+                      const SizedBox(width: 8),
+                      Text('— $aqiLabel',
+                          style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                ]),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                        color: aqiColor,
+                        borderRadius: BorderRadius.circular(20)),
+                    child: Text(safeLabel,
+                        style: const TextStyle(
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          "— Good",
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF22C55E),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        "Safe to Breathe",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      "Updated 2 min ago",
-                      style: TextStyle(color: Colors.white70, fontSize: 10),
-                    ),
-                  ],
-                )
+                            fontSize: 12)),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(updatedAt,
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 10)),
+                ]),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
-  // Custom Sticky Tab Bar
+  // ── Tab bar ────────────────────────────────────────────────────────────────
   Widget _buildTabBar() {
     return Container(
       color: Colors.white,
@@ -408,13 +472,10 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         children: List.generate(_tabs.length, (index) {
           final isSelected = _selectedTabIndex == index;
           return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedTabIndex = index;
-              });
-            },
+            onTap: () => setState(() => _selectedTabIndex = index),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFFEFF6FF)
@@ -439,380 +500,252 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
     );
   }
 
-  // Multi Segment Bar Helper Widget for Reference Cards
-  Widget _buildMultiSegmentBar({
-    required double height,
-    required int highlightIndex,
-    required List<Color> colors,
-  }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(height / 2),
-      child: Row(
-        children: List.generate(colors.length, (index) {
-          return Expanded(
-            child: Container(
-              height: height,
-              margin: EdgeInsets.only(
-                right: index < colors.length - 1 ? 2.0 : 0.0,
-              ),
-              color: colors[index],
-            ),
-          );
-        }),
-      ),
-    );
-  }
+  // ── AQI position card ──────────────────────────────────────────────────────
+  Widget _buildCurrentAqiPositionCard(
+      int iaqi, Color aqiColor, String aqiLabel) {
+    // Which segment is highlighted (0–5)
+    int highlightIndex;
+    if (iaqi <= 50)       highlightIndex = 0;
+    else if (iaqi <= 100) highlightIndex = 1;
+    else if (iaqi <= 150) highlightIndex = 2;
+    else if (iaqi <= 200) highlightIndex = 3;
+    else if (iaqi <= 300) highlightIndex = 4;
+    else                  highlightIndex = 5;
 
-  // AQI Category Reference Card
-  Widget _buildAqiReferenceCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () {
-              setState(() {
-                _isAqiReferenceExpanded = !_isAqiReferenceExpanded;
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.info_outline,
-                          size: 18, color: Color(0xFF2563EB)),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          "AQI Category Reference (US EPA 2024)",
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155),
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        _isAqiReferenceExpanded
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        color: const Color(0xFF64748B),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildMultiSegmentBar(
-                    height: 6,
-                    highlightIndex: -1,
-                    colors: _scaleColors,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_isAqiReferenceExpanded)
-            Padding(
-              padding: const EdgeInsets.only(
-                  left: 12.0, right: 12.0, bottom: 12.0),
-              child: Column(
-                children: [
-                  const SizedBox(height: 4),
-                  _buildAqiCategoryItem(
-                    title: "Good",
-                    range: "AQI 0–50",
-                    description:
-                        "Little to no health risk. Air quality is satisfactory.",
-                    dotColor: const Color(0xFF4CAF50),
-                    bgColor: const Color(0xFFF0FDF4),
-                    borderColor: const Color(0xFFBBF7D0),
-                    badgeBgColor: const Color(0xFFDCFCE7),
-                    badgeTextColor: const Color(0xFF166534),
-                  ),
-                  _buildAqiCategoryItem(
-                    title: "Moderate",
-                    range: "AQI 51–100",
-                    description:
-                        "Generally acceptable, but may concern unusually sensitive individuals.",
-                    dotColor: const Color(0xFFD97706),
-                    bgColor: const Color(0xFFFEFCE8),
-                    borderColor: const Color(0xFFFEF08A),
-                    badgeBgColor: const Color(0xFFFEF08A),
-                    badgeTextColor: const Color(0xFF854D0E),
-                  ),
-                  _buildAqiCategoryItem(
-                    title: "Unhealthy for Sensitive Groups",
-                    range: "AQI 101–150",
-                    description:
-                        "Older adults, children, and people with respiratory or heart conditions may be affected.",
-                    dotColor: const Color(0xFFEA580C),
-                    bgColor: const Color(0xFFFFF7ED),
-                    borderColor: const Color(0xFFFFEDD5),
-                    badgeBgColor: const Color(0xFFFFEDD5),
-                    badgeTextColor: const Color(0xFF9A3412),
-                  ),
-                  _buildAqiCategoryItem(
-                    title: "Unhealthy",
-                    range: "AQI 151–200",
-                    description:
-                        "General public may begin to experience health effects.",
-                    dotColor: const Color(0xFFDC2626),
-                    bgColor: const Color(0xFFFEF2F2),
-                    borderColor: const Color(0xFFFECACA),
-                    badgeBgColor: const Color(0xFFFEE2E2),
-                    badgeTextColor: const Color(0xFF991B1B),
-                  ),
-                  _buildAqiCategoryItem(
-                    title: "Very Unhealthy",
-                    range: "AQI 201–300",
-                    description:
-                        "Health warnings of emergency conditions. Everyone is at increased risk.",
-                    dotColor: const Color(0xFF9333EA),
-                    bgColor: const Color(0xFFFAF5FF),
-                    borderColor: const Color(0xFFE9D5FF),
-                    badgeBgColor: const Color(0xFFF3E8FF),
-                    badgeTextColor: const Color(0xFF6B21A8),
-                  ),
-                  _buildAqiCategoryItem(
-                    title: "Hazardous",
-                    range: "AQI 301+",
-                    description:
-                        "Emergency conditions. Entire population is likely to be seriously affected.",
-                    dotColor: const Color(0xFF7F1D1D),
-                    bgColor: const Color(0xFFFEF2F2),
-                    borderColor: const Color(0xFFFECACA),
-                    badgeBgColor: const Color(0xFF7F1D1D),
-                    badgeTextColor: Colors.white,
-                  ),
-                  const SizedBox(height: 8),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Source: United States Environmental Protection Agency (2024)",
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontStyle: FontStyle.italic,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAqiCategoryItem({
-    required String title,
-    required String range,
-    required String description,
-    required Color dotColor,
-    required Color bgColor,
-    required Color borderColor,
-    required Color badgeBgColor,
-    required Color badgeTextColor,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: borderColor, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration:
-                    BoxDecoration(color: dotColor, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: dotColor),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: badgeBgColor,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  range,
-                  style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: badgeTextColor),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.only(left: 20),
-            child: Text(
-              description,
-              style: const TextStyle(
-                  fontSize: 11, color: Color(0xFF475569), height: 1.3),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Current AQI Position Card
-  Widget _buildCurrentAqiPositionCard() {
-    const int highlightIndex = 0; // 0-indexed position (0 = Good)
-    const String aqiLabel = "AQI 42 — Good";
-    const Color activeColor = Color(0xFF22C55E); // Green
-
-    final List<Color> segmentColors = [
-      const Color(0xFF4ADE80), // Active segment color (Good)
-      const Color(0xFFFEF08A), // Moderate (Light Yellow)
-      const Color(0xFFFED7AA), // Polluted / Sensitive (Light Orange)
-      const Color(0xFFFECDD3), // Very Polluted / Unhealthy (Light Red)
-      const Color(0xFFF3E8FF), // Severely Polluted (Light Purple)
-      const Color(0xFFE2E8F0), // Hazardous (Light Slate/Grey)
+    final List<Color> segmentColors = const [
+      Color(0xFF4ADE80),
+      Color(0xFFFEF08A),
+      Color(0xFFFED7AA),
+      Color(0xFFFECDD3),
+      Color(0xFFF3E8FF),
+      Color(0xFFE2E8F0),
     ];
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "${widget.trackerName} — Current AQI position",
             style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-              fontWeight: FontWeight.w400,
-            ),
+                fontSize: 12,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w400),
           ),
           const SizedBox(height: 10),
-          
-          // 1. Segmented Bar with rounded outer edges
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Row(
-              children: List.generate(segmentColors.length, (index) {
-                return Expanded(
-                  child: Container(
-                    height: 12,
-                    margin: EdgeInsets.only(
-                      right: index < segmentColors.length - 1 ? 2.0 : 0.0,
+              children: List.generate(segmentColors.length, (index) =>
+                  Expanded(
+                    child: Container(
+                      height: 12,
+                      margin: EdgeInsets.only(
+                          right: index < segmentColors.length - 1 ? 2.0 : 0.0),
+                      color: segmentColors[index],
                     ),
-                    color: segmentColors[index],
-                  ),
-                );
-              }),
+                  )),
             ),
           ),
           const SizedBox(height: 6),
-
-          // 2. Indicator Dot
           Row(
-            children: List.generate(segmentColors.length, (index) {
-              return Expanded(
-                child: Center(
-                  child: index == highlightIndex
-                      ? Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: activeColor,
-                            shape: BoxShape.circle,
-                          ),
-                        )
-                      : const SizedBox(height: 7),
-                ),
-              );
-            }),
+            children: List.generate(segmentColors.length, (index) =>
+                Expanded(
+                  child: Center(
+                    child: index == highlightIndex
+                        ? Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                                color: aqiColor, shape: BoxShape.circle),
+                          )
+                        : const SizedBox(height: 7),
+                  ),
+                )),
           ),
           const SizedBox(height: 4),
-
-          // 3. Status Label
-          const Text(
-            aqiLabel,
+          Text(
+            "AQI $iaqi — $aqiLabel",
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: activeColor,
-            ),
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: aqiColor),
           ),
         ],
       ),
     );
   }
 
-  // Pollutant Grid
-  Widget _buildPollutantGrid() {
-    List<Widget> leftColumn = [];
-    List<Widget> rightColumn = [];
+  // ── AQI reference card (unchanged from original) ──────────────────────────
+  Widget _buildAqiReferenceCard() {
+    return Container(
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      child: Column(children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(
+              () => _isAqiReferenceExpanded = !_isAqiReferenceExpanded),
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(children: [
+              Row(children: [
+                const Icon(Icons.info_outline,
+                    size: 18, color: Color(0xFF2563EB)),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    "AQI Category Reference (US EPA 2024)",
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF334155)),
+                  ),
+                ),
+                Icon(
+                  _isAqiReferenceExpanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: const Color(0xFF64748B),
+                ),
+              ]),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: Row(
+                  children: _scaleColors.map((c) => Expanded(
+                        child: Container(height: 6, color: c),
+                      )).toList(),
+                ),
+              ),
+            ]),
+          ),
+        ),
+        if (_isAqiReferenceExpanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
+            child: Column(children: [
+              const SizedBox(height: 4),
+              _aqiCategoryItem("Good", "AQI 0–50",
+                  "Little to no health risk.",
+                  const Color(0xFF4CAF50), const Color(0xFFF0FDF4),
+                  const Color(0xFFBBF7D0), const Color(0xFFDCFCE7), const Color(0xFF166534)),
+              _aqiCategoryItem("Moderate", "AQI 51–100",
+                  "Generally acceptable, but may concern unusually sensitive individuals.",
+                  const Color(0xFFD97706), const Color(0xFFFEFCE8),
+                  const Color(0xFFFEF08A), const Color(0xFFFEF08A), const Color(0xFF854D0E)),
+              _aqiCategoryItem("Unhealthy for Sensitive Groups", "AQI 101–150",
+                  "Older adults, children, and people with respiratory or heart conditions may be affected.",
+                  const Color(0xFFEA580C), const Color(0xFFFFF7ED),
+                  const Color(0xFFFFEDD5), const Color(0xFFFFEDD5), const Color(0xFF9A3412)),
+              _aqiCategoryItem("Unhealthy", "AQI 151–200",
+                  "General public may begin to experience health effects.",
+                  const Color(0xFFDC2626), const Color(0xFFFEF2F2),
+                  const Color(0xFFFECACA), const Color(0xFFFEE2E2), const Color(0xFF991B1B)),
+              _aqiCategoryItem("Very Unhealthy", "AQI 201–300",
+                  "Health warnings of emergency conditions.",
+                  const Color(0xFF9333EA), const Color(0xFFFAF5FF),
+                  const Color(0xFFE9D5FF), const Color(0xFFF3E8FF), const Color(0xFF6B21A8)),
+              _aqiCategoryItem("Hazardous", "AQI 301+",
+                  "Emergency conditions. Entire population likely seriously affected.",
+                  const Color(0xFF7F1D1D), const Color(0xFFFEF2F2),
+                  const Color(0xFFFECACA), const Color(0xFF7F1D1D), Colors.white),
+              const SizedBox(height: 8),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Source: United States Environmental Protection Agency (2024)",
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontStyle: FontStyle.italic,
+                      color: Color(0xFF94A3B8)),
+                ),
+              ),
+            ]),
+          ),
+      ]),
+    );
+  }
 
+  Widget _aqiCategoryItem(
+      String title, String range, String desc,
+      Color dot, Color bg, Color border, Color badgeBg, Color badgeText) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+          const SizedBox(width: 8),
+          Text(title,
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.bold, color: dot)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+                color: badgeBg, borderRadius: BorderRadius.circular(4)),
+            child: Text(range,
+                style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: badgeText)),
+          ),
+        ]),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.only(left: 20),
+          child: Text(desc,
+              style: const TextStyle(
+                  fontSize: 11, color: Color(0xFF475569), height: 1.3)),
+        ),
+      ]),
+    );
+  }
+
+  // ── Pollutant grid ─────────────────────────────────────────────────────────
+  Widget _buildPollutantGrid() {
+    List<Widget> left = [], right = [];
     for (int i = 0; i < _pollutantData.length; i++) {
-      Widget card = _buildPollutantCard(_pollutantData[i]);
+      final card = _buildPollutantCard(_pollutantData[i]);
       if (i % 2 == 0) {
-        leftColumn.add(card);
-        leftColumn.add(const SizedBox(height: 12));
+        left.add(card);
+        left.add(const SizedBox(height: 12));
       } else {
-        rightColumn.add(card);
-        rightColumn.add(const SizedBox(height: 12));
+        right.add(card);
+        right.add(const SizedBox(height: 12));
       }
     }
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            children: leftColumn,
-          ),
-        ),
+        Expanded(child: Column(children: left)),
         const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            children: rightColumn,
-          ),
-        ),
+        Expanded(child: Column(children: right)),
       ],
     );
   }
 
-  // Pollutant Card with View Threshold Scale Dropdown
   Widget _buildPollutantCard(Map<String, dynamic> item) {
-    final bool isInfoExpanded = item["infoExpanded"] ?? false;
-    final bool isThresholdExpanded = item["thresholdExpanded"] ?? false;
+    final bool  isInfoExpanded      = item["infoExpanded"]      ?? false;
+    final bool  isThresholdExpanded = item["thresholdExpanded"] ?? false;
+    final Color statusColor         = item["statusColor"]       ?? const Color(0xFF22C55E);
 
-    // Standard scale colors
     final List<Color> miniBarColors = const [
-      Color(0xFF4ADE80),
-      Color(0xFFFEF08A),
-      Color(0xFFFED7AA),
-      Color(0xFFFECDD3),
-      Color(0xFFE2E8F0),
+      Color(0xFF4ADE80), Color(0xFFFEF08A), Color(0xFFFED7AA),
+      Color(0xFFFECDD3), Color(0xFFE2E8F0),
     ];
 
     return Container(
@@ -826,31 +759,23 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header Row: Title & More Info Button
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(
-                  item["name"],
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
+                child: Text(item["name"],
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B))),
               ),
               InkWell(
                 borderRadius: BorderRadius.circular(10),
-                onTap: () {
-                  setState(() {
-                    item["infoExpanded"] = !isInfoExpanded;
-                    if (!item["infoExpanded"]) {
-                      item["thresholdExpanded"] = false;
-                    }
-                  });
-                },
+                onTap: () => setState(() {
+                  item["infoExpanded"] = !isInfoExpanded;
+                  if (!item["infoExpanded"]) item["thresholdExpanded"] = false;
+                }),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -860,157 +785,110 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                         : const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.info_outline,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.info_outline,
                         size: 11,
                         color: isInfoExpanded
                             ? Colors.white
-                            : const Color(0xFF2563EB),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        "More Info",
+                            : const Color(0xFF2563EB)),
+                    const SizedBox(width: 3),
+                    Text("More Info",
                         style: TextStyle(
-                          fontSize: 9,
-                          color: isInfoExpanded
-                              ? Colors.white
-                              : const Color(0xFF2563EB),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
+                            fontSize: 9,
+                            color: isInfoExpanded
+                                ? Colors.white
+                                : const Color(0xFF2563EB),
+                            fontWeight: FontWeight.bold)),
+                  ]),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-
-          // Current Value
-          Text(
-            item["value"],
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          Text(
-            item["unit"],
-            style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
-          ),
+          Text(item["value"],
+              style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A))),
+          Text(item["unit"],
+              style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
           const SizedBox(height: 6),
-
-          // Status Badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFFDCFCE7),
+              color: statusColor.withOpacity(0.15),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              item["status"],
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF15803D),
-              ),
-            ),
+            child: Text(item["status"],
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor)),
           ),
           const SizedBox(height: 8),
-
-          // Mini Segment Bar
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: Row(
-              children: List.generate(miniBarColors.length, (index) {
-                return Expanded(
-                  child: Container(
-                    height: 8,
-                    margin: EdgeInsets.only(
-                      right: index < miniBarColors.length - 1 ? 1.5 : 0.0,
+              children: List.generate(miniBarColors.length, (i) => Expanded(
+                    child: Container(
+                      height: 8,
+                      margin: EdgeInsets.only(
+                          right: i < miniBarColors.length - 1 ? 1.5 : 0),
+                      color: miniBarColors[i],
                     ),
-                    color: miniBarColors[index],
-                  ),
-                );
-              }),
+                  )),
             ),
           ),
           const SizedBox(height: 2),
-
-          // Mini Indicator Dot & Text
-          Row(
-            children: [
-              const SizedBox(width: 4),
-              Container(
+          Row(children: [
+            const SizedBox(width: 4),
+            Container(
                 width: 5,
                 height: 5,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF22C55E),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
-          ),
-          const Text(
-            "Good",
-            style: TextStyle(
-              fontSize: 9,
-              color: Color(0xFF16A34A),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+                decoration: BoxDecoration(
+                    color: statusColor, shape: BoxShape.circle)),
+          ]),
+          Text(item["status"],
+              style: TextStyle(
+                  fontSize: 9,
+                  color: statusColor,
+                  fontWeight: FontWeight.bold)),
 
-          // Expanded Details ("More Info" Content)
           if (isInfoExpanded) ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(10),
-              ),
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10)),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item["description"] ?? "",
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF1E3A8A),
-                      height: 1.3,
-                    ),
-                  ),
-                  if (item["goodHeadline"] != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      item["goodHeadline"],
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1D4ED8),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item["description"] ?? "",
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF1E3A8A),
+                            height: 1.3)),
+                    if (item["goodHeadline"] != null) ...[
+                      const SizedBox(height: 6),
+                      Text(item["goodHeadline"],
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1D4ED8))),
+                    ],
+                  ]),
             ),
             const SizedBox(height: 10),
-
-            // Dropdown Button: View Threshold Scale
             InkWell(
               borderRadius: BorderRadius.circular(8),
-              onTap: () {
-                setState(() {
-                  item["thresholdExpanded"] = !isThresholdExpanded;
-                });
-              },
+              onTap: () => setState(
+                  () => item["thresholdExpanded"] = !isThresholdExpanded),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(8),
@@ -1019,14 +897,11 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      "View Threshold Scale",
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF334155),
-                      ),
-                    ),
+                    const Text("View Threshold Scale",
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155))),
                     Icon(
                       isThresholdExpanded
                           ? Icons.keyboard_arrow_up
@@ -1038,19 +913,14 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                 ),
               ),
             ),
-
-            // Threshold Scale Range List
             if (isThresholdExpanded) ...[
               const SizedBox(height: 10),
-              const Text(
-                "THRESHOLD RANGES",
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF64748B),
-                  letterSpacing: 0.5,
-                ),
-              ),
+              const Text("THRESHOLD RANGES",
+                  style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF64748B),
+                      letterSpacing: 0.5)),
               const SizedBox(height: 6),
               if (item["thresholds"] != null)
                 Column(
@@ -1060,7 +930,6 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                       final t = item["thresholds"][index];
                       final bool isCurrent =
                           index == (item["currentRangeIndex"] ?? -1);
-
                       return Container(
                         margin: const EdgeInsets.only(bottom: 6),
                         padding: const EdgeInsets.symmetric(
@@ -1075,89 +944,69 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                                   color: const Color(0xFF86EFAC), width: 1)
                               : null,
                         ),
-                        child: Row(
-                          children: [
-                            Container(
+                        child: Row(children: [
+                          Container(
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: t["color"] ?? Colors.grey,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              t["label"] ?? "",
+                                  color: t["color"] ?? Colors.grey,
+                                  shape: BoxShape.circle)),
+                          const SizedBox(width: 6),
+                          Text(t["label"] ?? "",
                               style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: isCurrent
-                                    ? FontWeight.bold
-                                    : FontWeight.w500,
-                                color: const Color(0xFF334155),
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              t["range"] ?? "",
+                                  fontSize: 10,
+                                  fontWeight: isCurrent
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  color: const Color(0xFF334155))),
+                          const Spacer(),
+                          Text(t["range"] ?? "",
                               style: TextStyle(
-                                fontSize: 9,
-                                color: isCurrent
-                                    ? const Color(0xFF166534)
-                                    : const Color(0xFF64748B),
-                                fontWeight: isCurrent
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                            if (isCurrent) ...[
-                              const SizedBox(width: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 4, vertical: 1),
-                                decoration: BoxDecoration(
+                                  fontSize: 9,
+                                  color: isCurrent
+                                      ? const Color(0xFF166534)
+                                      : const Color(0xFF64748B),
+                                  fontWeight: isCurrent
+                                      ? FontWeight.bold
+                                      : FontWeight.normal)),
+                          if (isCurrent) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
                                   color: const Color(0xFFDCFCE7),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  "← Now",
+                                  borderRadius: BorderRadius.circular(4)),
+                              child: const Text("← Now",
                                   style: TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF15803D),
-                                  ),
-                                ),
-                              ),
-                            ]
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF15803D))),
+                            ),
                           ],
-                        ),
+                        ]),
                       );
                     },
                   ),
                 ),
               if (item["footnote"] != null) ...[
                 const SizedBox(height: 4),
-                Text(
-                  item["footnote"],
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontStyle: FontStyle.italic,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ),
+                Text(item["footnote"],
+                    style: const TextStyle(
+                        fontSize: 9,
+                        fontStyle: FontStyle.italic,
+                        color: Color(0xFF94A3B8))),
               ],
               const SizedBox(height: 2),
               const Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  "Source: ATMO (2025)",
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontStyle: FontStyle.italic,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ),
+                child: Text("Source: ATMO (2025)",
+                    style: TextStyle(
+                        fontSize: 9,
+                        fontStyle: FontStyle.italic,
+                        color: Color(0xFF94A3B8))),
               ),
-            ]
+            ],
           ],
         ],
       ),
@@ -1165,33 +1014,22 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
   }
 }
 
-// Delegate for Sticky TabBar
-// Delegate for Sticky TabBar
+// ── Sticky tab bar delegate (unchanged) ───────────────────────────────────────
 class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
-  final int selectedTabIndex; // Add active tab index tracker
+  final int    selectedTabIndex;
 
-  _StickyTabBarDelegate({
-    required this.child,
-    required this.selectedTabIndex,
-  });
+  _StickyTabBarDelegate(
+      {required this.child, required this.selectedTabIndex});
 
   @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return child;
-  }
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      child;
+
+  @override double get maxExtent => 48.0;
+  @override double get minExtent => 48.0;
 
   @override
-  double get maxExtent => 48.0;
-
-  @override
-  double get minExtent => 48.0;
-
-  @override
-  bool shouldRebuild(covariant _StickyTabBarDelegate oldDelegate) {
-    // Rebuild when active tab index or child changes so UI updates immediately
-    return oldDelegate.selectedTabIndex != selectedTabIndex ||
-        oldDelegate.child != child;
-  }
+  bool shouldRebuild(covariant _StickyTabBarDelegate old) =>
+      old.selectedTabIndex != selectedTabIndex || old.child != child;
 }

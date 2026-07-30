@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
 class TrackerClimateTab extends StatefulWidget {
-  const TrackerClimateTab({super.key});
+  final String deviceId;
+
+  const TrackerClimateTab({
+    super.key,
+    required this.deviceId,
+    });
 
   @override
   State<TrackerClimateTab> createState() => _TrackerClimateTabState();

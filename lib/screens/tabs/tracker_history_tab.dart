@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
 class TrackerHistoryTab extends StatefulWidget {
-  const TrackerHistoryTab({super.key});
+  final String deviceId;
+
+  const TrackerHistoryTab({
+    super.key,
+    required this.deviceId,
+
+    });
 
   @override
   State<TrackerHistoryTab> createState() => _TrackerHistoryTabState();
