@@ -7,15 +7,17 @@ import 'package:pollutracker_app/screens/admin_tabs/admin_users.dart';
 // Contains the bottom navigation bar for the admin side. All other tabs will be in separate files, and when a tab is pressed on the bottom navigation bar, the current screen should change.
 // TODO: 
 
-class AdminBottomNavbar extends StatefulWidget{
+class AdminBottomNavbar extends StatefulWidget {
+  const AdminBottomNavbar({super.key});
+
   @override
-  _AdminBottomNavbarState createState() => _AdminBottomNavbarState();
+  State<AdminBottomNavbar> createState() => AdminBottomNavbarState();
 }
 
-class _AdminBottomNavbarState extends State<AdminBottomNavbar> {
-int _currentIndex = 1;
+class AdminBottomNavbarState extends State<AdminBottomNavbar> {
+  int _currentIndex = 1;
 
-final List<Widget> tabs = [
+  final List<Widget> tabs = [
   AdminDashboardTab(),
   AdminTrackersTab(),
   AdminUsersTab(),
