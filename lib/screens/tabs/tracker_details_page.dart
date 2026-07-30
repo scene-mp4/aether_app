@@ -4,13 +4,15 @@ import 'tracker_climate_tab.dart';
 import 'tracker_advice_tab.dart';
 
 class TrackerDetailsPage extends StatefulWidget {
+  final String deviceId;
   final String trackerName;
   final String location;
 
   const TrackerDetailsPage({
     super.key,
-    this.trackerName = 'Tracker Name',
-    this.location = 'Location',
+    required this.deviceId,
+    required this.trackerName,
+    required this.location,
   });
 
   @override
