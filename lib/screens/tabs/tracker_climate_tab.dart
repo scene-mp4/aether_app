@@ -1,419 +1,562 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../stores/app_data_store.dart';
+import '../../models/tracker_reading.dart';
+import '../../models/tracker_history.dart';
+import 'tracker_history_tab.dart' show ChartPainter;
 
 class TrackerClimateTab extends StatefulWidget {
   final String deviceId;
-
-  const TrackerClimateTab({
-    super.key,
-    required this.deviceId,
-    });
+  const TrackerClimateTab({super.key, required this.deviceId});
 
   @override
   State<TrackerClimateTab> createState() => _TrackerClimateTabState();
 }
 
 class _TrackerClimateTabState extends State<TrackerClimateTab> {
-  // Independent expand/collapse states for Temperature and Humidity cards
-  bool _isTempExpanded = false;
-  bool _isHumidityExpanded = false;
+  int  _tempDays = 1;
+  int  _humDays  = 1;
+  bool _fetchTriggered = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_fetchTriggered) {
+      _fetchTriggered = true;
+      Future.microtask(() {
+        if (mounted) {
+          context.read<AppDataStore>().fetchHistory(
+            widget.deviceId,
+            days: 1,
+          );
+        }
+      });
+    }
+  }
+
+  void _refetch(int days) {
+    context.read<AppDataStore>().fetchHistory(
+      widget.deviceId,
+      days: days,
+      forceRefresh: true,
+    );
+  }
+
+  List<TrackerReading> _subsample(List<TrackerReading> r, {int max = 30}) {
+    if (r.length <= max) return r;
+    final step = (r.length / max).ceil();
+    final out  = <TrackerReading>[];
+    for (int i = 0; i < r.length; i += step) out.add(r[i]);
+    return out;
+  }
+
+  List<double> _normalise(List<TrackerReading> r,
+      double Function(TrackerReading) pick, double maxVal) {
+    if (r.isEmpty) return const [0.0];
+    return r.map((x) {
+      final v = pick(x).clamp(0.0, maxVal);
+      return maxVal > 0 ? v / maxVal : 0.0;
+    }).toList();
+  }
+
+  List<String> _xLabels(List<TrackerReading> r, int days) {
+    if (r.isEmpty) return const ['--'];
+    const want = 5;
+    final step = (r.length / want).ceil().clamp(1, r.length);
+    final out  = <String>[];
+    for (int i = 0; i < r.length; i += step) {
+      final dt = r[i].timestamp;
+      out.add(days == 1
+          ? '${dt.hour.toString().padLeft(2, '0')}:00'
+          : '${dt.month}/${dt.day}');
+    }
+    return out;
+  }
+
+  // ── Status helpers ────────────────────────────────────────────────────────
+  String _tempStatus(double t) {
+    if (t < 10)            return 'Extreme Cold';
+    if (t < 18)            return 'Cool';
+    if (t <= 30)           return 'Comfort';
+    if (t <= 35)           return 'Warm';
+    return                        'Extreme Heat';
+  }
+
+  Color _tempColor(double t) {
+    if (t < 10)  return const Color(0xFF3B82F6);
+    if (t < 18)  return const Color(0xFF60A5FA);
+    if (t <= 30) return const Color(0xFF22C55E);
+    if (t <= 35) return const Color(0xFFEAB308);
+    return const Color(0xFFEF4444);
+  }
+
+  String _humStatus(double h) {
+    if (h < 20)  return 'Very Dry';
+    if (h < 30)  return 'Dry';
+    if (h <= 60) return 'Ideal';
+    if (h <= 80) return 'Moderate';
+    return              'High Risk';
+  }
+
+  Color _humColor(double h) {
+    if (h < 20)  return const Color(0xFFEF4444);
+    if (h < 30)  return const Color(0xFFEAB308);
+    if (h <= 60) return const Color(0xFF22C55E);
+    if (h <= 80) return const Color(0xFFEAB308);
+    return const Color(0xFFEF4444);
+  }
+
+  String _absHumStatus(double a) {
+    if (a < 6)   return 'Very Dry';
+    if (a <= 10) return 'Comfortable Dry';
+    if (a <= 14) return 'Comfortable';
+    if (a <= 18) return 'Humid';
+    return              'Very Humid';
+  }
+
+  String _heatIdxStatus(double h) {
+    if (h < 27)  return 'Comfortable';
+    if (h <= 32) return 'Caution';
+    if (h <= 39) return 'Extreme Caution';
+    if (h <= 51) return 'Danger';
+    return              'Extreme Danger';
+  }
+
+  Color _heatIdxColor(double h) {
+    if (h < 27)  return const Color(0xFF22C55E);
+    if (h <= 32) return const Color(0xFFEAB308);
+    if (h <= 39) return const Color(0xFFF97316);
+    if (h <= 51) return const Color(0xFFEF4444);
+    return const Color(0xFF7F1D1D);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 1. Temperature Card
-        _buildMetricCard(
-          icon: Icons.thermostat_outlined,
-          iconColor: const Color(0xFFEA580C),
-          title: "Temperature",
-          value: "25.5°C",
-          statusText: "Very Comfortable",
-          statusBgColor: const Color(0xFFDCFCE7),
-          statusTextColor: const Color(0xFF15803D),
-          subText: "Very Comfortable: 20–25.9°C",
-          isExpanded: _isTempExpanded,
-          onToggleInfo: () {
-            setState(() {
-              _isTempExpanded = !_isTempExpanded;
-            });
-          },
-          infoContent: _buildTemperatureInfoContent(),
-        ),
-        const SizedBox(height: 12),
+    return Consumer<AppDataStore>(
+      builder: (context, store, _) {
+        final reading = store.readingFor(widget.deviceId);
+        final history = store.historyFor(widget.deviceId);
+        final loading = store.historyLoadingFor(widget.deviceId);
 
-        // 2. Humidity Card
-        _buildMetricCard(
-          icon: Icons.water_drop_outlined,
-          iconColor: const Color(0xFF0284C7),
-          title: "Humidity",
-          value: "55%",
-          statusText: "Comfortable",
-          statusBgColor: const Color(0xFFDCFCE7),
-          statusTextColor: const Color(0xFF15803D),
-          subText: "Very Comfortable: 40–49.9%",
-          isExpanded: _isHumidityExpanded,
-          onToggleInfo: () {
-            setState(() {
-              _isHumidityExpanded = !_isHumidityExpanded;
-            });
-          },
-          infoContent: _buildHumidityInfoContent(),
-        ),
-        const SizedBox(height: 16),
+        final temp    = reading?.temperatureC   ?? 0.0;
+        final hum     = reading?.humidityPct    ?? 0.0;
+        final absHum  = reading?.absHumidityGm3 ?? 0.0;
+        final heatIdx = reading?.heatIndexC     ?? 0.0;
+        final hasData = reading != null;
 
-        // 3. Climate History Chart Card
-        _buildClimateHistoryCard(),
-        const SizedBox(height: 16),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
 
-        // 4. Climate Recommendations Card
-        _buildRecommendationsCard(),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
+            // ── Current climate metrics grid ──────────────────────────────
+            _buildCurrentMetricsCard(hasData, temp, hum, absHum, heatIdx),
+            const SizedBox(height: 16),
 
-  // --- REUSABLE METRIC CARD ---
-  Widget _buildMetricCard({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String value,
-    required String statusText,
-    required Color statusBgColor,
-    required Color statusTextColor,
-    required String subText,
-    required bool isExpanded,
-    required VoidCallback onToggleInfo,
-    required Widget infoContent,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, color: iconColor, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ],
-              ),
-              InkWell(
-                onTap: onToggleInfo,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isExpanded ? const Color(0xFF2563EB) : const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isExpanded ? const Color(0xFF2563EB) : const Color(0xFFDBEAFE),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 14,
-                        color: isExpanded ? Colors.white : const Color(0xFF2563EB),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "More Info",
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isExpanded ? Colors.white : const Color(0xFF2563EB),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Icon(
-                        isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                        size: 14,
-                        color: isExpanded ? Colors.white : const Color(0xFF2563EB),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            // ── Temperature history ───────────────────────────────────────
+            _buildChartCard(
+              title:   'Temperature History',
+              days:    _tempDays,
+              loading: loading,
+              history: history,
+              legend:  Row(children: const [
+                _Dot(color: Color(0xFFEF4444)), SizedBox(width: 4),
+                Text('Temperature (°C)',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+              ]),
+              onDaysChanged: (d) {
+                setState(() => _tempDays = d);
+                _refetch(d);
+              },
+              buildPainter: (r, days) {
+                final sub = _subsample(r);
+                return ChartPainter(
+                  lineColor:        const Color(0xFFEF4444),
+                  yLabels:          const ['40', '35', '30', '25', '20'],
+                  xLabels:          _xLabels(sub, days),
+                  normalizedPoints: _normalise(sub, (x) => x.temperatureC - 20, 20),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
 
-          // Expanded Info Container
-          if (isExpanded) ...[
-            const SizedBox(height: 12),
-            infoContent,
+            // ── Humidity history ──────────────────────────────────────────
+            _buildChartCard(
+              title:   'Humidity History',
+              days:    _humDays,
+              loading: loading,
+              history: history,
+              legend:  Row(children: const [
+                _Dot(color: Color(0xFF3B82F6)), SizedBox(width: 4),
+                Text('Relative Humidity (%)',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+              ]),
+              onDaysChanged: (d) {
+                setState(() => _humDays = d);
+                _refetch(d);
+              },
+              buildPainter: (r, days) {
+                final sub = _subsample(r);
+                return ChartPainter(
+                  lineColor:        const Color(0xFF3B82F6),
+                  yLabels:          const ['100', '80', '60', '40', '0'],
+                  xLabels:          _xLabels(sub, days),
+                  normalizedPoints: _normalise(sub, (x) => x.humidityPct, 100),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // ── Comfort analysis card ─────────────────────────────────────
+            _buildComfortCard(hasData, temp, hum, absHum, heatIdx),
+            const SizedBox(height: 24),
           ],
-
-          const SizedBox(height: 12),
-
-          // Value Display
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Status Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusBgColor,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              statusText,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: statusTextColor,
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-
-          // Subtext
-          Text(
-            subText,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Color(0xFF94A3B8),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // --- TEMPERATURE INFO CONTENT ---
-  Widget _buildTemperatureInfoContent() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            "This is the air temperature inside the room. It rises when many people are present, when sunlight enters, or when ventilation is poor.",
-            style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8), height: 1.4),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "Elderly and ill residents are more sensitive to heat. A too-warm room can cause dehydration, fatigue, and heat-related illness.",
-            style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8), height: 1.4),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "Very Comfortable: 20–25.9°C · Comfortable: 17–19°C or 26–28.9°C (ATMO, 2025)",
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1D4ED8),
-              height: 1.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ── Current metrics grid ──────────────────────────────────────────────────
+  Widget _buildCurrentMetricsCard(
+    bool hasData, double temp, double hum, double absHum, double heatIdx) {
+    String fmt(double v, int d) =>
+        hasData ? v.toStringAsFixed(d) : '--';
 
-  // --- HUMIDITY INFO CONTENT ---
-  Widget _buildHumidityInfoContent() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            "Humidity measures how much moisture is in the air. It rises with many occupants, bathing activities, or rainy weather.",
-            style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8), height: 1.4),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "Too much humidity promotes mold growth and worsens breathing problems. Too little causes dry skin and irritated airways.",
-            style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8), height: 1.4),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "Very Comfortable: 40–49.9% · Comfortable: 35–39.9% or 50–64.9% (ATMO, 2025)",
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1D4ED8),
-              height: 1.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildClimateHistoryCard() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
+          color: Colors.white, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Climate History (Today)",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: const [
-              _DotLegend(color: Color(0xFFEAB308), label: "Temp (°C)"),
-              SizedBox(width: 12),
-              _DotLegend(color: Color(0xFF3B82F6), label: "Humidity (%)"),
+          const Text('Current Climate',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A))),
+          const SizedBox(height: 16),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 2.0,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            children: [
+              _MetricTile(
+                label:  'Temperature',
+                value:  '${fmt(temp, 1)} °C',
+                status: _tempStatus(temp),
+                color:  _tempColor(temp),
+                icon:   Icons.thermostat,
+              ),
+              _MetricTile(
+                label:  'Humidity',
+                value:  '${fmt(hum, 0)} %',
+                status: _humStatus(hum),
+                color:  _humColor(hum),
+                icon:   Icons.water_drop_outlined,
+              ),
+              _MetricTile(
+                label:  'Absolute Humidity',
+                value:  '${fmt(absHum, 2)} g/m³',
+                status: _absHumStatus(absHum),
+                color:  const Color(0xFF6366F1),
+                icon:   Icons.cloud_outlined,
+              ),
+              _MetricTile(
+                label:  'Heat Index',
+                value:  '${fmt(heatIdx, 1)} °C',
+                status: _heatIdxStatus(heatIdx),
+                color:  _heatIdxColor(heatIdx),
+                icon:   Icons.wb_sunny_outlined,
+              ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  // ── Chart card ────────────────────────────────────────────────────────────
+  Widget _buildChartCard({
+    required String title,
+    required int    days,
+    required bool   loading,
+    required TrackerHistory? history,
+    required Widget legend,
+    required ValueChanged<int> onDaysChanged,
+    required ChartPainter Function(List<TrackerReading>, int) buildPainter,
+  }) {
+    final readings = history?.readings ?? const [];
+    final hasData  = readings.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(title,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A))),
+              ),
+              ...[1, 7, 30].map((d) {
+                final label   = d == 1 ? 'Today' : d == 7 ? '7D' : '30D';
+                final selected = days == d;
+                return Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: GestureDetector(
+                    onTap: () => onDaysChanged(d),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(label,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? Colors.white
+                                  : const Color(0xFF475569))),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: 12),
+          legend,
           const SizedBox(height: 16),
           SizedBox(
-            height: 140,
-            child: CustomPaint(
-              size: Size.infinite,
-              painter: DualChartPainter(
-                yLabels: const ["60", "45", "30", "15", "0"],
-                xLabels: const ["12am", "4am", "8am", "12pm", "4pm", "8pm"],
-                humidityPoints: const [0.93, 0.96, 0.86, 0.80, 0.83, 0.90],
-                tempPoints: const [0.40, 0.38, 0.42, 0.45, 0.43, 0.41],
-              ),
-            ),
+            height: 120,
+            child: () {
+              if (loading && !hasData)
+                return const Center(child: CircularProgressIndicator());
+              if (!hasData)
+                return const Center(
+                    child: Text('No data available.',
+                        style: TextStyle(
+                            color: Color(0xFF94A3B8), fontSize: 13)));
+              return CustomPaint(
+                size: Size.infinite,
+                painter: buildPainter(readings, days),
+              );
+            }(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRecommendationsCard() {
+  // ── Comfort analysis card ─────────────────────────────────────────────────
+  Widget _buildComfortCard(
+    bool hasData, double temp, double hum, double absHum, double heatIdx) {
+    String comfortSummary =
+        'Connect your tracker and wait for readings to appear.';
+    String ventAdvice   = '--';
+    String humAdvice    = '--';
+    Color  comfortColor = const Color(0xFF22C55E);
+
+    if (hasData) {
+      // Overall comfort
+      if (temp >= 18 && temp <= 30 && hum >= 30 && hum <= 60) {
+        comfortSummary = 'Conditions are comfortable for occupants.';
+        comfortColor   = const Color(0xFF22C55E);
+      } else if (temp > 35 || hum > 80) {
+        comfortSummary =
+            'Conditions may cause heat stress, especially for elderly residents.';
+        comfortColor   = const Color(0xFFEF4444);
+      } else {
+        comfortSummary =
+            'Conditions are slightly outside the ideal comfort range.';
+        comfortColor   = const Color(0xFFEAB308);
+      }
+
+      // Ventilation
+      if (temp > 30 && hum > 70) {
+        ventAdvice =
+            'High temperature and humidity detected. Run air conditioning or fans.';
+      } else if (hum > 80) {
+        ventAdvice =
+            'Very high humidity — risk of mould growth. Increase ventilation.';
+      } else {
+        ventAdvice = 'Ventilation appears adequate for current conditions.';
+      }
+
+      // Humidity
+      if (hum < 30) {
+        humAdvice =
+            'Air is dry. Consider using a humidifier to improve respiratory comfort.';
+      } else if (hum > 70) {
+        humAdvice =
+            'Humidity is high. Use a dehumidifier or improve airflow.';
+      } else {
+        humAdvice = 'Humidity is within the ideal range for comfort and health.';
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
+          color: Colors.white, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Recommendations Based on Climate",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
+          const Text('Comfort Analysis',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A))),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: comfortColor.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: comfortColor.withOpacity(0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline,
+                    color: comfortColor, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(comfortSummary,
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: comfortColor,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4)),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
-          _buildRecommendationItem(
-            icon: Icons.thermostat,
-            iconColor: const Color(0xFFEA580C),
-            title: "Temperature Rises at Midday",
-            description:
-                "Temperature peaks around 12pm. Adjust the air conditioner in advance to keep residents comfortable (target 20–26°C).",
-            bgColor: const Color(0xFFFFF7ED),
-            borderColor: const Color(0xFFFFEDD5),
-          ),
-          const SizedBox(height: 10),
-          _buildRecommendationItem(
-            icon: Icons.water_drop,
-            iconColor: const Color(0xFF2563EB),
-            title: "Humidity Drops During the Afternoon",
-            description:
-                "Low humidity may cause dry skin or irritated airways. Consider a humidifier during peak dry hours.",
-            bgColor: const Color(0xFFEFF6FF),
-            borderColor: const Color(0xFFBFDBFE),
-          ),
-          const SizedBox(height: 10),
-          _buildRecommendationItem(
-            icon: Icons.check_circle_outline,
-            iconColor: const Color(0xFF16A34A),
-            title: "Evening Conditions Improve",
-            description:
-                "Temperature and humidity stabilize by 8pm. No special action needed during evening hours.",
-            bgColor: const Color(0xFFF0FDF4),
-            borderColor: const Color(0xFFBBF7D0),
-          ),
+          if (hasData) ...[
+            _AdviceItem(
+              icon: Icons.air_rounded,
+              iconColor: const Color(0xFF2563EB),
+              title: 'Ventilation',
+              text: ventAdvice,
+              bgColor: const Color(0xFFEFF6FF),
+              borderColor: const Color(0xFFBFDBFE),
+            ),
+            const SizedBox(height: 10),
+            _AdviceItem(
+              icon: Icons.water_drop_outlined,
+              iconColor: const Color(0xFF0891B2),
+              title: 'Humidity Management',
+              text: humAdvice,
+              bgColor: const Color(0xFFECFEFF),
+              borderColor: const Color(0xFFA5F3FC),
+            ),
+          ],
         ],
       ),
     );
   }
+}
 
-  Widget _buildRecommendationItem({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String description,
-    required Color bgColor,
-    required Color borderColor,
-  }) {
+// ── Shared private widgets ────────────────────────────────────────────────────
+
+class _MetricTile extends StatelessWidget {
+  final String  label;
+  final String  value;
+  final String  status;
+  final Color   color;
+  final IconData icon;
+  const _MetricTile({
+    required this.label, required this.value,
+    required this.status, required this.color, required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: color.withOpacity(0.07),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
+        border: Border.all(color: color.withOpacity(0.25)),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 10, color: Color(0xFF64748B))),
+          ]),
+          const SizedBox(height: 4),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: color)),
+          Text(status,
+              style: TextStyle(fontSize: 10, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdviceItem extends StatelessWidget {
+  final IconData icon;
+  final Color    iconColor;
+  final String   title;
+  final String   text;
+  final Color    bgColor;
+  final Color    borderColor;
+  const _AdviceItem({
+    required this.icon, required this.iconColor,
+    required this.title, required this.text,
+    required this.bgColor, required this.borderColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: iconColor, size: 22),
+          Icon(icon, color: iconColor, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A))),
                 const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF475569),
-                    height: 1.3,
-                  ),
-                ),
+                Text(text,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF475569),
+                        height: 1.3)),
               ],
             ),
           ),
@@ -423,143 +566,12 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
   }
 }
 
-// --- HELPER CLASSES FOR DUAL CHART & LEGEND ---
-
-class _DotLegend extends StatelessWidget {
+class _Dot extends StatelessWidget {
   final Color color;
-  final String label;
-
-  const _DotLegend({required this.color, required this.label});
+  const _Dot({required this.color});
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-        ),
-      ],
-    );
-  }
-}
-
-class DualChartPainter extends CustomPainter {
-  final List<String> yLabels;
-  final List<String> xLabels;
-  final List<double> humidityPoints;
-  final List<double> tempPoints;
-
-  DualChartPainter({
-    required this.yLabels,
-    required this.xLabels,
-    required this.humidityPoints,
-    required this.tempPoints,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const double leftPadding = 28.0;
-    const double bottomPadding = 20.0;
-    final double chartWidth = size.width - leftPadding;
-    final double chartHeight = size.height - bottomPadding;
-
-    final Paint gridPaint = Paint()
-      ..color = const Color(0xFFF1F5F9)
-      ..strokeWidth = 1.0;
-
-    final TextPainter textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-    );
-
-    // 1. Draw Grid Lines & Y Axis Labels
-    final int yCount = yLabels.length;
-    for (int i = 0; i < yCount; i++) {
-      final double y = chartHeight * (i / (yCount - 1));
-
-      canvas.drawLine(
-        Offset(leftPadding, y),
-        Offset(size.width, y),
-        gridPaint,
-      );
-
-      textPainter.text = TextSpan(
-        text: yLabels[i],
-        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9),
-      );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(leftPadding - textPainter.width - 4, y - (textPainter.height / 2)),
-      );
-    }
-
-    // 2. Draw X Axis Ticks & Labels
-    final int xCount = xLabels.length;
-    for (int i = 0; i < xCount; i++) {
-      final double x = leftPadding + (chartWidth * (i / (xCount - 1)));
-
-      textPainter.text = TextSpan(
-        text: xLabels[i],
-        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9),
-      );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(x - (textPainter.width / 2), chartHeight + 4),
-      );
-    }
-
-    void drawSeries(List<double> points, Color color) {
-      if (points.isEmpty) return;
-
-      final Path path = Path();
-      final List<Offset> offsetPoints = [];
-
-      for (int i = 0; i < points.length; i++) {
-        final double x = leftPadding + (chartWidth * (i / (points.length - 1)));
-        final double y = chartHeight * (1.0 - points[i]);
-        offsetPoints.add(Offset(x, y));
-      }
-
-      path.moveTo(offsetPoints[0].dx, offsetPoints[0].dy);
-
-      for (int i = 0; i < offsetPoints.length - 1; i++) {
-        final Offset p0 = offsetPoints[i];
-        final Offset p1 = offsetPoints[i + 1];
-        final Offset controlPoint1 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p0.dy);
-        final Offset controlPoint2 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p1.dy);
-        path.cubicTo(
-          controlPoint1.dx,
-          controlPoint1.dy,
-          controlPoint2.dx,
-          controlPoint2.dy,
-          p1.dx,
-          p1.dy,
-        );
-      }
-
-      final Paint linePaint = Paint()
-        ..color = color
-        ..strokeWidth = 2.0
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawPath(path, linePaint);
-    }
-
-    // 3. Draw Lines
-    drawSeries(humidityPoints, const Color(0xFF3B82F6));
-    drawSeries(tempPoints, const Color(0xFFEAB308));
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  Widget build(BuildContext context) => Container(
+      width: 10, height: 10,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle));
 }

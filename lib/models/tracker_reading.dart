@@ -1,6 +1,7 @@
 // lib/models/tracker_reading.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class TrackerReading {
   // ── Identity ───────────────────────────────────────────────────────────────
@@ -127,13 +128,17 @@ class TrackerReading {
 
   static String _str(dynamic v) => v?.toString() ?? '';
 
-  static DateTime _parseTimestamp(dynamic v) {
-    if (v == null)          return DateTime.now();
-    if (v is Timestamp)     return v.toDate();
-    if (v is DateTime)      return v;
-    if (v is String) {
-      return DateTime.tryParse(v) ?? DateTime.now();
+static DateTime _parseTimestamp(dynamic v) {
+  if (v == null)          return DateTime.now();
+  if (v is Timestamp)     return v.toDate();
+  if (v is DateTime)      return v;
+  if (v is String) {
+    final parsed = DateTime.tryParse(v);
+    if (kDebugMode && parsed == null) {
+      print('[TrackerReading] Failed to parse timestamp: "$v"');
     }
-    return DateTime.now();
+    return parsed ?? DateTime.now();
   }
+  return DateTime.now();
+}
 }

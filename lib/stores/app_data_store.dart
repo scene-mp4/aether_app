@@ -223,106 +223,120 @@ Future<void> unlinkTracker(String deviceId) async {
   // Call this when a history screen opens for the first time.
   // Subsequent calls are no-ops if data is already cached.
   // [forceRefresh] re-fetches from scratch — use for pull-to-refresh.
-  Future<void> fetchHistory(
-    String deviceId, {
-    int days        = 1,
-    bool forceRefresh = false,
-  }) async {
-    // Already cached and not forcing refresh — nothing to do
-    if (_historyCache.containsKey(deviceId) && !forceRefresh) return;
+ Future<void> fetchHistory(
+  String deviceId, {
+  int days          = 1,
+  bool forceRefresh = false,
+}) async {
+  if (_historyCache.containsKey(deviceId) && !forceRefresh) return;
 
-    _historyLoading[deviceId] = true;
-    notifyListeners();
+  _historyLoading[deviceId] = true;
+  notifyListeners();
 
-    try {
-      final from = DateTime.now().subtract(Duration(days: days));
-      final fromTs = Timestamp.fromDate(from);
+  try {
+    final from = DateTime.now().subtract(Duration(days: days));
 
-      final snap = await _db
-          .collection('devices')
-          .doc(deviceId)
-          .collection('readings_computed')
-          .where('timestamp', isGreaterThan: fromTs)
-          .orderBy('timestamp')
-          .limit(_pageSize)
-          .get();
+    // FIX: Remove the .where('timestamp') filter — Firestore cannot
+    // compare a string field with a Timestamp value, which returns 0 results.
+    // Instead fetch the most recent documents and filter by date in Dart.
+    final snap = await _db
+        .collection('devices')
+        .doc(deviceId)
+        .collection('readings_computed')
+        .orderBy('timestamp', descending: true)  // newest first
+        .limit(days * 300)  // generous upper bound (300 readings/day max)
+        .get();
 
-      final readings = snap.docs
-          .map((d) => TrackerReading.fromDocument(d))
-          .toList();
+    // Filter in Dart — works with both string and Timestamp formats
+    final readings = snap.docs
+        .map((d) => TrackerReading.fromDocument(d))
+        .where((r) => r.timestamp.isAfter(from))
+        .toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp)); // oldest → newest
 
-      _historyCache[deviceId] = TrackerHistory(
-        deviceId:     deviceId,
-        readings:     readings,
-        oldestCursor: snap.docs.isNotEmpty ? snap.docs.first : null,
-        hasMore:      snap.docs.length == _pageSize,
-        from:         from,
-        to:           DateTime.now(),
-      );
-    } catch (e) {
-      _error = e.toString();
-      if (kDebugMode) print('[AppDataStore] fetchHistory error: $e');
+      if (kDebugMode) {
+      print('[AppDataStore] Raw docs fetched: ${snap.docs.length}');
+      if (snap.docs.isNotEmpty) {
+        final first = snap.docs.first.data() as Map<String, dynamic>;
+        print('[AppDataStore] First doc timestamp field: ${first['timestamp']}');
+      }
+}
+
+    _historyCache[deviceId] = TrackerHistory(
+      deviceId:     deviceId,
+      readings:     readings,
+      oldestCursor: snap.docs.isNotEmpty ? snap.docs.last : null,
+      hasMore:      snap.docs.length == days * 300,
+      from:         from,
+      to:           DateTime.now(),
+    );
+
+    if (kDebugMode) {
+      print('[AppDataStore] fetchHistory: fetched ${snap.docs.length} docs, '
+            '${readings.length} within last $days day(s) for $deviceId');
     }
-
-    _historyLoading[deviceId] = false;
-    notifyListeners();
+  } catch (e, st) {
+    _error = e.toString();
+    if (kDebugMode) print('[AppDataStore] fetchHistory error: $e\n$st');
   }
+
+  _historyLoading[deviceId] = false;
+  notifyListeners();
+}
 
   // ── Load more history (older readings) ────────────────────────────────────
   // Call this when the user scrolls to the top of a history chart
   // and wants to see older data beyond the initial page.
-  Future<void> fetchMoreHistory(String deviceId, {int days = 7}) async {
-    final existing = _historyCache[deviceId];
-    if (existing == null || !existing.hasMore) return;
-    if (_historyLoading[deviceId] == true) return;
+ Future<void> fetchMoreHistory(String deviceId, {int days = 7}) async {
+  final existing = _historyCache[deviceId];
+  if (existing == null || !existing.hasMore) return;
+  if (_historyLoading[deviceId] == true) return;
 
-    _historyLoading[deviceId] = true;
-    notifyListeners();
+  _historyLoading[deviceId] = true;
+  notifyListeners();
 
-    try {
-      final from = DateTime.now().subtract(Duration(days: days));
+  try {
+    final from = DateTime.now().subtract(Duration(days: days));
 
-      Query query = _db
-          .collection('devices')
-          .doc(deviceId)
-          .collection('readings_computed')
-          .where('timestamp',
-              isGreaterThan: Timestamp.fromDate(from))
-          .orderBy('timestamp')
-          .limit(_pageSize);
+    // FIX: No .where() filter — order and limit only
+    Query query = _db
+        .collection('devices')
+        .doc(deviceId)
+        .collection('readings_computed')
+        .orderBy('timestamp', descending: true)
+        .limit(days * 300);
 
-      // Start after the oldest document we already have
-      if (existing.oldestCursor != null) {
-        query = query.startAfterDocument(
-            existing.oldestCursor as DocumentSnapshot);
-      }
-
-      final snap = await query.get();
-
-      final newReadings = snap.docs
-          .map((d) => TrackerReading.fromDocument(d))
-          .toList();
-
-      // Prepend older readings and keep sorted
-      final merged = [...newReadings, ...existing.readings]
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-      _historyCache[deviceId] = existing.copyWith(
-        readings:     merged,
-        oldestCursor: snap.docs.isNotEmpty
-            ? snap.docs.first
-            : existing.oldestCursor,
-        hasMore:      snap.docs.length == _pageSize,
-        from:         from,
-      );
-    } catch (e) {
-      _error = e.toString();
-      if (kDebugMode) print('[AppDataStore] fetchMoreHistory error: $e');
+    if (existing.oldestCursor != null) {
+      query = query.startAfterDocument(
+          existing.oldestCursor as DocumentSnapshot);
     }
 
-    _historyLoading[deviceId] = false;
-    notifyListeners();
+    final snap = await query.get();
+
+    final newReadings = snap.docs
+        .map((d) => TrackerReading.fromDocument(d))
+        .where((r) => r.timestamp.isAfter(from))
+        .toList();
+
+    final merged = [...newReadings, ...existing.readings]
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    _historyCache[deviceId] = existing.copyWith(
+      readings:     merged,
+      oldestCursor: snap.docs.isNotEmpty
+          ? snap.docs.last
+          : existing.oldestCursor,
+      hasMore:      snap.docs.length == days * 300,
+      from:         from,
+    );
+  } catch (e, st) {
+    _error = e.toString();
+    if (kDebugMode) print('[AppDataStore] fetchMoreHistory error: $e\n$st');
   }
+
+  _historyLoading[deviceId] = false;
+  notifyListeners();
+}
 
   // ── Convenience getters ────────────────────────────────────────────────────
 
