@@ -11,6 +11,7 @@ import '../models/tracker_info.dart';
 const int _pageSize = 288;
 
 class AppDataStore extends ChangeNotifier {
+  bool _initialized = false;
   final _db   = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
 
@@ -51,10 +52,18 @@ class AppDataStore extends ChangeNotifier {
   final Map<String, StreamSubscription> _latestSubs    = {};
   final Map<String, StreamSubscription> _newReadingSubs = {};
 
+  // Admin Fields
+  StreamSubscription?       _allDevicesSub;
+  List<TrackerInfo>         _allTrackers     = [];
+  Map<String, TrackerReading> _allLatestReadings = {};
+  final Map<String, StreamSubscription> _allLatestSubs = {};
+
   // ── Initialize ─────────────────────────────────────────────────────────────
   Future<void> initialize() async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
+    if (_initialized) clear(); // clear stale state from previous session
+    _initialized = true;
 
     _loading = true;
     notifyListeners();
@@ -358,8 +367,72 @@ Future<void> unlinkTracker(String deviceId) async {
           .map((r) => r.iaqi)
           .reduce((a, b) => a > b ? a : b);
 
+// Admin Getters
+  List<TrackerInfo> get allTrackers =>
+    List.unmodifiable(_allTrackers);
+  Map<String, TrackerReading> get allLatestReadings =>
+      Map.unmodifiable(_allLatestReadings);
+  TrackerReading? allReadingFor(String deviceId) =>
+      _allLatestReadings[deviceId];
+
+// Initialize Admin
+Future<void> initializeAdmin() async {
+  // Listen to ALL devices regardless of owner
+  _allDevicesSub = _db
+      .collection('devices')
+      .snapshots()
+      .listen((snap) {
+    _allTrackers = snap.docs
+        .map((d) => TrackerInfo.fromFirestore(
+            d.id, d.data() as Map<String, dynamic>))
+        .toList();
+
+    final currentIds = _allTrackers.map((t) => t.id).toSet();
+
+    // Open a latest-reading stream for each device
+    for (final t in _allTrackers) {
+      if (!_allLatestSubs.containsKey(t.id)) {
+        _openAdminLatestStream(t.id);
+      }
+    }
+
+    // Close streams for removed devices
+    _allLatestSubs.keys
+        .where((id) => !currentIds.contains(id))
+        .toList()
+        .forEach(_closeAdminStream);
+
+    notifyListeners();
+  });
+}
+
+void _openAdminLatestStream(String deviceId) {
+  final sub = _db
+      .collection('devices')
+      .doc(deviceId)
+      .snapshots()
+      .listen((snap) {
+    if (!snap.exists) return;
+    final data   = snap.data() as Map<String, dynamic>;
+    final latest = data['latest'] as Map<String, dynamic>?;
+    if (latest == null) return;
+    final readingId = latest['raw_reading_id'] as String? ?? '';
+    _allLatestReadings[deviceId] =
+        TrackerReading.fromLatest(deviceId, readingId, latest);
+    notifyListeners();
+  });
+  _allLatestSubs[deviceId] = sub;
+}
+
+void _closeAdminStream(String deviceId) {
+  _allLatestSubs[deviceId]?.cancel();
+  _allLatestSubs.remove(deviceId);
+  _allLatestReadings.remove(deviceId);
+}
+
   // ── Clear on sign out ──────────────────────────────────────────────────────
     void clear() {
+      _initialized = false;
       _trackerListSub?.cancel();
       _availableSub?.cancel();      // ← add this line
       for (final sub in _latestSubs.values)     sub.cancel();
@@ -374,6 +447,11 @@ Future<void> unlinkTracker(String deviceId) async {
       _error   = null;
       _loading = false;
       notifyListeners();
+      _allDevicesSub?.cancel();
+      for (final sub in _allLatestSubs.values) sub.cancel();
+      _allLatestSubs.clear();
+      _allLatestReadings.clear();
+      _allTrackers.clear();
     }
 
   @override
