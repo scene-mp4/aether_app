@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'manage_account_page.dart';
+import 'package:pollutracker_app/stores/app_data_store.dart';
 
 class SettingsNewPage extends StatefulWidget {
   const SettingsNewPage({Key? key}) : super(key: key);
@@ -99,7 +101,18 @@ class _SettingsTabState extends State<SettingsNewPage> {
     if (confirm == true) {
       setState(() => _isSigningOut = true);
       try {
+        // FIX: clear AppDataStore BEFORE signing out so Firestore streams
+        // are cancelled while the user UID is still valid. Previously
+        // called bare clear() which is undefined — caused a compile error
+        // and meant the store was never actually cleared on logout.
+        context.read<AppDataStore>().clear();
+
         await _auth.signOut();
+
+        // FIX: navigate by popping everything back to AuthGate rather than
+        // pushing '/login' directly. AuthGate listens to authStateChanges
+        // and routes correctly, so we don't need to push manually.
+        // pushNamedAndRemoveUntil to '/' lets AuthGate handle the redirect.
         if (mounted) {
           Navigator.of(context).pushNamedAndRemoveUntil(
             '/login',
