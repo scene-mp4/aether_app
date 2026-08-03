@@ -6,16 +6,37 @@ import '/stores/app_data_store.dart';
 import '/models/tracker_reading.dart';
 import '/models/tracker_info.dart';
 
-class AdminDashboardTab extends StatelessWidget {
+class AdminDashboardTab extends StatefulWidget {
   const AdminDashboardTab({super.key});
+
+  @override
+  State<AdminDashboardTab> createState() => _AdminDashboardTabState();
+}
+
+class _AdminDashboardTabState extends State<AdminDashboardTab> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Trigger admin history fetch for all trackers so the chart has data.
+    // Uses Future.microtask to stay outside the build phase.
+    Future.microtask(() {
+      if (!mounted) return;
+      final store = context.read<AppDataStore>();
+      for (final t in store.allTrackers) {
+        if (store.historyFor(t.id) == null) {
+          store.fetchHistory(t.id, days: 1);
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppDataStore>(
       builder: (context, store, _) {
-        final trackers = store.allTrackers;         // was store.trackers
+        final trackers = store.allTrackers;
         final readings = trackers
-            .map((t) => store.allReadingFor(t.id))  // was store.readingFor
+            .map((t) => store.allReadingFor(t.id))
             .whereType<TrackerReading>()
             .toList();
 
@@ -300,7 +321,9 @@ class AdminDashboardTab extends StatelessWidget {
                     TextStyle(color: Color(0xFF94A3B8), fontSize: 13))
           else
             ...trackers.map((t) {
-              final r    = store.readingFor(t.id);
+              // FIX: use allReadingFor — admin reads from allLatestReadings,
+              // not the per-user latestReadings map
+              final r    = store.allReadingFor(t.id);
               final aqi  = r?.iaqi ?? 0;
               final data = _aqiStatusData(aqi, r == null);
               return _FacilityStatusItem(
