@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import '/stores/app_data_store.dart';
 
 class AdminTrackersTab extends StatefulWidget {
   const AdminTrackersTab({super.key});
@@ -8,157 +11,166 @@ class AdminTrackersTab extends StatefulWidget {
 }
 
 class _AdminTrackersTabState extends State<AdminTrackersTab> {
-  // Modal for Add / Edit Tracker
+  final _db              = FirebaseFirestore.instance;
+  final _searchController = TextEditingController();
+  String _searchQuery    = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // ── Firestore operations ──────────────────────────────────────────────────
+
+  Future<void> _addTracker({
+    required String trackerId,
+    required String deviceName,
+    required String location,
+    required String ownerId,
+  }) async {
+    if (trackerId.trim().isEmpty || deviceName.trim().isEmpty) return;
+    try {
+      await _db.collection('devices').doc(trackerId.trim()).set({
+        'device_name': deviceName.trim(),
+        'location':    location.trim(),
+        'owner_id':    ownerId,
+        'active':      true,
+        'created_at':  FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tracker added successfully')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add tracker: $e')));
+      }
+    }
+  }
+
+  Future<void> _editTracker({
+    required String docId,
+    required String deviceName,
+    required String location,
+    required String ownerId,
+  }) async {
+    try {
+      await _db.collection('devices').doc(docId).update({
+        'device_name': deviceName.trim(),
+        'location':    location.trim(),
+        'owner_id':    ownerId,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tracker updated successfully')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update tracker: $e')));
+      }
+    }
+  }
+
+  Future<void> _deleteTracker(String docId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Tracker'),
+        content: Text(
+            'Are you sure you want to delete "$docId"?\n\n'
+            'This will permanently remove the tracker document. '
+            'Historical readings will remain in the subcollections.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444)),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _db.collection('devices').doc(docId).delete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tracker deleted')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete tracker: $e')));
+      }
+    }
+  }
+
+  // ── Fetch users for the owner dropdown ────────────────────────────────────
+  Future<List<Map<String, dynamic>>> _fetchUsers() async {
+    final snap = await _db.collection('users').get();
+    return snap.docs.map((d) {
+      final data = d.data() as Map<String, dynamic>;
+      return {
+        'uid':         d.id,
+        'email':       data['email']        ?? d.id,
+        'displayName': data['display_name'] ?? data['email'] ?? d.id,
+        'role':        data['role']         ?? 'user',
+      };
+    }).toList();
+  }
+
+  // ── Add / Edit tracker modal ───────────────────────────────────────────────
   void _showTrackerModal({
-    String? trackerName,
-    String? location,
+    String? existingDocId,
+    String? currentName,
+    String? currentLocation,
+    String? currentOwnerId,
   }) {
-    final bool isEditing = trackerName != null;
-    final nameController = TextEditingController(text: trackerName ?? '');
-    final locationController = TextEditingController(text: location ?? '');
+    final isEditing       = existingDocId != null;
+    final idController    = TextEditingController(
+        text: isEditing ? existingDocId : '');
+    final nameController  = TextEditingController(
+        text: currentName     ?? '');
+    final locController   = TextEditingController(
+        text: currentLocation ?? '');
 
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          backgroundColor: Colors.white,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isEditing ? 'Edit Tracker' : 'Add New Tracker',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Tracker Name Field
-                  _buildModalInputField(
-                    'Tracker Name',
-                    nameController,
-                    'e.g., Nursing Station',
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Location Field
-                  _buildModalInputField(
-                    'Location',
-                    locationController,
-                    'e.g., Main Building, Floor 2',
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Modal Actions
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Color(0xFFCBD5E1)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF3B62F6),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              isEditing ? 'Edit Tracker' : 'Add Tracker',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildModalInputField(
-    String label,
-    TextEditingController controller,
-    String hint,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF334155),
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-            hintText: hint,
-            hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF3B62F6)),
-            ),
-          ),
-        ),
-      ],
+      builder: (ctx) => _TrackerModal(
+        isEditing:        isEditing,
+        existingDocId:    existingDocId,
+        idController:     idController,
+        nameController:   nameController,
+        locController:    locController,
+        initialOwnerId:   currentOwnerId ?? '',
+        fetchUsers:       _fetchUsers,
+        onSave: (ownerId) async {
+          Navigator.pop(ctx);
+          if (isEditing) {
+            await _editTracker(
+              docId:      existingDocId!,
+              deviceName: nameController.text,
+              location:   locController.text,
+              ownerId:    ownerId,
+            );
+          } else {
+            await _addTracker(
+              trackerId:  idController.text,
+              deviceName: nameController.text,
+              location:   locController.text,
+              ownerId:    ownerId,
+            );
+          }
+        },
+      ),
     );
   }
 
@@ -175,20 +187,139 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  _buildAddNewButton(),
-                  const SizedBox(height: 20),
-                  _buildTrackerCard(
-                    title: 'Tracker 1',
-                    status: 'Active',
-                    location: 'Location 1',
-                    lastUpdate: '2 min ago',
+                  // ── Search bar ─────────────────────────────────────────
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (v) =>
+                        setState(() => _searchQuery = v.toLowerCase()),
+                    decoration: InputDecoration(
+                      hintText: 'Search trackers…',
+                      prefixIcon: const Icon(Icons.search,
+                          color: Color(0xFF64748B)),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 0),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  _buildTrackerCard(
-                    title: 'Tracker 2',
-                    status: 'Active',
-                    location: 'Location 2',
-                    lastUpdate: '5 min ago',
+
+                  // ── Add button ─────────────────────────────────────────
+                  _buildAddNewButton(),
+                  const SizedBox(height: 20),
+
+                  // ── Live tracker list from Firestore ───────────────────
+                  StreamBuilder<QuerySnapshot>(
+                    stream: _db
+                        .collection('devices')
+                        .orderBy('device_name')
+                        .snapshots(),
+                    builder: (context, snap) {
+                      if (snap.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: Center(
+                              child: CircularProgressIndicator()),
+                        );
+                      }
+                      if (snap.hasError) {
+                        return Center(
+                            child: Text('Error: ${snap.error}'));
+                      }
+
+                      var docs = snap.data?.docs ?? [];
+
+                      // Apply search filter
+                      if (_searchQuery.isNotEmpty) {
+                        docs = docs.where((d) {
+                          final data =
+                              d.data() as Map<String, dynamic>;
+                          final name = (data['device_name'] ?? '')
+                              .toString()
+                              .toLowerCase();
+                          final loc = (data['location'] ?? '')
+                              .toString()
+                              .toLowerCase();
+                          final id  = d.id.toLowerCase();
+                          return name.contains(_searchQuery) ||
+                              loc.contains(_searchQuery) ||
+                              id.contains(_searchQuery);
+                        }).toList();
+                      }
+
+                      if (docs.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: Center(
+                            child: Text('No trackers found.',
+                                style: TextStyle(
+                                    color: Color(0xFF94A3B8))),
+                          ),
+                        );
+                      }
+
+                      return Consumer<AppDataStore>(
+                        builder: (context, store, _) {
+                          return ListView.separated(
+                            shrinkWrap: true,
+                            physics:
+                                const NeverScrollableScrollPhysics(),
+                            itemCount: docs.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final doc  = docs[index];
+                              final data =
+                                  doc.data() as Map<String, dynamic>;
+                              final docId   = doc.id;
+                              final name    =
+                                  data['device_name'] ?? 'Unnamed';
+                              final loc     =
+                                  data['location']    ?? 'No location';
+                              final ownerId =
+                                  data['owner_id']    ?? '';
+
+                              // Last update from AppDataStore latest reading
+                              final reading =
+                                  store.allReadingFor(docId);
+                              final lastUpdate = reading != null
+                                  ? _timeAgo(reading.timestamp)
+                                  : 'No readings yet';
+                              final status = ownerId.isEmpty
+                                  ? 'Unassigned'
+                                  : 'Active';
+
+                              return _buildTrackerCard(
+                                docId:      docId,
+                                title:      name,
+                                status:     status,
+                                location:   loc,
+                                ownerId:    ownerId,
+                                lastUpdate: lastUpdate,
+                                onEdit: () => _showTrackerModal(
+                                  existingDocId:   docId,
+                                  currentName:     name,
+                                  currentLocation: loc,
+                                  currentOwnerId:  ownerId,
+                                ),
+                                onDelete: () => _deleteTracker(docId),
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
                   ),
                   const SizedBox(height: 40),
                 ],
@@ -198,6 +329,14 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
         ),
       ),
     );
+  }
+
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inSeconds < 60)  return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60)  return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24)    return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -232,239 +371,205 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
-                      Text(
-                        'AETHER',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                      Text(
-                        'Admin Portal',
-                        style: TextStyle(
-                          color: Color(0xFFC7D2FE),
-                          fontSize: 11,
-                        ),
-                      ),
+                      Text('AETHER',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.1)),
+                      Text('Admin Portal',
+                          style: TextStyle(
+                              color: Color(0xFFC7D2FE),
+                              fontSize: 11)),
                     ],
                   ),
                 ],
               ),
-              Builder(
-                builder: (innerContext) {
-                  return GestureDetector(
-                    onTap: () => Scaffold.of(innerContext).openEndDrawer(),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        const Icon(Icons.notifications, color: Colors.white, size: 26),
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            width: 9,
-                            height: 9,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: const Color(0xFF2B52F3), width: 1.5),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+              Builder(builder: (innerCtx) {
+                return GestureDetector(
+                  onTap: () =>
+                      Scaffold.of(innerCtx).openEndDrawer(),
+                  child: const Icon(Icons.notifications,
+                      color: Colors.white, size: 26),
+                );
+              }),
             ],
           ),
-          const Text(
-            'Trackers',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          const SizedBox(height: 8),
+          const Text('Tracker Management',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 2),
+          const Text('Add, edit, or remove trackers from the system',
+              style: TextStyle(
+                  color: Color(0xFFC7D2FE), fontSize: 12)),
         ],
       ),
     );
   }
 
   Widget _buildAddNewButton() {
-    return Container(
-      width: double.infinity,
-      height: 52,
-      decoration: BoxDecoration(
-        color: const Color(0xFF2563EB),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0xFF1D4ED8),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => _showTrackerModal(),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.add, color: Colors.white, size: 22),
-              SizedBox(width: 8),
-              Text(
-                'Add New Tracker',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
+    return GestureDetector(
+      onTap: () => _showTrackerModal(),
+      child: Container(
+        width: double.infinity,
+        height: 52,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF3B62F6), width: 1.5),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTrackerCard({
-    required String title,
-    required String status,
-    required String location,
-    required String lastUpdate,
-  }) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            offset: Offset(0, 4),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 20,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.add, color: Color(0xFF3B62F6), size: 20),
+            SizedBox(width: 8),
+            Text('Add New Tracker',
+                style: TextStyle(
+                    color: Color(0xFF3B62F6),
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                    height: 1.15,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFBBF7D0)),
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(Icons.check_circle_outline, color: Color(0xFF16A34A), size: 14),
-                      SizedBox(width: 4),
-                      Text(
-                        'Active',
-                        style: TextStyle(
-                          color: Color(0xFF15803D),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      const Icon(Icons.location_on_outlined, color: Color(0xFF64748B), size: 16),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          location,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF475569),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  'Last Update\n$lastUpdate',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF64748B),
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildCardActionButton(
-                    icon: Icons.edit_note,
-                    label: 'Edit',
-                    onTap: () => _showTrackerModal(
-                      trackerName: title,
-                      location: location,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildCardActionButton(
-                    icon: Icons.delete_outline,
-                    label: 'Delete',
-                    onTap: () {},
-                  ),
-                ),
-              ],
-            ),
+                    fontSize: 14)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCardActionButton({
-    required IconData icon,
-    required String label,
+  Widget _buildTrackerCard({
+    required String docId,
+    required String title,
+    required String status,
+    required String location,
+    required String ownerId,
+    required String lastUpdate,
+    required VoidCallback onEdit,
+    required VoidCallback onDelete,
+  }) {
+    final isActive = status == 'Active';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 8,
+              offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Title row ──────────────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A))),
+                    const SizedBox(height: 2),
+                    Text('ID: $docId',
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8))),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(status,
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isActive
+                            ? const Color(0xFF15803D)
+                            : const Color(0xFF64748B))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 10),
+
+          // ── Info rows ──────────────────────────────────────────────
+          _infoRow(Icons.location_on_outlined,
+              location.isNotEmpty ? location : 'No location set'),
+          const SizedBox(height: 6),
+          _infoRow(Icons.person_outline,
+              ownerId.isNotEmpty ? ownerId : 'Unassigned'),
+          const SizedBox(height: 6),
+          _infoRow(Icons.access_time, 'Last reading: $lastUpdate'),
+          const SizedBox(height: 14),
+
+          // ── Action buttons ─────────────────────────────────────────
+          Row(children: [
+            Expanded(
+              child: _actionButton(
+                icon:  Icons.edit_outlined,
+                label: 'Edit',
+                onTap: onEdit,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _actionButton(
+                icon:      Icons.delete_outline,
+                label:     'Delete',
+                onTap:     onDelete,
+                textColor: const Color(0xFFEF4444),
+                borderColor: const Color(0xFFFECACA),
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String text) {
+    return Row(children: [
+      Icon(icon, size: 14, color: const Color(0xFF64748B)),
+      const SizedBox(width: 6),
+      Expanded(
+        child: Text(text,
+            style: const TextStyle(
+                fontSize: 12, color: Color(0xFF475569)),
+            overflow: TextOverflow.ellipsis),
+      ),
+    ]);
+  }
+
+  Widget _actionButton({
+    required IconData  icon,
+    required String    label,
     required VoidCallback onTap,
+    Color textColor   = Colors.black,
+    Color borderColor = const Color(0xFFE2E8F0),
   }) {
     return Container(
-      height: 40,
+      height: 38,
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: borderColor),
       ),
       child: Material(
         color: Colors.transparent,
@@ -474,16 +579,13 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.black, size: 18),
+              Icon(icon, color: textColor, size: 16),
               const SizedBox(width: 6),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text(label,
+                  style: TextStyle(
+                      color: textColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -491,6 +593,376 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tracker modal — handles both Add and Edit in a StatefulWidget so the
+// owner dropdown can hold its own async state cleanly.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _TrackerModal extends StatefulWidget {
+  final bool                         isEditing;
+  final String?                      existingDocId;
+  final TextEditingController        idController;
+  final TextEditingController        nameController;
+  final TextEditingController        locController;
+  final String                       initialOwnerId;
+  final Future<List<Map<String, dynamic>>> Function() fetchUsers;
+  final Future<void> Function(String ownerId) onSave;
+
+  const _TrackerModal({
+    required this.isEditing,
+    required this.existingDocId,
+    required this.idController,
+    required this.nameController,
+    required this.locController,
+    required this.initialOwnerId,
+    required this.fetchUsers,
+    required this.onSave,
+  });
+
+  @override
+  State<_TrackerModal> createState() => _TrackerModalState();
+}
+
+class _TrackerModalState extends State<_TrackerModal> {
+  List<Map<String, dynamic>> _users    = [];
+  bool                       _loading  = true;
+  String                     _ownerId  = '';
+  bool                       _saving   = false;
+  String?                    _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownerId = widget.initialOwnerId;
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      final users = await widget.fetchUsers();
+      if (mounted) {
+        setState(() {
+          _users   = users;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _handleSave() async {
+    final name = widget.nameController.text.trim();
+    final id   = widget.idController.text.trim();
+
+    if (name.isEmpty) {
+      setState(() => _error = 'Tracker name is required.');
+      return;
+    }
+    if (!widget.isEditing && id.isEmpty) {
+      setState(() => _error = 'Tracker ID is required.');
+      return;
+    }
+
+    setState(() { _saving = true; _error = null; });
+    await widget.onSave(_ownerId);
+    if (mounted) setState(() => _saving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.isEditing ? 'Edit Tracker' : 'Add New Tracker',
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Tracker ID (read-only when editing) ─────────────────
+              if (!widget.isEditing) ...[
+                _inputField(
+                  label:      'Tracker ID',
+                  controller: widget.idController,
+                  hint:       'e.g. tracker_003',
+                  helper:     'This will be the Firestore document ID.',
+                ),
+                const SizedBox(height: 14),
+              ] else ...[
+                _readOnlyField('Tracker ID', widget.existingDocId ?? ''),
+                const SizedBox(height: 14),
+              ],
+
+              // ── Device name ─────────────────────────────────────────
+              _inputField(
+                label:      'Device Name',
+                controller: widget.nameController,
+                hint:       'e.g. Nursing Station A',
+              ),
+              const SizedBox(height: 14),
+
+              // ── Location ────────────────────────────────────────────
+              _inputField(
+                label:      'Location',
+                controller: widget.locController,
+                hint:       'e.g. Main Building, Floor 2',
+              ),
+              const SizedBox(height: 14),
+
+              // ── Owner ID dropdown ────────────────────────────────────
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Assign Owner',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155))),
+                  const SizedBox(height: 6),
+                  if (_loading)
+                    const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: CircularProgressIndicator(),
+                        ))
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: const Color(0xFFCBD5E1)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: DropdownButton<String>(
+                        value: _ownerId.isEmpty ? null : _ownerId,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        hint: const Text('Unassigned',
+                            style: TextStyle(
+                                color: Color(0xFF94A3B8))),
+                        items: [
+                          // "Unassigned" option
+                          const DropdownMenuItem(
+                            value: '',
+                            child: Text('Unassigned',
+                                style: TextStyle(
+                                    color: Color(0xFF64748B))),
+                          ),
+                          // One item per user
+                          ..._users.map((u) => DropdownMenuItem<String>(
+                            value: u['uid'] as String,
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  u['displayName'] as String,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF0F172A),
+                                      fontWeight: FontWeight.w500),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  '${u['role']} · ${u['uid']}',
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF94A3B8)),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          )),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _ownerId = v ?? ''),
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Select a user account to assign this tracker to. '
+                    'Leave as Unassigned to make it available to link.',
+                    style: TextStyle(
+                        fontSize: 11, color: Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+
+              // ── Error message ────────────────────────────────────────
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.error_outline,
+                        color: Color(0xFFEF4444), size: 16),
+                    const SizedBox(width: 6),
+                    Text(_error!,
+                        style: const TextStyle(
+                            color: Color(0xFFEF4444),
+                            fontSize: 12)),
+                  ]),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // ── Action buttons ───────────────────────────────────────
+              Row(children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                            color: Color(0xFFCBD5E1)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Cancel',
+                          style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _saving ? null : _handleSave,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3B62F6),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(12)),
+                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2))
+                          : Text(
+                              widget.isEditing
+                                  ? 'Save Changes'
+                                  : 'Add Tracker',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15)),
+                    ),
+                  ),
+                ),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _inputField({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    String? helper,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF334155))),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14, vertical: 12),
+            hintText: hint,
+            hintStyle:
+                const TextStyle(color: Color(0xFF94A3B8)),
+            helperText: helper,
+            helperStyle:
+                const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide:
+                  const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide:
+                  const BorderSide(color: Color(0xFF3B62F6)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _readOnlyField(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF334155))),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+              horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Text(value,
+              style: const TextStyle(
+                  fontSize: 14, color: Color(0xFF64748B))),
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Notifications end drawer (placeholder — will be connected to live alerts)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 class _NotificationsEndDrawer extends StatelessWidget {
   const _NotificationsEndDrawer();
@@ -508,192 +980,34 @@ class _NotificationsEndDrawer extends StatelessWidget {
         ),
       ),
       child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: const [
-                      Text(
-                        'Notifications',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      CircleAvatar(
-                        radius: 10,
-                        backgroundColor: Color(0xFFEFF6FF),
-                        child: Text(
-                          '3',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF3B82F6),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.close,
-                      color: Color(0xFF64748B),
-                      size: 22,
-                    ),
-                    tooltip: 'Close',
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: const [
-                  _NotificationTile(
-                    icon: Icons.warning_amber_rounded,
-                    iconBgColor: Color(0xFFFEF3C7),
-                    iconColor: Color(0xFFD97706),
-                    title: 'High PM2.5 Level Alert',
-                    subtitle: 'Common Area AQI reached 125 (Unhealthy).',
-                    time: '10 min ago',
-                    isUnread: true,
-                  ),
-                  _NotificationTile(
-                    icon: Icons.air,
-                    iconBgColor: Color(0xFFFEE2E2),
-                    iconColor: Color(0xFFDC2626),
-                    title: 'Critical CO2 Elevation',
-                    subtitle: 'Senior Care Unit B CO2 level exceeded 850 ppm.',
-                    time: '25 min ago',
-                    isUnread: true,
-                  ),
-                  _NotificationTile(
-                    icon: Icons.check_circle_outline,
-                    iconBgColor: Color(0xFFDCFCE7),
-                    iconColor: Color(0xFF16A34A),
-                    title: 'Alert Resolved',
-                    subtitle: 'Therapy Wing O3 levels returned to normal limits.',
-                    time: '1 hour ago',
-                    isUnread: true,
-                  ),
-                  _NotificationTile(
-                    icon: Icons.person_add_alt_1,
-                    iconBgColor: Color(0xFFDBEAFE),
-                    iconColor: Color(0xFF2563EB),
-                    title: 'New Tracker Assigned',
-                    subtitle: 'Device #AETH-07 registered to Nursing Station.',
-                    time: '3 hours ago',
-                    isUnread: false,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationTile extends StatelessWidget {
-  final IconData icon;
-  final Color iconBgColor;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  final String time;
-  final bool isUnread;
-
-  const _NotificationTile({
-    required this.icon,
-    required this.iconBgColor,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    required this.time,
-    required this.isUnread,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: isUnread ? const Color(0xFFF8FAFC) : Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconBgColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(children: [
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
-                          color: const Color(0xFF0F172A),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      time,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
-                    height: 1.2,
-                  ),
+                const Text('Notifications',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A))),
+                IconButton(
+                  icon: const Icon(Icons.close,
+                      color: Color(0xFF64748B), size: 22),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
           ),
-          if (isUnread) ...[
-            const SizedBox(width: 8),
-            Container(
-              margin: const EdgeInsets.only(top: 6),
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: Color(0xFF3B82F6),
-                shape: BoxShape.circle,
-              ),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const Expanded(
+            child: Center(
+              child: Text('No notifications',
+                  style: TextStyle(color: Color(0xFF94A3B8))),
             ),
-          ],
-        ],
+          ),
+        ]),
       ),
     );
   }
