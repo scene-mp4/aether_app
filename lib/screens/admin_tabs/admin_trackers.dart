@@ -960,9 +960,8 @@ class _TrackerModalState extends State<_TrackerModal> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+
 // Notifications end drawer (placeholder — will be connected to live alerts)
-// ═══════════════════════════════════════════════════════════════════════════════
 
 class _NotificationsEndDrawer extends StatelessWidget {
   const _NotificationsEndDrawer();

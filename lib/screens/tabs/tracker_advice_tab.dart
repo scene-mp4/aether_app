@@ -616,9 +616,8 @@ class TrackerAdviceTab extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+
 // Data model for a single advice item
-// ═══════════════════════════════════════════════════════════════════════════════
 
 class _AdviceItem {
   final String        category;
@@ -646,9 +645,8 @@ class _AdviceItem {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+
 // Advice card widget
-// ═══════════════════════════════════════════════════════════════════════════════
 
 class _AdviceCard extends StatefulWidget {
   final _AdviceItem item;

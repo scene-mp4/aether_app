@@ -405,9 +405,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // User Card — fetches tracker count from Firestore directly
-// ═══════════════════════════════════════════════════════════════════════════════
 
 class _UserCard extends StatelessWidget {
   final String     uid;
@@ -633,11 +631,9 @@ class _UserCard extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // Edit User Modal
 // Editable: username, email, role
 // Also shows assigned trackers with option to unassign
-// ═══════════════════════════════════════════════════════════════════════════════
 
 class _EditUserModal extends StatefulWidget {
   final String uid;
@@ -1056,9 +1052,7 @@ class _EditUserModalState extends State<_EditUserModal> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // Notifications end drawer
-// ═══════════════════════════════════════════════════════════════════════════════
 
 class _NotificationsEndDrawer extends StatelessWidget {
   const _NotificationsEndDrawer();

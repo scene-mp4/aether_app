@@ -987,7 +987,7 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
     );
   }
 
-  // ── 6. HEALTH MANUAL CARD (kept exactly as original) ──────────────────────
+  // ── 6. HEALTH MANUAL CARD ──────────────────────
   Widget _buildHealthManualCard() {
     return Container(
       padding: const EdgeInsets.all(16),
