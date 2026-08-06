@@ -9,8 +9,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
-import 'stores/app_data_store.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'stores/app_data_store.dart';
 
 ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
@@ -20,11 +20,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   runApp(
-    // FIX: ChangeNotifierProvider now wraps the entire app so every screen
-    // and route can access AppDataStore via context.read / Consumer.
     ChangeNotifierProvider(
       create: (_) => AppDataStore(),
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }
@@ -32,33 +30,49 @@ void main() async {
 const Color kPrimaryColor = Color(0xFF0052FF);
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "AETHER App",
+      title: 'AETHER App',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: kPrimaryColor,
-          primary: kPrimaryColor,
+          primary:   kPrimaryColor,
         ),
       ),
       debugShowCheckedModeBanner: false,
-      // FIX: Use AuthGate as the home so the store is initialised on login
-      // and cleaned up on logout. The named routes below are still available
-      // for any Navigator.pushNamed calls elsewhere in the app.
       home: const AuthGate(),
       routes: {
-        '/login':        (context) => LoginScreen(),
+        '/login':         (context) => LoginScreen(),
         '/bottom_navbar': (context) => BottomNavbar(),
-        '/admin_navbar':  (context) => AdminBottomNavbar(),
+        '/admin_navbar':  (context) => const AdminBottomNavbar(),
       },
     );
   }
 }
 
-// ── Auth gate ─────────────────────────────────────────────────────────────────
-// Listens to Firebase Auth state. When a user logs in, initialises the
-// AppDataStore (opens Firestore streams). When they log out, clears the store.
+// ── AuthGate ──────────────────────────────────────────────────────────────────
+//
+// Watches Firebase auth state.  When the UID changes (login / account switch):
+//   → shows a loading spinner
+//   → _RoleRouter (keyed by UID) is rebuilt from scratch
+//   → _RoleRouter awaits clear(), fetches role, awaits initialize()
+//   → then shows the correct navbar
+//
+// When the user logs out:
+//   → awaits clear() then shows LoginScreen
+//
+// KEY DESIGN DECISIONS
+// 1. AuthGate is a StatefulWidget so _lastUid survives StreamBuilder rebuilds.
+// 2. _RoleRouter is keyed with ValueKey(uid) so Flutter throws away the old
+//    State and creates a new one on every account switch — guaranteeing a
+//    fresh role fetch and fresh initialize() with no leftover state.
+// 3. clear() is awaited inside _RoleRouter BEFORE initialize() so no old
+//    stream callbacks can fire during the new session.
+// ─────────────────────────────────────────────────────────────────────────────
+
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -74,29 +88,32 @@ class _AuthGateState extends State<AuthGate> {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snap) {
+
+        // Firebase hasn't reported yet
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
+          return const _LoadingScaffold();
         }
 
+        // ── Logged in ─────────────────────────────────────────────────────
         if (snap.hasData) {
           final uid = snap.data!.uid;
+
+          // Track the current UID so we can detect a real account switch
           if (uid != _lastUid) {
             _lastUid = uid;
-            Future.microtask(() {
-              if (mounted) {
-                context.read<AppDataStore>().clear();
-                context.read<AppDataStore>().initialize();
-              }
-            });
           }
-          // Role-based routing — check Firestore for role
-          return const _RoleRouter();
+
+          // _RoleRouter is keyed by uid so it's rebuilt fresh on every
+          // account switch, guaranteeing a new clear() + initialize() cycle.
+          return _RoleRouter(key: ValueKey(uid), uid: uid);
         }
 
+        // ── Logged out ────────────────────────────────────────────────────
         if (_lastUid != null) {
           _lastUid = null;
-          Future.microtask(() {
+          // Clear synchronously after the frame — store handles the async
+          // cancel internally via its own _clearing guard.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) context.read<AppDataStore>().clear();
           });
         }
@@ -107,41 +124,107 @@ class _AuthGateState extends State<AuthGate> {
   }
 }
 
-// Separate widget that routes to the correct navbar based on role
-class _RoleRouter extends StatelessWidget {
-  const _RoleRouter();
+// ── _RoleRouter ───────────────────────────────────────────────────────────────
+//
+// StatefulWidget keyed by uid — a new instance is created for every
+// account switch, so initState() always runs fresh.
+//
+// Sequence:
+//   1. await store.clear()          — cancels ALL old Firestore streams
+//   2. fetch role from Firestore    — determines which navbar to show
+//   3. await store.initialize()     — opens per-user tracker streams
+//   4. if admin: await store.initializeAdmin()  — opens all-devices stream
+//   5. setState → show correct navbar
+//
+// clear() is awaited in step 1, so by the time initialize() runs in step 3
+// there are zero lingering stream callbacks that could corrupt new state.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RoleRouter extends StatefulWidget {
+  final String uid;
+  const _RoleRouter({required super.key, required this.uid});
+
+  @override
+  State<_RoleRouter> createState() => _RoleRouterState();
+}
+
+class _RoleRouterState extends State<_RoleRouter> {
+  String? _role;      // null = still resolving
+  bool    _done = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveAndInit();
+  }
+
+  Future<void> _resolveAndInit() async {
+    final store = context.read<AppDataStore>();
+
+    // Step 1 — await full stream cancellation before doing anything else.
+    // This is the critical fix: clear() is now async and awaits every
+    // StreamSubscription.cancel() future, so no old callbacks can fire
+    // after this line returns.
+    await store.clear();
+
+    if (!mounted) return;
+
+    // Step 2 — fetch user role from Firestore
+    String role = 'user';
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.uid)
+          .get();
+      role = (doc.data()?['role'] as String?) ?? 'user';
+    } catch (e) {
+      // Firestore lookup failed — default to regular user
+      if (mounted) {
+        debugPrint('[_RoleRouter] role fetch failed: $e — defaulting to user');
+      }
+    }
+
+    if (!mounted) return;
+
+    // Step 3 — initialize the store for this user.
+    // Because clear() completed above, initialize() starts with a fully
+    // clean slate — no old streams, no stale data.
+    await store.initialize();
+
+    if (!mounted) return;
+
+    // Step 4 — if admin, also open the all-devices stream
+    if (role == 'admin') {
+      await store.initializeAdmin();
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _role = role;
+      _done = true;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return LoginScreen();
+    if (!_done) return const _LoadingScaffold();
 
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
-        }
-        final role = (snap.data?.data()
-            as Map<String, dynamic>?)?['role'] as String? ?? 'user';
+    return _role == 'admin'
+        ? const AdminBottomNavbar()
+        : BottomNavbar();
+  }
+}
 
-            if (role == 'admin') {
-            Future.microtask(() {
-              if (context.mounted) {
-                context.read<AppDataStore>().initializeAdmin();
-              }
-            });
-            return const AdminBottomNavbar();
-          }
+// ── Shared loading widget ─────────────────────────────────────────────────────
 
-        return role == 'admin'
-            ? const AdminBottomNavbar()
-            : BottomNavbar();
-      },
+class _LoadingScaffold extends StatelessWidget {
+  const _LoadingScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
     );
   }
 }
