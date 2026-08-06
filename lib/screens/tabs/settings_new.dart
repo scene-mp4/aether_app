@@ -101,24 +101,21 @@ class _SettingsTabState extends State<SettingsNewPage> {
     if (confirm == true) {
       setState(() => _isSigningOut = true);
       try {
-        // FIX: clear AppDataStore BEFORE signing out so Firestore streams
-        // are cancelled while the user UID is still valid. Previously
-        // called bare clear() which is undefined — caused a compile error
-        // and meant the store was never actually cleared on logout.
-        context.read<AppDataStore>().clear();
+        // FIX 1: await clear() — clear() is now async and awaits every
+        // StreamSubscription.cancel(). Without await, signOut() runs while
+        // old Firestore streams are still active, corrupting the next login.
+        await context.read<AppDataStore>().clear();
 
+        // FIX 2: just sign out — do NOT call Navigator manually.
+        // AuthGate listens to FirebaseAuth.authStateChanges(). The moment
+        // signOut() completes, AuthGate's StreamBuilder fires, _lastUid is
+        // reset to null, and LoginScreen is shown automatically.
+        // Manually pushing '/login' bypasses AuthGate entirely, which means
+        // _RoleRouter never gets rebuilt with the new user's ValueKey on the
+        // next login, so clear() + initialize() are never called correctly.
         await _auth.signOut();
 
-        // FIX: navigate by popping everything back to AuthGate rather than
-        // pushing '/login' directly. AuthGate listens to authStateChanges
-        // and routes correctly, so we don't need to push manually.
-        // pushNamedAndRemoveUntil to '/' lets AuthGate handle the redirect.
-        if (mounted) {
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/login',
-            (Route<dynamic> route) => false,
-          );
-        }
+        // No Navigator call needed — AuthGate handles routing automatically.
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

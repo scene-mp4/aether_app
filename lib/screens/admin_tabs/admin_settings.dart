@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:pollutracker_app/stores/app_data_store.dart';
 
 class AdminSettingsTab extends StatefulWidget {
   const AdminSettingsTab({super.key});
@@ -43,19 +45,21 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
   ];
 
   Future<void> _handleLogout() async {
+    // FIX 1: await clear() so all Firestore streams are fully cancelled
+    // before signOut() fires. clear() is now async — not awaiting it causes
+    // old stream callbacks to fire during the next login and corrupt state.
+    await context.read<AppDataStore>().clear();
+
     try {
       await FirebaseAuth.instance.signOut();
     } catch (_) {
-      // Continue to the login screen even if sign-out fails.
+      // Continue even if sign-out throws.
     }
 
-    if (!mounted) return;
-
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/login',
-      (route) => false,
-    );
+    // FIX 2: No Navigator call — AuthGate listens to authStateChanges and
+    // routes to LoginScreen automatically when signOut() completes.
+    // Pushing '/login' manually bypasses AuthGate, breaking _RoleRouter's
+    // ValueKey rebuild on the next login.
   }
 
   @override
