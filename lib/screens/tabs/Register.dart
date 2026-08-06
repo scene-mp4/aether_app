@@ -97,7 +97,7 @@ class _RegisterState extends State<Register> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        // Soft gradient background (light blue to white)
+        
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -122,12 +122,12 @@ class _RegisterState extends State<Register> {
                   // App Circle Icon / Logo
                   Image.asset(
                     'assets/Aether_logo_v1.png',
-                    height: 90.0, // 👈 Change this number directly to make it larger or smaller
+                    height: 90.0, 
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 12),
                   
-                  // Brand Name
+                  
                   const Text(
                     "AETHER",
                     style: TextStyle(
@@ -150,7 +150,7 @@ class _RegisterState extends State<Register> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Main Card Container (Matches sized-up login box at 340 width)
+                  // Main Card Container
                   SizedBox(
                     width: 340,
                     child: Card(

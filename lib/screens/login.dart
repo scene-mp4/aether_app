@@ -113,16 +113,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 20),
                   
-                  // ==================== NEW PNG LOGO REPLACEMENT ====================
+                  
                   Image.asset(
-                    'assets/Aether_logo_v1.png', // Replace with your actual asset string if it differs
-                    height: 90,        // Controls how tall your logo renders visually
+                    'assets/Aether_logo_v1.png', 
+                    height: 90,        
                     fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 20), // Margin space below logo image
-                  // ==================================================================
+                  const SizedBox(height: 20), 
                   
-                  // Project Description
+                  
+                  
                   const Text(
                     "AETHER Air Quality Monitoring System",
                     style: TextStyle(
@@ -133,9 +133,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Main Card Container (Sized up a bit for more breathing room)
+                  // Main Card Container
                   SizedBox(
-                    width: 340, // Increased from 300 to 340 for a slightly wider, comfortable box
+                    width: 340, 
                     child: Card(
                       color: Colors.white,
                       elevation: 4,
