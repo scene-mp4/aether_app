@@ -118,7 +118,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         "infoExpanded": false,
         "thresholdExpanded": false,
         "description": "Ultra-fine particles smaller than 1 micrometer. They penetrate deep into the lungs and may enter the bloodstream.",
-        "goodHeadline": "Good below 14 µg/m³ (ATMO, 2025)",
+        "goodHeadline": "Good below 14 µg/m³ (Shittu et al., 2025)",
         "thresholds": [
           {"label": "Good",              "range": "0–14 µg/m³",   "color": const Color(0xFF22C55E)},
           {"label": "Moderate",          "range": "15–34 µg/m³",  "color": const Color(0xFFEAB308)},
@@ -138,7 +138,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         "infoExpanded": false,
         "thresholdExpanded": false,
         "description": "Fine particles smaller than 2.5 micrometers. Linked to respiratory and cardiovascular diseases, especially in older adults.",
-        "goodHeadline": "Good below 20 µg/m³ (ATMO, 2025)",
+        "goodHeadline": "Good below 20 µg/m³ (Shittu et al., 2025)",
         "thresholds": [
           {"label": "Good",              "range": "0–20 µg/m³",   "color": const Color(0xFF22C55E)},
           {"label": "Moderate",          "range": "21–50 µg/m³",  "color": const Color(0xFFEAB308)},
@@ -158,7 +158,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         "infoExpanded": false,
         "thresholdExpanded": false,
         "description": "Coarser particles smaller than 10 micrometers. They irritate the nose, throat, and airways when inhaled.",
-        "goodHeadline": "Good below 30 µg/m³ (ATMO, 2025)",
+        "goodHeadline": "Good below 30 µg/m³ (Shittu et al., 2025)",
         "thresholds": [
           {"label": "Good",              "range": "0–30 µg/m³",    "color": const Color(0xFF22C55E)},
           {"label": "Moderate",          "range": "31–75 µg/m³",   "color": const Color(0xFFEAB308)},
@@ -178,7 +178,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         "infoExpanded": false,
         "thresholdExpanded": false,
         "description": "Carbon monoxide — a colorless, odorless gas produced by incomplete combustion. High levels are life-threatening.",
-        "goodHeadline": "Good below 1.7 ppm (ATMO, 2025)",
+        "goodHeadline": "Good below 1.7 ppm (Rosca et al., 2026)",
         "thresholds": [
           {"label": "Good",              "range": "0–1.7 ppm",    "color": const Color(0xFF22C55E)},
           {"label": "Moderate",          "range": "1.8–8.7 ppm",  "color": const Color(0xFFEAB308)},
@@ -198,8 +198,8 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         "infoExpanded": false,
         "thresholdExpanded": false,
         "description": "Carbon dioxide from breathing. Builds up in rooms with many people and poor ventilation, causing drowsiness.",
-        "goodHeadline": "Good below 600 ppm (ATMO, 2025)",
-        "footnote": "CO₂ is not part of the EPA AQI. Ranges based on ATMO (2025) indoor guidelines.",
+        "goodHeadline": "Good below 600 ppm (Rosca et al., 2026)",
+        "footnote": "CO₂ is not part of the EPA AQI.",
         "thresholds": [
           {"label": "Good",              "range": "0–599 ppm",    "color": const Color(0xFF22C55E)},
           {"label": "Moderate",          "range": "600–999 ppm",  "color": const Color(0xFFEAB308)},
@@ -220,7 +220,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         "infoExpanded": false,
         "thresholdExpanded": false,
         "description": "Ground-level ozone formed by chemical reactions between oxides of nitrogen and volatile organic compounds.",
-        "goodHeadline": "Good below 50 ppb (ATMO, 2025)",
+        "goodHeadline": "Good below 50 ppb (Rosca et al., 2026)",
         "thresholds": [
           {"label": "Good",              "range": "0–50 ppb",   "color": const Color(0xFF22C55E)},
           {"label": "Moderate",          "range": "51–100 ppb", "color": const Color(0xFFEAB308)},
@@ -319,7 +319,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              "Pollutant thresholds are based on ATMO (2025) indoor air quality classifications.",
+                              "Pollutant thresholds are based on Shittu et al. (2025) and Rosca et al. (2026) indoor air quality classifications.",
                               style: TextStyle(
                                   fontSize: 10, color: Color(0xFF94A3B8)),
                             ),
@@ -1000,7 +1000,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
               const SizedBox(height: 2),
               const Align(
                 alignment: Alignment.centerLeft,
-                child: Text("Source: ATMO (2025)",
+                child: Text("Source: Shittu et al. (2025) and Rosca et al. (2026)",
                     style: TextStyle(
                         fontSize: 9,
                         fontStyle: FontStyle.italic,
