@@ -349,34 +349,6 @@ class _ManageAccountPageState extends State<ManageAccountPage>
                             ],
                           ),
                         ),
-
-                        // Floating Chat Button (Bottom Right)
-                        Positioned(
-                          right: 16,
-                          bottom: 20,
-                          child: Container(
-                            height: 52,
-                            width: 52,
-                            decoration: const BoxDecoration(
-                              color: primaryBlue,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 8,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.chat_bubble_outline_rounded,
-                                  color: Colors.white, size: 24),
-                              onPressed: () {
-                                // Chat action
-                              },
-                            ),
-                          ),
-                        ),
                       ],
                     ),
             ),

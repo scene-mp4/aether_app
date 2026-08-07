@@ -340,12 +340,6 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () {},
-            backgroundColor: const Color(0xFF2563EB),
-            shape: const CircleBorder(),
-            child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-          ),
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _bottomNavIndex,
             selectedItemColor: const Color(0xFF0052FF),
