@@ -56,6 +56,12 @@ final List<Widget> tabs = [
             ),
         ]
         ),
+          floatingActionButton: FloatingActionButton(
+          onPressed: () => {print("Chatbot button pressed")}, // _openChatbot(context),
+          backgroundColor: const Color(0xFF0052FF),
+          foregroundColor: Colors.white,
+          child: Icon(Icons.chat_bubble_outline_rounded),
+        ),
     );
   }
 }
