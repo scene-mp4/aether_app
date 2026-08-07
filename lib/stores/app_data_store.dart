@@ -33,10 +33,17 @@ class AppDataStore extends ChangeNotifier {
   List<TrackerInfo>            _allTrackers        = [];
   Map<String, TrackerReading>  _allLatestReadings  = {};
 
+  // ── Advice state ───────────────────────────────────────────────────────────
+  // Shared across all users — admins manage, users read.
+  List<Map<String, dynamic>> _adviceEntries = [];
+  List<Map<String, dynamic>> get adviceEntries =>
+      List.unmodifiable(_adviceEntries);
+
   // ── Internal subscriptions ─────────────────────────────────────────────────
   StreamSubscription?                    _trackerListSub;
   StreamSubscription?                    _availableSub;
   StreamSubscription?                    _allDevicesSub;
+  StreamSubscription?                    _adviceSub;
   final Map<String, StreamSubscription>  _latestSubs     = {};
   final Map<String, StreamSubscription>  _newReadingSubs = {};
   final Map<String, StreamSubscription>  _allLatestSubs  = {};
@@ -86,10 +93,12 @@ class AppDataStore extends ChangeNotifier {
       if (_trackerListSub != null) _trackerListSub!.cancel(),
       if (_availableSub   != null) _availableSub!.cancel(),
       if (_allDevicesSub  != null) _allDevicesSub!.cancel(),
+      if (_adviceSub      != null) _adviceSub!.cancel(),
     ]);
     _trackerListSub = null;
     _availableSub   = null;
     _allDevicesSub  = null;
+    _adviceSub      = null;
 
     // Cancel all per-tracker subscriptions and await them all
     await Future.wait([
@@ -109,6 +118,7 @@ class AppDataStore extends ChangeNotifier {
     _allLatestReadings.clear();
     _historyCache.clear();
     _historyLoading.clear();
+    _adviceEntries.clear();
 
     _loading      = false;
     _initializing = false;
@@ -193,6 +203,40 @@ class AppDataStore extends ChangeNotifier {
               d.id, d.data() as Map<String, dynamic>))
           .toList();
       notifyListeners();
+    });
+
+    // Listen to active advice entries — shared across all users
+    _openAdviceStream();
+  }
+
+  // ── Advice stream ──────────────────────────────────────────────────────────
+  // Opens a live stream on the advice collection filtered to active entries.
+  // Sorted by severity so critical advice appears first in the UI.
+  void _openAdviceStream() {
+    _adviceSub = _db
+        .collection('advice')
+        .where('active', isEqualTo: true)
+        .snapshots()
+        .listen((snap) {
+      _adviceEntries = snap.docs.map((d) {
+        final data = d.data() as Map<String, dynamic>;
+        return {'id': d.id, ...data};
+      }).toList();
+
+      // Sort: critical first, then warning, then info
+      const order = {'critical': 0, 'warning': 1, 'info': 2};
+      _adviceEntries.sort((a, b) {
+        final aOrder = order[a['severity'] ?? 'info'] ?? 2;
+        final bOrder = order[b['severity'] ?? 'info'] ?? 2;
+        return aOrder.compareTo(bOrder);
+      });
+
+      notifyListeners();
+      if (kDebugMode) {
+        print('[AppDataStore] advice: ${_adviceEntries.length} active entries loaded');
+      }
+    }, onError: (e) {
+      if (kDebugMode) print('[AppDataStore] advice stream error: \$e');
     });
   }
 
