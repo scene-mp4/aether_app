@@ -28,10 +28,10 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
     {'label': 'Temperature (°C)',            'value': 'temperature_c'},
     {'label': 'Humidity (%)',                'value': 'humidity_pct'},
     {'label': 'Heat Index (°C)',             'value': 'heat_index_c'},
-    {'label': 'CO Alert (flag)',             'value': 'co_alert'},
-    {'label': 'LPG Alert (flag)',            'value': 'lpg_alert'},
-    {'label': 'PM2.5 Alert (flag)',          'value': 'pm25_alert'},
-    {'label': 'CO₂ Alert (flag)',            'value': 'co2_alert'},
+    // {'label': 'CO Alert (flag)',             'value': 'co_alert'},
+    // {'label': 'LPG Alert (flag)',            'value': 'lpg_alert'},
+    // {'label': 'PM2.5 Alert (flag)',          'value': 'pm25_alert'},
+    // {'label': 'CO₂ Alert (flag)',            'value': 'co2_alert'},
   ];
 
   static const List<Map<String, String>> _comparatorOptions = [
@@ -776,7 +776,7 @@ class _AdviceModalState extends State<_AdviceModal> {
 
               _field('Threshold Value', _thresholdCtrl, 'e.g. 35',
                   keyboardType: TextInputType.number,
-                  helper: 'For boolean flags (co_alert etc.) use 1 for true, 0 for false'),
+                  helper: ''),
               const SizedBox(height: 14),
 
               // Severity chips
