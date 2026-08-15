@@ -112,6 +112,156 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
     }
   }
 
+  // ── Reset / delete readings ───────────────────────────────────────────────
+  // Firestore does not support deleting entire subcollections from the client
+  // SDK. We fetch documents in batches of 100 and delete them one by one.
+  // For very large collections this may be slow — a Cloud Function would be
+  // faster, but this works fine for typical deployment sizes.
+
+  Future<void> _resetReadings(String docId, String trackerName) async {
+    // Let the admin choose what to delete
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reset Tracker Readings'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choose what to delete for "$trackerName".',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEFCE8),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFEF08A)),
+              ),
+              child: Row(children: const [
+                Icon(Icons.warning_amber_rounded,
+                    color: Color(0xFFD97706), size: 16),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'This cannot be undone. The tracker device '
+                    'and its settings will not be affected.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                  ),
+                ),
+              ]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'raw'),
+            child: const Text('Raw readings only',
+                style: TextStyle(color: Color(0xFFD97706))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'computed'),
+            child: const Text('Computed only',
+                style: TextStyle(color: Color(0xFFD97706))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444)),
+            onPressed: () => Navigator.pop(context, 'both'),
+            child: const Text('Delete all',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == null || !mounted) return;
+
+    // Show progress dialog while deleting
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 16),
+          Text('Deleting readings…'),
+        ]),
+      ),
+    );
+
+    try {
+      int deleted = 0;
+
+      if (choice == 'raw' || choice == 'both') {
+        deleted += await _deleteSubcollection(docId, 'readings');
+      }
+      if (choice == 'computed' || choice == 'both') {
+        deleted += await _deleteSubcollection(docId, 'readings_computed');
+      }
+
+      // Also clear the latest summary field on the device document
+      // so the dashboard doesn't show stale data after the reset
+      if (choice == 'both') {
+        await _db.collection('devices').doc(docId).update({
+          'latest': FieldValue.delete(),
+        });
+      }
+
+      if (mounted) {
+        Navigator.pop(context); // close progress dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Deleted $deleted document${deleted == 1 ? '' : 's'} '
+                'from $trackerName'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // close progress dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Reset failed: $e')),
+        );
+      }
+    }
+  }
+
+  /// Deletes all documents in a subcollection in batches of 100.
+  /// Returns the total number of documents deleted.
+  Future<int> _deleteSubcollection(
+      String deviceId, String subcollection) async {
+    int total = 0;
+    while (true) {
+      final snap = await _db
+          .collection('devices')
+          .doc(deviceId)
+          .collection(subcollection)
+          .limit(100)
+          .get();
+
+      if (snap.docs.isEmpty) break;
+
+      // Use a write batch for efficiency — up to 500 ops per batch
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      total += snap.docs.length;
+
+      // If fewer than 100 docs came back, we've deleted everything
+      if (snap.docs.length < 100) break;
+    }
+    return total;
+  }
+
   // ── Fetch users for the owner dropdown ────────────────────────────────────
   Future<List<Map<String, dynamic>>> _fetchUsers() async {
     final snap = await _db.collection('users').get();
@@ -314,6 +464,7 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
                                   currentOwnerId:  ownerId,
                                 ),
                                 onDelete: () => _deleteTracker(docId),
+                                onReset:  () => _resetReadings(docId, name),
                               );
                             },
                           );
@@ -446,6 +597,7 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
     required String lastUpdate,
     required VoidCallback onEdit,
     required VoidCallback onDelete,
+    required VoidCallback onReset,
   }) {
     final isActive = status == 'Active';
 
@@ -528,7 +680,17 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
                 onTap: onEdit,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _actionButton(
+                icon:      Icons.refresh_outlined,
+                label:     'Reset',
+                onTap:     onReset,
+                textColor: const Color(0xFFD97706),
+                borderColor: const Color(0xFFFEF08A),
+              ),
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: _actionButton(
                 icon:      Icons.delete_outline,
