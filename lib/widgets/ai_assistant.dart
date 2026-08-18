@@ -53,8 +53,8 @@ class _AiAssistantState extends State<AiAssistant> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        final w = MediaQuery.of(ctx).size.width * 0.88;
-        final width = w > 360 ? 360.0 : w;
+        final w = MediaQuery.of(ctx).size.width * 0.95;
+        final width = w > 420 ? 420.0 : w;
 
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -101,7 +101,7 @@ class _AiAssistantState extends State<AiAssistant> {
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
                     width: width,
-                    height: 280,
+                    height: 720,
                     color: Colors.white,
                     child: Column(
                       children: [
