@@ -11,11 +11,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'stores/app_data_store.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -118,6 +121,8 @@ class _AuthGateState extends State<AuthGate> {
           });
         }
 
+        FlutterNativeSplash.remove();
+
         return LoginScreen();
       },
     );
@@ -200,6 +205,8 @@ class _RoleRouterState extends State<_RoleRouter> {
 
     if (!mounted) return;
 
+    FlutterNativeSplash.remove();
+    
     setState(() {
       _role = role;
       _done = true;
