@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '/stores/app_data_store.dart';
 
 class AdminTrackersTab extends StatefulWidget {
@@ -786,17 +787,64 @@ class _TrackerModal extends StatefulWidget {
   State<_TrackerModal> createState() => _TrackerModalState();
 }
 
+// Predefined location suggestions for the location picker
+const List<String> _locationSuggestions = [
+  'Bedroom',
+  'Kitchen',
+  'Living Room',
+  'Bathroom',
+  'Dining Room',
+  'Office',
+  'Hallway',
+  'Nursery',
+  'Ward',
+  'Nursing Station',
+  'Reception',
+  'Corridor',
+  'Common Area',
+  'Utility Room',
+  'Storage Room',
+  'Custom…',  // always last — triggers free-text input
+];
+
 class _TrackerModalState extends State<_TrackerModal> {
-  List<Map<String, dynamic>> _users    = [];
-  bool                       _loading  = true;
-  String                     _ownerId  = '';
-  bool                       _saving   = false;
+  List<Map<String, dynamic>> _users          = [];
+  bool                       _loading        = true;
+  String                     _ownerId        = '';
+  bool                       _saving         = false;
   String?                    _error;
+
+  // ── ID generation state ───────────────────────────────────────────────────
+  bool _useAutoId = true;  // true = generate UUID, false = manual entry
+
+  // ── Location state ────────────────────────────────────────────────────────
+  // _selectedLocation holds the dropdown value.
+  // When 'Custom…' is selected, _showCustomLocation becomes true and
+  // the user types into locController directly.
+  String? _selectedLocation;
+  bool    _showCustomLocation = false;
 
   @override
   void initState() {
     super.initState();
     _ownerId = widget.initialOwnerId;
+
+    // Editing: pre-select the existing location in the dropdown if it matches
+    // one of the suggestions, otherwise fall through to custom input.
+    if (widget.isEditing) {
+      final existing = widget.locController.text.trim();
+      if (existing.isNotEmpty) {
+        if (_locationSuggestions.contains(existing)) {
+          _selectedLocation   = existing;
+          _showCustomLocation = false;
+        } else {
+          _selectedLocation   = 'Custom…';
+          _showCustomLocation = true;
+          // locController already has the text — nothing else needed
+        }
+      }
+    }
+
     _loadUsers();
   }
 
@@ -814,16 +862,42 @@ class _TrackerModalState extends State<_TrackerModal> {
     }
   }
 
+  // Generates a Firestore-friendly auto-ID: "tracker_" + first 8 chars of UUID
+  String _generateId() {
+    final uuid = const Uuid().v4().replaceAll('-', '');
+    return 'tracker_${uuid.substring(0, 8)}';
+  }
+
   Future<void> _handleSave() async {
     final name = widget.nameController.text.trim();
-    final id   = widget.idController.text.trim();
 
     if (name.isEmpty) {
       setState(() => _error = 'Tracker name is required.');
       return;
     }
-    if (!widget.isEditing && id.isEmpty) {
-      setState(() => _error = 'Tracker ID is required.');
+
+    // For new trackers: auto-generate ID or validate manual entry
+    if (!widget.isEditing) {
+      if (_useAutoId) {
+        // Fill the controller with a generated ID so the parent can read it
+        widget.idController.text = _generateId();
+      } else {
+        if (widget.idController.text.trim().isEmpty) {
+          setState(() => _error = 'Please enter a Tracker ID or use Auto-generate.');
+          return;
+        }
+        // Sanitise manual ID: replace spaces with underscores, lowercase
+        widget.idController.text = widget.idController.text
+            .trim()
+            .toLowerCase()
+            .replaceAll(' ', '_');
+      }
+    }
+
+    // Validate location
+    final loc = widget.locController.text.trim();
+    if (loc.isEmpty && _selectedLocation == null) {
+      setState(() => _error = 'Please select or enter a location.');
       return;
     }
 
@@ -855,13 +929,156 @@ class _TrackerModalState extends State<_TrackerModal> {
               ),
               const SizedBox(height: 20),
 
-              // ── Tracker ID (read-only when editing) ─────────────────
+              // ── Tracker ID ──────────────────────────────────────────
               if (!widget.isEditing) ...[
-                _inputField(
-                  label:      'Tracker ID',
-                  controller: widget.idController,
-                  hint:       'e.g. tracker_003',
-                  helper:     'This will be the Firestore document ID.',
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Tracker ID',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155))),
+                    const SizedBox(height: 8),
+                    // Auto / Manual toggle
+                    Row(children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _useAutoId = true),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _useAutoId
+                                  ? const Color(0xFF3B62F6)
+                                  : Colors.white,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(10),
+                                bottomLeft: Radius.circular(10),
+                              ),
+                              border: Border.all(
+                                color: _useAutoId
+                                    ? const Color(0xFF3B62F6)
+                                    : const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.auto_awesome,
+                                    size: 14,
+                                    color: _useAutoId
+                                        ? Colors.white
+                                        : const Color(0xFF64748B)),
+                                const SizedBox(width: 6),
+                                Text('Auto-generate',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: _useAutoId
+                                            ? Colors.white
+                                            : const Color(0xFF64748B))),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _useAutoId = false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 10),
+                            decoration: BoxDecoration(
+                              color: !_useAutoId
+                                  ? const Color(0xFF3B62F6)
+                                  : Colors.white,
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(10),
+                                bottomRight: Radius.circular(10),
+                              ),
+                              border: Border.all(
+                                color: !_useAutoId
+                                    ? const Color(0xFF3B62F6)
+                                    : const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.edit_outlined,
+                                    size: 14,
+                                    color: !_useAutoId
+                                        ? Colors.white
+                                        : const Color(0xFF64748B)),
+                                const SizedBox(width: 6),
+                                Text('Manual entry',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: !_useAutoId
+                                            ? Colors.white
+                                            : const Color(0xFF64748B))),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 8),
+                    if (_useAutoId)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: const Color(0xFFBBF7D0)),
+                        ),
+                        child: Row(children: const [
+                          Icon(Icons.auto_awesome,
+                              size: 14, color: Color(0xFF16A34A)),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'A unique ID will be generated automatically when you save.',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF15803D)),
+                            ),
+                          ),
+                        ]),
+                      )
+                    else
+                      TextField(
+                        controller: widget.idController,
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                          hintText: 'e.g. tracker_003',
+                          hintStyle: const TextStyle(
+                              color: Color(0xFF94A3B8)),
+                          helperText:
+                              'Letters, numbers and underscores only. '
+                              'Spaces will be converted to underscores.',
+                          helperMaxLines: 2,
+                          helperStyle: const TextStyle(
+                              fontSize: 10, color: Color(0xFF94A3B8)),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                                color: Color(0xFFCBD5E1)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                                color: Color(0xFF3B62F6)),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 14),
               ] else ...[
@@ -877,11 +1094,102 @@ class _TrackerModalState extends State<_TrackerModal> {
               ),
               const SizedBox(height: 14),
 
-              // ── Location ────────────────────────────────────────────
-              _inputField(
-                label:      'Location',
-                controller: widget.locController,
-                hint:       'e.g. Main Building, Floor 2',
+              // ── Location picker ──────────────────────────────────────
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Location',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155))),
+                  const SizedBox(height: 6),
+                  // Dropdown of predefined suggestions
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: DropdownButton<String>(
+                      value: _selectedLocation,
+                      isExpanded: true,
+                      underline: const SizedBox.shrink(),
+                      hint: const Text('Select a location',
+                          style: TextStyle(color: Color(0xFF94A3B8))),
+                      items: _locationSuggestions.map((loc) {
+                        final isCustom = loc == 'Custom…';
+                        return DropdownMenuItem<String>(
+                          value: loc,
+                          child: Row(children: [
+                            Icon(
+                              isCustom
+                                  ? Icons.edit_outlined
+                                  : Icons.location_on_outlined,
+                              size: 14,
+                              color: isCustom
+                                  ? const Color(0xFF3B62F6)
+                                  : const Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(loc,
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: isCustom
+                                        ? const Color(0xFF3B62F6)
+                                        : const Color(0xFF0F172A),
+                                    fontWeight: isCustom
+                                        ? FontWeight.w600
+                                        : FontWeight.normal)),
+                          ]),
+                        );
+                      }).toList(),
+                      onChanged: (v) {
+                        setState(() {
+                          _selectedLocation   = v;
+                          _showCustomLocation = v == 'Custom…';
+                          // If a predefined location is selected,
+                          // set it directly into the controller
+                          if (v != null && v != 'Custom…') {
+                            widget.locController.text = v;
+                          } else if (v == 'Custom…') {
+                            widget.locController.clear();
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  // Custom location text field — shown when 'Custom…' selected
+                  if (_showCustomLocation) ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: widget.locController,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        hintText: 'Type a custom location…',
+                        hintStyle: const TextStyle(
+                            color: Color(0xFF94A3B8)),
+                        prefixIcon: const Icon(
+                            Icons.location_on_outlined,
+                            size: 18,
+                            color: Color(0xFF64748B)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                              color: Color(0xFFCBD5E1)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF3B62F6)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 14),
 
