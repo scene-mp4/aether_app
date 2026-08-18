@@ -3,6 +3,7 @@ import 'package:pollutracker_app/screens/tabs/analytics_new.dart';
 import 'package:pollutracker_app/screens/tabs/settings_new.dart';
 import 'package:pollutracker_app/screens/tabs/summary_new.dart';
 import 'package:pollutracker_app/screens/tabs/trackers_new.dart';
+import '../widgets/ai_assistant.dart';
 
 // Contains the bottom navigation bar. All other tabs will be in separate files, and when a tab is pressed on the bottom navigation bar, the current screen should change.
 // TODO: 
@@ -56,13 +57,7 @@ final List<Widget> tabs = [
             ),
         ]
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => {print("Chatbot button pressed")},
-          shape: const CircleBorder(), // _openChatbot(context),
-          backgroundColor: const Color(0xFF0052FF),
-          foregroundColor: Colors.white,
-          child: Icon(Icons.chat_bubble_outline_rounded),
-        ),
+        floatingActionButton: const AiAssistant(),
     );
   }
 }

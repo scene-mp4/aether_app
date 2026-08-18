@@ -265,6 +265,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF1F5F9),
+          floatingActionButton: const AiAssistant(),
           body: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
