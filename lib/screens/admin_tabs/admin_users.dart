@@ -959,12 +959,12 @@ class _EditUserModalState extends State<_EditUserModal> {
               const SizedBox(height: 20),
 
               // ── Username ─────────────────────────────────────────────
-              _field('Username', _usernameCtrl, 'Enter username'),
+              _field('Username', _usernameCtrl, 'Enter username', readOnly: true,),
               const SizedBox(height: 14),
 
               // ── Email ────────────────────────────────────────────────
               _field('Email', _emailCtrl, 'user@example.com',
-                  keyboardType: TextInputType.emailAddress),
+                  keyboardType: TextInputType.emailAddress, readOnly: true,),
               const SizedBox(height: 14),
 
               // ── Role selector ────────────────────────────────────────
@@ -1188,46 +1188,62 @@ class _EditUserModalState extends State<_EditUserModal> {
   }
 
   Widget _field(
-    String label,
-    TextEditingController ctrl,
-    String hint, {
-    TextInputType keyboardType = TextInputType.text,
-    bool obscureText = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF334155))),
-        const SizedBox(height: 6),
-        TextField(
-          controller: ctrl,
-          keyboardType: keyboardType,
-          obscureText: obscureText,
-          decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 12),
-            hintText: hint,
-            hintStyle:
-                const TextStyle(color: Color(0xFF94A3B8)),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  const BorderSide(color: Color(0xFFCBD5E1)),
+  String label,
+  TextEditingController ctrl,
+  String hint, {
+  TextInputType keyboardType = TextInputType.text,
+  bool obscureText = false,
+  bool readOnly = false,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF334155),
+        ),
+      ),
+      const SizedBox(height: 6),
+      TextField(
+        controller: ctrl,
+        keyboardType: keyboardType,
+        obscureText: obscureText,
+        readOnly: readOnly,
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
+          hintText: hint,
+          hintStyle: const TextStyle(
+            color: Color(0xFF94A3B8),
+          ),
+          filled: readOnly,
+          fillColor: readOnly
+              ? const Color(0xFFF8FAFC)
+              : Colors.white,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(
+              color: Color(0xFFCBD5E1),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  const BorderSide(color: Color(0xFF3B62F6)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: readOnly
+                  ? const Color(0xFFCBD5E1)
+                  : const Color(0xFF3B62F6),
             ),
           ),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _roleChip(String value, String label) {
     final selected = _role == value;
