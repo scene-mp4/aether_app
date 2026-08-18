@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '/stores/app_data_store.dart';
 import '/models/tracker_reading.dart';
@@ -122,6 +123,8 @@ class TrackersNewPage extends StatelessWidget {
                                       reading: reading,
                                       onUnlink: () =>
                                           _confirmUnlink(context, store, info),
+                                      onEdit: () =>
+                                          _showEditModal(context, info),
                                     );
                                   },
                                 ),
@@ -147,6 +150,19 @@ class TrackersNewPage extends StatelessWidget {
       builder: (dialogContext) {
         return _AddTrackerDialog(store: store);
       },
+    );
+  }
+
+  // ── Edit modal ───────────────────────────────────────────────────────────
+
+  void _showEditModal(BuildContext context, TrackerInfo info) {
+    showDialog(
+      context: context,
+      builder: (_) => _EditTrackerModal(
+        deviceId:        info.id,
+        currentName:     info.deviceName,
+        currentLocation: info.location,
+      ),
     );
   }
 
@@ -290,12 +306,14 @@ class TrackerCard extends StatefulWidget {
   final TrackerInfo     info;
   final TrackerReading? reading;
   final VoidCallback    onUnlink;
+  final VoidCallback    onEdit;
 
   const TrackerCard({
     super.key,
     required this.info,
     required this.reading,
     required this.onUnlink,
+    required this.onEdit,
   });
 
   @override
@@ -416,6 +434,16 @@ class _TrackerCardState extends State<TrackerCard> {
                       ),
                     ),
                   ),
+                  // Edit button
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined,
+                        size: 17, color: Color(0xFF94A3B8)),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Edit tracker',
+                    onPressed: widget.onEdit,
+                  ),
+                  const SizedBox(width: 4),
                   // Unlink button
                   IconButton(
                     icon: const Icon(Icons.link_off,
@@ -697,6 +725,347 @@ class _TrackerCardState extends State<TrackerCard> {
                   );
                 },
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Edit Tracker Modal
+// Allows the user to update device_name and location for their own tracker.
+// Writes directly to Firestore — AppDataStore's live stream picks up the change.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Predefined location suggestions (same list as admin page)
+const List<String> _locationSuggestions = [
+  'Bedroom',
+  'Kitchen',
+  'Living Room',
+  'Bathroom',
+  'Dining Room',
+  'Office',
+  'Hallway',
+  'Nursery',
+  'Ward',
+  'Nursing Station',
+  'Reception',
+  'Corridor',
+  'Common Area',
+  'Utility Room',
+  'Storage Room',
+  'Custom…',
+];
+
+class _EditTrackerModal extends StatefulWidget {
+  final String deviceId;
+  final String currentName;
+  final String currentLocation;
+
+  const _EditTrackerModal({
+    required this.deviceId,
+    required this.currentName,
+    required this.currentLocation,
+  });
+
+  @override
+  State<_EditTrackerModal> createState() => _EditTrackerModalState();
+}
+
+class _EditTrackerModalState extends State<_EditTrackerModal> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _locCtrl;
+
+  String? _selectedLocation;
+  bool    _showCustomLocation = false;
+  bool    _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.currentName);
+    _locCtrl  = TextEditingController(text: widget.currentLocation);
+
+    // Pre-select existing location in dropdown if it matches a suggestion
+    final existing = widget.currentLocation.trim();
+    if (existing.isNotEmpty) {
+      if (_locationSuggestions.contains(existing)) {
+        _selectedLocation   = existing;
+        _showCustomLocation = false;
+      } else {
+        _selectedLocation   = 'Custom…';
+        _showCustomLocation = true;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _locCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSave() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Tracker name cannot be empty.');
+      return;
+    }
+
+    setState(() { _saving = true; _error = null; });
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('devices')
+          .doc(widget.deviceId)
+          .update({
+        'device_name': name,
+        'location':    _locCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error  = 'Failed to save: $e';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Edit Tracker',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A))),
+                  IconButton(
+                    icon: const Icon(Icons.close,
+                        color: Color(0xFF64748B), size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text('ID: ${widget.deviceId}',
+                  style: const TextStyle(
+                      fontSize: 11, color: Color(0xFF94A3B8))),
+              const SizedBox(height: 20),
+
+              // Tracker name
+              const Text('Tracker Name',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155))),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _nameCtrl,
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
+                  hintText: 'e.g. Bedroom Sensor',
+                  hintStyle:
+                      const TextStyle(color: Color(0xFF94A3B8)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide:
+                        const BorderSide(color: Color(0xFFCBD5E1)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF0052FF)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Location picker
+              const Text('Location',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155))),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 4),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: DropdownButton<String>(
+                  value: _selectedLocation,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  hint: const Text('Select a location',
+                      style: TextStyle(color: Color(0xFF94A3B8))),
+                  items: _locationSuggestions.map((loc) {
+                    final isCustom = loc == 'Custom…';
+                    return DropdownMenuItem<String>(
+                      value: loc,
+                      child: Row(children: [
+                        Icon(
+                          isCustom
+                              ? Icons.edit_outlined
+                              : Icons.location_on_outlined,
+                          size: 14,
+                          color: isCustom
+                              ? const Color(0xFF0052FF)
+                              : const Color(0xFF64748B),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(loc,
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: isCustom
+                                    ? const Color(0xFF0052FF)
+                                    : const Color(0xFF0F172A),
+                                fontWeight: isCustom
+                                    ? FontWeight.w600
+                                    : FontWeight.normal)),
+                      ]),
+                    );
+                  }).toList(),
+                  onChanged: (v) {
+                    setState(() {
+                      _selectedLocation   = v;
+                      _showCustomLocation = v == 'Custom…';
+                      if (v != null && v != 'Custom…') {
+                        _locCtrl.text = v;
+                      } else if (v == 'Custom…') {
+                        _locCtrl.clear();
+                      }
+                    });
+                  },
+                ),
+              ),
+              if (_showCustomLocation) ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _locCtrl,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    hintText: 'Type a custom location…',
+                    hintStyle:
+                        const TextStyle(color: Color(0xFF94A3B8)),
+                    prefixIcon: const Icon(
+                        Icons.location_on_outlined,
+                        size: 18,
+                        color: Color(0xFF64748B)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: Color(0xFFCBD5E1)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: Color(0xFF0052FF)),
+                    ),
+                  ),
+                ),
+              ],
+
+              // Error message
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.error_outline,
+                        color: Color(0xFFEF4444), size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(_error!,
+                          style: const TextStyle(
+                              color: Color(0xFFEF4444), fontSize: 12)),
+                    ),
+                  ]),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // Action buttons
+              Row(children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                            color: Color(0xFFCBD5E1)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Cancel',
+                          style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _saving ? null : _handleSave,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0052FF),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : const Text('Save Changes',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15)),
+                    ),
+                  ),
+                ),
+              ]),
             ],
           ),
         ),
