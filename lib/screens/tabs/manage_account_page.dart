@@ -200,7 +200,6 @@ class _ManageAccountPageState extends State<ManageAccountPage>
 
     return Scaffold(
       backgroundColor: lightBg,
-      floatingActionButton: const AiAssistant(),
       body: SafeArea(
         child: Column(
           children: [
