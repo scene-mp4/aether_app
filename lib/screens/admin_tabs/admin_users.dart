@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 class AdminUsersTab extends StatefulWidget {
   const AdminUsersTab({super.key});
@@ -19,6 +21,138 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
     _searchController.dispose();
     super.dispose();
   }
+
+
+  // ── Firestore: create a new user document ─────────────────────────────────
+Future<void> _addUser({
+  required String username,
+  required String email,
+  required String password,
+  required String role,
+}) async {
+  final cleanUsername = username.trim();
+  final cleanEmail = email.trim().toLowerCase();
+  final cleanPassword = password;
+
+  if (cleanUsername.isEmpty) {
+    throw Exception('Username is required.');
+  }
+
+  if (cleanEmail.isEmpty) {
+    throw Exception('Email is required.');
+  }
+
+  if (cleanPassword.length < 6) {
+    throw Exception('Password must be at least 6 characters.');
+  }
+
+  FirebaseApp? secondaryApp;
+  User? newAuthUser;
+
+  try {
+    // ------------------------------------------------------------
+    // Create a SECONDARY Firebase App.
+    //
+    // This is important because createUserWithEmailAndPassword()
+    // signs in the newly-created account.
+    //
+    // Using a secondary app keeps the current admin signed in.
+    // ------------------------------------------------------------
+    secondaryApp = await Firebase.initializeApp(
+      name: 'secondaryUserCreation',
+      options: Firebase.app().options,
+    );
+
+    final secondaryAuth = FirebaseAuth.instanceFor(
+      app: secondaryApp,
+    );
+
+    // ------------------------------------------------------------
+    // 1. CREATE FIREBASE AUTHENTICATION ACCOUNT
+    // ------------------------------------------------------------
+    final credential =
+        await secondaryAuth.createUserWithEmailAndPassword(
+      email: cleanEmail,
+      password: cleanPassword,
+    );
+
+    newAuthUser = credential.user;
+
+    if (newAuthUser == null) {
+      throw Exception('Failed to create Firebase Authentication user.');
+    }
+
+    final authUid = newAuthUser.uid;
+
+    // ------------------------------------------------------------
+    // 2. CREATE FIRESTORE USER DOCUMENT
+    //
+    // IMPORTANT:
+    // The Firestore document ID is now the Firebase Auth UID.
+    // ------------------------------------------------------------
+    await _db.collection('users').doc(authUid).set({
+      'uid': authUid,
+      'username': cleanUsername,
+      'email': cleanEmail,
+      'role': role,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+  } on FirebaseAuthException catch (e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        throw Exception(
+          'An account already exists for this email address.',
+        );
+
+      case 'invalid-email':
+        throw Exception(
+          'The email address is invalid.',
+        );
+
+      case 'weak-password':
+        throw Exception(
+          'The password is too weak.',
+        );
+
+      case 'operation-not-allowed':
+        throw Exception(
+          'Email/password authentication is not enabled in Firebase.',
+        );
+
+      default:
+        throw Exception(
+          e.message ?? 'Failed to create Firebase Authentication account.',
+        );
+    }
+  } catch (e) {
+    // ------------------------------------------------------------
+    // If Firestore creation failed AFTER Auth was created,
+    // remove the newly-created Auth account so we don't leave
+    // an orphaned Authentication account.
+    // ------------------------------------------------------------
+    if (newAuthUser != null) {
+      try {
+        await newAuthUser.delete();
+      } catch (_) {
+        // Ignore cleanup error.
+      }
+    }
+
+    rethrow;
+  } finally {
+    // ------------------------------------------------------------
+    // Destroy secondary Firebase app.
+    // ------------------------------------------------------------
+    if (secondaryApp != null) {
+      try {
+        await secondaryApp.delete();
+      } catch (_) {
+        // Ignore cleanup error.
+      }
+    }
+  }
+}
 
   // ── Firestore: update user fields ────────────────────────────────────────
   Future<void> _updateUser({
@@ -130,6 +264,42 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
     );
   }
 
+  // ── Show add user modal ────────────────────────────────────────────────────
+  void _showAddUserModal() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => _AddUserModal(
+        onSave: ({
+          required String username,
+          required String email,
+          required String password,
+          required String role,
+        }) async {
+          try {
+            await _addUser(
+              username: username,
+              email: email,
+              password: password,
+              role: role,
+            );
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('User added successfully'),
+                ),
+              );
+            }
+          } catch (e) {
+            rethrow;
+          }
+        },
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,8 +321,10 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                         setState(() => _searchQuery = v.toLowerCase()),
                     decoration: InputDecoration(
                       hintText: 'Search by name, email, or UID…',
-                      prefixIcon: const Icon(Icons.search,
-                          color: Color(0xFF64748B)),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Color(0xFF64748B),
+                      ),
                       filled: true,
                       fillColor: Colors.white,
                       contentPadding:
@@ -169,20 +341,29 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 12),
 
-                  // ── Role filter chips ────────────────────────────────
+                  // ── Add New User ─────────────────────────────────────────────────────────
+                  _buildAddNewUserButton(),
+
+                  const SizedBox(height: 16),
+
+                  // ── Role filter chips ────────────────────────────────────────────────────
                   Row(
                     children: ['All', 'user', 'admin'].map((filter) {
                       final selected = _roleFilter == filter;
+
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: FilterChip(
-                          label: Text(filter == 'All'
-                              ? 'All Users'
-                              : filter == 'admin'
-                                  ? 'Admins'
-                                  : 'Users'),
+                          label: Text(
+                            filter == 'All'
+                                ? 'All Users'
+                                : filter == 'admin'
+                                    ? 'Admins'
+                                    : 'Users',
+                          ),
                           selected: selected,
                           onSelected: (_) =>
                               setState(() => _roleFilter = filter),
@@ -199,9 +380,8 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                             color: selected
                                 ? const Color(0xFF3B62F6)
                                 : const Color(0xFF475569),
-                            fontWeight: selected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                            fontWeight:
+                                selected ? FontWeight.bold : FontWeight.normal,
                             fontSize: 12,
                           ),
                         ),
@@ -325,6 +505,43 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                   ),
                   const SizedBox(height: 40),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddNewUserButton() {
+    return GestureDetector(
+      onTap: _showAddUserModal,
+      child: Container(
+        width: double.infinity,
+        height: 52,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFF3B62F6),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(
+              Icons.person_add_outlined,
+              color: Color(0xFF3B62F6),
+              size: 20,
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Add New User',
+              style: TextStyle(
+                color: Color(0xFF3B62F6),
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
             ),
           ],
@@ -975,6 +1192,7 @@ class _EditUserModalState extends State<_EditUserModal> {
     TextEditingController ctrl,
     String hint, {
     TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -988,6 +1206,7 @@ class _EditUserModalState extends State<_EditUserModal> {
         TextField(
           controller: ctrl,
           keyboardType: keyboardType,
+          obscureText: obscureText,
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14, vertical: 12),
@@ -1047,6 +1266,530 @@ class _EditUserModalState extends State<_EditUserModal> {
                       ? color
                       : const Color(0xFF475569))),
         ]),
+      ),
+    );
+  }
+}
+
+
+class _AddUserModal extends StatefulWidget {
+  final Future<void> Function({
+    required String username,
+    required String email,
+    required String password,
+    required String role,
+  }) onSave;
+
+  const _AddUserModal({
+    required this.onSave,
+  });
+
+  @override
+  State<_AddUserModal> createState() => _AddUserModalState();
+}
+
+class _AddUserModalState extends State<_AddUserModal> {
+  late final TextEditingController _usernameCtrl;
+  late final TextEditingController _emailCtrl;
+  late final TextEditingController _passwordCtrl;
+
+  String _role = 'user';
+
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _usernameCtrl = TextEditingController();
+    _emailCtrl = TextEditingController();
+    _passwordCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _usernameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+Future<void> _handleSave() async {
+  final username = _usernameCtrl.text.trim();
+  final email = _emailCtrl.text.trim();
+  final password = _passwordCtrl.text;
+
+  if (username.isEmpty) {
+    setState(() {
+      _error = 'Username cannot be empty.';
+    });
+    return;
+  }
+
+  if (email.isEmpty) {
+    setState(() {
+      _error = 'Email cannot be empty.';
+    });
+    return;
+  }
+
+  final emailRegex = RegExp(
+    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+  );
+
+  if (!emailRegex.hasMatch(email)) {
+    setState(() {
+      _error = 'Please enter a valid email address.';
+    });
+    return;
+  }
+
+  if (password.isEmpty) {
+    setState(() {
+      _error = 'Password cannot be empty.';
+    });
+    return;
+  }
+
+  if (password.length < 6) {
+    setState(() {
+      _error = 'Password must be at least 6 characters.';
+    });
+    return;
+  }
+
+  setState(() {
+    _saving = true;
+    _error = null;
+  });
+
+    try {
+      await widget.onSave(
+        username: username,
+        email: email,
+        password: password,
+        role: _role,
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = e.toString();
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+
+            children: [
+              // ── Title ────────────────────────────────────────────────
+
+              const Text(
+                'Add New User',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+
+              const SizedBox(height: 4),
+
+              const Text(
+                'Create a new user profile',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── Username ─────────────────────────────────────────────
+
+              _field(
+                'Username',
+                _usernameCtrl,
+                'Enter username',
+              ),
+
+              const SizedBox(height: 14),
+
+              // ── Email ────────────────────────────────────────────────
+
+              _field(
+                'Email',
+                _emailCtrl,
+                'user@example.com',
+                keyboardType: TextInputType.emailAddress,
+              ),
+
+              const SizedBox(height: 14),
+              
+              // ── Password
+              _field(
+                'Password',
+                _passwordCtrl,
+                'Enter temporary password',
+                obscureText: true,
+              ),
+
+              // ── Role ─────────────────────────────────────────────────
+
+              const Text(
+                'Role',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              Row(
+                children: [
+                  _roleChip('user', 'User'),
+
+                  const SizedBox(width: 10),
+
+                  _roleChip('admin', 'Admin'),
+                ],
+              ),
+
+              const SizedBox(height: 4),
+
+              const Text(
+                'Admins have full access to all admin tabs. '
+                'Users can only access their own trackers.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ── Information box ─────────────────────────────────────
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFFBBF7D0),
+                  ),
+                ),
+
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Color(0xFF16A34A),
+                    ),
+
+                    SizedBox(width: 8),
+
+                    Expanded(
+                      child: Text(
+                        'The user profile will be saved to Firestore. '
+                        'Firebase Authentication must be created separately '
+                        'if the user needs to sign in.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF15803D),
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Error ────────────────────────────────────────────────
+
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Color(0xFFEF4444),
+                        size: 16,
+                      ),
+
+                      const SizedBox(width: 6),
+
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: Color(0xFFEF4444),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // ── Buttons ──────────────────────────────────────────────
+
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+
+                      child: OutlinedButton(
+                        onPressed: _saving
+                            ? null
+                            : () => Navigator.pop(context),
+
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(
+                            color: Color(0xFFCBD5E1),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(12),
+                          ),
+                        ),
+
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+
+                      child: ElevatedButton(
+                        onPressed:
+                            _saving ? null : _handleSave,
+
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              const Color(0xFF3B62F6),
+                          elevation: 0,
+
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(12),
+                          ),
+                        ),
+
+                        child: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Add User',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Text field ──────────────────────────────────────────────────────────
+
+  Widget _field(
+    String label,
+    TextEditingController ctrl,
+    String hint, {
+    TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF334155),
+          ),
+        ),
+
+        const SizedBox(height: 6),
+
+        TextField(
+          controller: ctrl,
+          keyboardType: keyboardType,
+          obscureText: obscureText,
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+
+            hintText: hint,
+
+            hintStyle: const TextStyle(
+              color: Color(0xFF94A3B8),
+            ),
+
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFCBD5E1),
+              ),
+            ),
+
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFF3B62F6),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Role selector ───────────────────────────────────────────────────────
+
+  Widget _roleChip(
+    String value,
+    String label,
+  ) {
+    final selected = _role == value;
+
+    final color = value == 'admin'
+        ? const Color(0xFF7C3AED)
+        : const Color(0xFF2563EB);
+
+    return GestureDetector(
+      onTap: _saving
+          ? null
+          : () => setState(() {
+                _role = value;
+              }),
+
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 10,
+        ),
+
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withOpacity(0.1)
+              : Colors.white,
+
+          borderRadius: BorderRadius.circular(10),
+
+          border: Border.all(
+            color: selected
+                ? color
+                : const Color(0xFFE2E8F0),
+
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+
+          children: [
+            Icon(
+              value == 'admin'
+                  ? Icons.admin_panel_settings_outlined
+                  : Icons.person_outline,
+
+              size: 16,
+
+              color: selected
+                  ? color
+                  : const Color(0xFF64748B),
+            ),
+
+            const SizedBox(width: 6),
+
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight:
+                    selected ? FontWeight.bold : FontWeight.normal,
+
+                color: selected
+                    ? color
+                    : const Color(0xFF475569),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
