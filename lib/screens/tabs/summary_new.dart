@@ -489,7 +489,7 @@ Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTracker
           ),
         ),
         const SizedBox(width: 12),
-Expanded(
+        Expanded(
           flex: 4,
           child: Column(
             children: [
@@ -720,7 +720,7 @@ Expanded(
                 children: [
                   SizedBox(
                     width: 24,
-                    child: Text('T$idx', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                    child: Text('R $idx', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                   ),
                   Expanded(
                     child: Stack(
