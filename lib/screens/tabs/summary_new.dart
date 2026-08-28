@@ -367,7 +367,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
   }
 
   // ── HEADER DASHBOARD GRID ──────────────────────────────────────────────────
-  Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTrackers) {
+Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTrackers) {
     final avgAqi = readings.isEmpty
         ? 0
         : (_avg(readings.map((r) => r.iaqi.toDouble()).toList())).round();
@@ -433,6 +433,30 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                   ),
                 ),
                 const SizedBox(height: 12),
+                // AQI Progress Bar
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    height: 8,
+                    width: double.infinity,
+                    color: const Color(0xFFE2E8F0),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: (avgAqi / 500).clamp(0.05, 1.0),
+                      child: Container(color: aqiColor),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: const [
+                    Text("Good", style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                    Text("Hazardous", style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // "What is AQI?" Button moved below the bar
                 InkWell(
                   onTap: () => setState(() => _showAqiInfo = !_showAqiInfo),
                   borderRadius: BorderRadius.circular(16),
@@ -460,45 +484,34 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: Container(
-                    height: 8,
-                    width: double.infinity,
-                    color: const Color(0xFFE2E8F0),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: (avgAqi / 500).clamp(0.05, 1.0),
-                      child: Container(color: aqiColor),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text("Good", style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
-                    Text("Hazardous", style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
-                  ],
-                ),
               ],
             ),
           ),
         ),
         const SizedBox(width: 12),
-        Expanded(
+Expanded(
           flex: 4,
           child: Column(
             children: [
+              // TRACKERS CARD
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                 decoration: _cardDecoration,
                 child: Column(
                   children: [
-                    const Icon(Icons.show_chart, color: Color(0xFF2563EB), size: 22),
-                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.sensors, color: Color(0xFF2563EB), size: 18),
+                        SizedBox(width: 6),
+                        Text(
+                          "Trackers",
+                          style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
                     Text(
                       '$totalTrackers',
                       style: const TextStyle(
@@ -507,14 +520,12 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                         color: Color(0xFF0F172A),
                       ),
                     ),
-                    const Text(
-                      "Trackers",
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
+
+              // ACTIVE ALERTS CARD
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
@@ -525,21 +536,27 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
-                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 18),
+                        SizedBox(width: 6),
+                        Text(
+                          "Active Alerts",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFDC2626),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
                     Text(
                       '$alertCount',
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFFDC2626),
-                      ),
-                    ),
-                    const Text(
-                      "Active Alerts",
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
                         color: Color(0xFFDC2626),
                       ),
                     ),
@@ -552,7 +569,6 @@ class _SummaryNewPageState extends State<SummaryNewPage>
       ],
     );
   }
-
   // ── TAB BAR ───────────────────────────────────────────────────────────────
   Widget _buildTabBar() {
     return Container(
@@ -758,7 +774,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
           children: [
             Row(
               children: const [
-                Icon(Icons.show_chart, size: 18, color: Color(0xFF2563EB)),
+                Icon(Icons.sensors, size: 18, color: Color(0xFF2563EB)),
                 SizedBox(width: 6),
                 Text(
                   "Average Readings (All Trackers)",
@@ -779,7 +795,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
     );
   }
 
-  Widget _buildPollutantGrid(List<TrackerReading> readings) {
+Widget _buildPollutantGrid(List<TrackerReading> readings) {
     final pm1 = _avg(readings.map((r) => r.pm1Ugm3).toList());
     final pm25 = _avg(readings.map((r) => r.pm25Ugm3).toList());
     final pm10 = _avg(readings.map((r) => r.pm10Ugm3).toList());
@@ -795,6 +811,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
     return Column(
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: _buildPollutantCard(
@@ -823,6 +840,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
         ),
         const SizedBox(height: 12),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: _buildPollutantCard(
@@ -849,6 +867,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
         ),
         const SizedBox(height: 12),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: _buildPollutantCard(
@@ -875,6 +894,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
         ),
         const SizedBox(height: 12),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: _buildPollutantCard(
@@ -1000,15 +1020,20 @@ class _SummaryNewPageState extends State<SummaryNewPage>
           if (isExpanded) ...[
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.all(8),
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
               ),
               child: Text(
                 infoText,
-                style: const TextStyle(fontSize: 10, color: Color(0xFF475569), height: 1.3),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF1E40AF),
+                  height: 1.4,
+                ),
               ),
             ),
           ],
@@ -1018,7 +1043,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
   }
 
   // ── TAB 3: HEALTH SUPERVISING MANUAL ───────────────────────────────────────
-  Widget _buildManualTab() {
+Widget _buildManualTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Container(
@@ -1027,174 +1052,210 @@ class _SummaryNewPageState extends State<SummaryNewPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            InkWell(
-              onTap: () => setState(() => _isManualExpanded = !_isManualExpanded),
-              child: Row(
-                children: [
-                  const Icon(Icons.menu_book, color: Color(0xFF2563EB), size: 20),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      "Health Supervising Manual",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                    ),
-                  ),
-                  Icon(
-                    _isManualExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    color: const Color(0xFF64748B),
-                  ),
-                ],
+            // Top Manual Header Banner
+            const Text(
+              "Health Supervising Manual",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
               ),
             ),
             const SizedBox(height: 4),
             const Text(
               "Common illnesses senior citizens may develop from indoor air pollutants, with do's and don'ts.",
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.3),
             ),
+
             if (_isManualExpanded) ...[
               const SizedBox(height: 16),
-              _buildClickableManualSection(
-                tag: "SECTION A — RESPIRATORY ILLNESSES",
+
+              // SECTION A
+              const Text(
+                "SECTION A — RESPIRATORY ILLNESSES",
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF94A3B8),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              _buildManualSectionCard(
                 title: "Respiratory Illnesses",
                 isExpanded: _isRespiratoryExpanded,
                 onTap: () => setState(() => _isRespiratoryExpanded = !_isRespiratoryExpanded),
                 children: const [
-                  _ManualIllnessTile(
-                    name: "1. Chronic Obstructive Pulmonary Disease (COPD)",
-                    triggers: "PM2.5, PM10, Nitrogen Dioxide (NO₂)",
-                    symptoms: "Chronic cough, progressive shortness of breath, wheezing, chest tightness.",
-                    prevention: "Ensure proper ventilation, use HEPA air purifiers, and avoid exposure to smoke.",
+                  _ManualIllnessItem(
+                    dotColor: Color(0xFFEF4444),
+                    title: "Chronic Obstructive Pulmonary Disease (COPD)",
+                    triggers: "PM2.5, PM10, CO, O₃",
+                    symptoms: "persistent cough, shortness of breath, wheezing",
                   ),
-                  _ManualIllnessTile(
-                    name: "2. Asthma Flares & Adult-Onset Asthma",
-                    triggers: "PM2.5, Mold Spores, Volatile Organic Compounds (VOCs)",
-                    symptoms: "Breathlessness, wheezing during exhalation, coughing fits at night.",
-                    prevention: "Keep indoor humidity between 30–50%, eliminate dust mites, avoid scented chemicals.",
+                  _ManualIllnessItem(
+                    dotColor: Color(0xFFF97316),
+                    title: "Asthma",
+                    triggers: "PM2.5, O₃, CO₂ (elevated)",
+                    symptoms: "wheezing, chest tightness, difficulty breathing",
                   ),
-                  _ManualIllnessTile(
-                    name: "3. Bronchitis (Acute & Chronic)",
-                    triggers: "PM10, Sulfur Dioxide (SO₂), NO₂",
-                    symptoms: "Mucus production, fatigue, slight fever, chest discomfort.",
-                    prevention: "Maintain clean air filtration systems and avoid burning fuels indoors without exhaust.",
+                  _ManualIllnessItem(
+                    dotColor: Color(0xFFEAB308),
+                    title: "Pneumonia",
+                    triggers: "PM2.5, poor ventilation, humidity extremes",
+                    symptoms: "fever, cough with phlegm, chest pain",
                   ),
-                  _ManualIllnessTile(
-                    name: "4. Lower Respiratory Tract Infections & Pneumonia",
-                    triggers: "PM2.5, High CO₂ levels, Bio-aerosols",
-                    symptoms: "Fever, chills, difficulty breathing, sharp chest pain during deep breaths.",
-                    prevention: "Promote regular air exchange to prevent stagnant airborne bacterial growth.",
+                  _ManualIllnessItem(
+                    dotColor: Color(0xFF3B82F6),
+                    title: "Lung Cancer (long-term exposure)",
+                    triggers: "PM2.5, PM1.0, O₃",
+                    symptoms: "persistent cough, blood in sputum, unexplained weight loss",
+                    isLast: true,
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              _buildClickableManualSection(
-                tag: "SECTION B — CARDIOVASCULAR ILLNESSES",
+
+              const SizedBox(height: 16),
+
+              // SECTION B
+              const Text(
+                "SECTION B — CARDIOVASCULAR ILLNESSES",
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF94A3B8),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              _buildManualSectionCard(
                 title: "Cardiovascular Illnesses",
                 isExpanded: _isCardiovascularExpanded,
                 onTap: () => setState(() => _isCardiovascularExpanded = !_isCardiovascularExpanded),
                 children: const [
-                  _ManualIllnessTile(
-                    name: "1. Coronary Artery Disease (CAD)",
-                    triggers: "Fine Particulate Matter (PM2.5), Carbon Monoxide (CO)",
-                    symptoms: "Chest pressure/pain (angina), fatigue, irregular heartbeats.",
-                    prevention: "Monitor indoor air quality closely, reduce physical strain during high pollution alerts.",
+                  _ManualIllnessItem(
+                    dotColor: Color(0xFFEF4444),
+                    title: "Ischemic Heart Disease",
+                    triggers: "PM2.5, CO, O₃",
+                    symptoms: "chest pain, shortness of breath, fatigue",
                   ),
-                  _ManualIllnessTile(
-                    name: "2. Stroke (Ischemic & Hemorrhagic)",
-                    triggers: "PM2.5, Ultrafine Particles",
-                    symptoms: "Sudden numbness in face/arm/leg, confusion, trouble speaking.",
-                    prevention: "Keep indoor environments clean and calm, monitor blood pressure during poor AQI events.",
+                  _ManualIllnessItem(
+                    dotColor: Color(0xFFA855F7),
+                    title: "Stroke",
+                    triggers: "PM2.5, PM10, CO",
+                    symptoms: "sudden numbness, confusion, trouble speaking or walking",
                   ),
-                  _ManualIllnessTile(
-                    name: "3. Hypertension & Artery Stiffening",
-                    triggers: "NO₂, PM2.5, Carbon Monoxide (CO)",
-                    symptoms: "Elevated blood pressure, headaches, dizziness, nosebleeds.",
-                    prevention: "Reduce indoor pollution sources like gas stoves and unvented heaters.",
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildClickableManualSection(
-                tag: "SECTION C — NEUROLOGICAL & COGNITIVE ILLNESSES",
-                title: "Neurological & Cognitive Conditions",
-                isExpanded: _isNeurologicalExpanded,
-                onTap: () => setState(() => _isNeurologicalExpanded = !_isNeurologicalExpanded),
-                children: const [
-                  _ManualIllnessTile(
-                    name: "1. Accelerated Cognitive Decline & Dementia",
-                    triggers: "PM2.5, Ultrafine Particles, VOCs",
-                    symptoms: "Memory loss, confusion about time or place, altered judgment.",
-                    prevention: "Ensure continuous indoor air purification and exposure to clean air.",
-                  ),
-                  _ManualIllnessTile(
-                    name: "2. Chronic Headaches & Hypoxia-related Dizziness",
-                    triggers: "High CO₂ Concentrations (>1000 ppm), CO",
-                    symptoms: "Dull headaches, drowsiness, poor concentration, lethargy.",
-                    prevention: "Regularly flush rooms with outdoor fresh air or utilize automated fresh-air intake.",
+                  _ManualIllnessItem(
+                    dotColor: Color(0xFF06B6D4),
+                    title: "Hypertension (worsening)",
+                    triggers: "CO, PM2.5, temperature extremes",
+                    symptoms: "headaches, dizziness, elevated blood pressure readings",
+                    isLast: true,
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              _buildClickableManualSection(
-                tag: "SECTION D — SYSTEMIC & SENSORY IRRITATIONS",
-                title: "Systemic & Sensory Irritations",
-                isExpanded: _isSystemicExpanded,
-                onTap: () => setState(() => _isSystemicExpanded = !_isSystemicExpanded),
-                children: const [
-                  _ManualIllnessTile(
-                    name: "1. Sick Building Syndrome (SBS) / Chemical Sensitivity",
-                    triggers: "VOCs (Formaldehyde, Benzene), Ozone (O₃)",
-                    symptoms: "Dry/watery eyes, throat irritation, nasal congestion, dry skin.",
-                    prevention: "Use low-VOC materials and furniture; avoid chemical air fresheners.",
-                  ),
-                ],
+
+              const SizedBox(height: 16),
+
+              // DO'S AND DON'TS
+              const Text(
+                "DO'S AND DON'TS",
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF94A3B8),
+                  letterSpacing: 0.5,
+                ),
               ),
-              const SizedBox(height: 12),
-              const Text("DO'S AND DON'TS", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8))),
-              const SizedBox(height: 4),
-              _buildClickableManualSection(
-                tag: "",
-                title: "Caregiver & Resident Do's",
+              const SizedBox(height: 6),
+
+              // DO'S CARD (GREEN)
+              _buildDosDontsCard(
+                title: "Do's — Recommended Actions",
+                bgColor: const Color(0xFFF0FDF4),
+                borderColor: const Color(0xFFBBF7D0),
+                headerTextColor: const Color(0xFF15803D),
+                iconColor: const Color(0xFF16A34A),
                 isExpanded: _isDosExpanded,
                 onTap: () => setState(() => _isDosExpanded = !_isDosExpanded),
                 children: const [
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("• Ensure daily ventilation during low-pollution hours.", style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  _DosDontsItem(
+                    icon: Icons.check,
+                    iconColor: Color(0xFF16A34A),
+                    boldText: "Ventilate regularly",
+                    normalText: "open windows for at least 10 minutes every hour when outdoor air quality allows",
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("• Clean air purifiers and replace HEPA filters regularly.", style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  _DosDontsItem(
+                    icon: Icons.check,
+                    iconColor: Color(0xFF16A34A),
+                    boldText: "Act on alerts immediately",
+                    normalText: "when CO alert is active, open all doors and windows and move residents to fresh air",
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("• Keep humidity levels balanced to prevent mold growth.", style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  _DosDontsItem(
+                    icon: Icons.check,
+                    iconColor: Color(0xFF16A34A),
+                    boldText: "Monitor high-risk residents first",
+                    normalText: "elderly residents with existing heart or lung conditions are most affected by poor air quality",
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("• Monitor air quality sensors daily and take prompt corrective action when spikes occur.", style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  _DosDontsItem(
+                    icon: Icons.check,
+                    iconColor: Color(0xFF16A34A),
+                    boldText: "Keep sensors unobstructed",
+                    normalText: "ensure tracker units are not blocked by furniture or placed near cooking areas",
+                    isLast: true,
                   ),
                 ],
               ),
+
               const SizedBox(height: 12),
-              _buildClickableManualSection(
-                tag: "",
-                title: "Caregiver & Resident Don'ts",
+
+              // DON'TS CARD (RED)
+              _buildDosDontsCard(
+                title: "Don'ts — Actions to Avoid",
+                bgColor: const Color(0xFFFEF2F2),
+                borderColor: const Color(0xFFFECACA),
+                headerTextColor: const Color(0xFFB91C1C),
+                iconColor: const Color(0xFFDC2626),
                 isExpanded: _isDontsExpanded,
                 onTap: () => setState(() => _isDontsExpanded = !_isDontsExpanded),
                 children: const [
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("• Don't smoke or use aerosol sprays near senior living areas.", style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  _DosDontsItem(
+                    icon: Icons.close,
+                    iconColor: Color(0xFFDC2626),
+                    boldText: "Do not smoke indoors",
+                    normalText: "smoking significantly worsens indoor air quality for all residents",
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("• Don't ignore sustained high CO₂ or pollutant alerts.", style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  _DosDontsItem(
+                    icon: Icons.close,
+                    iconColor: Color(0xFFDC2626),
+                    boldText: "Do not burn fuels in unventilated spaces",
+                    normalText: "gas stoves or heaters need proper ventilation",
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("• Don't allow high indoor humidity to persist unaddressed.", style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  _DosDontsItem(
+                    icon: Icons.close,
+                    iconColor: Color(0xFFDC2626),
+                    boldText: "Do not remain in high-pollutant areas",
+                    normalText: "move to a cleaner area if readings are Polluted or worse",
+                  ),
+                  _DosDontsItem(
+                    icon: Icons.close,
+                    iconColor: Color(0xFFDC2626),
+                    boldText: "Do not perform heavy physical activity when air quality is poor",
+                    normalText: "exertion increases pollutant intake into the lungs",
+                    isLast: true,
                   ),
                 ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // FOOTER CITATION
+              const Text(
+                "Sources: Ndlovu et al. (2024); World Health Organization (2025); Lemos et al. (2024)",
+                style: TextStyle(
+                  fontSize: 10,
+                  fontStyle: FontStyle.italic,
+                  color: Color(0xFF94A3B8),
+                ),
               ),
             ],
           ],
@@ -1203,8 +1264,8 @@ class _SummaryNewPageState extends State<SummaryNewPage>
     );
   }
 
-  Widget _buildClickableManualSection({
-    required String tag,
+  // ── SECTION CARD HELPER ──────────────────────────────────────────────────
+  Widget _buildManualSectionCard({
     required String title,
     required bool isExpanded,
     required VoidCallback onTap,
@@ -1223,43 +1284,89 @@ class _SummaryNewPageState extends State<SummaryNewPage>
             onTap: onTap,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (tag.isNotEmpty) ...[
-                    Text(
-                      tag,
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
                     ),
-                    const SizedBox(height: 2),
-                  ],
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                      ),
-                      Icon(
-                        isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                        color: const Color(0xFF64748B),
-                        size: 18,
-                      ),
-                    ],
+                  ),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: const Color(0xFF64748B),
+                    size: 18,
                   ),
                 ],
               ),
             ),
           ),
           if (isExpanded) ...[
-            const Divider(height: 1, color: Color(0xFFE2E8F0)),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: children,
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── DO'S AND DON'TS CONTAINER HELPER ─────────────────────────────────────
+  Widget _buildDosDontsCard({
+    required String title,
+    required Color bgColor,
+    required Color borderColor,
+    required Color headerTextColor,
+    required Color iconColor,
+    required bool isExpanded,
+    required VoidCallback onTap,
+    required List<Widget> children,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: headerTextColor,
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: iconColor,
+                    size: 18,
+                  ),
+                ],
               ),
+            ),
+          ),
+          if (isExpanded) ...[
+            Divider(height: 1, color: borderColor),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
             ),
           ],
         ],
@@ -1268,33 +1375,133 @@ class _SummaryNewPageState extends State<SummaryNewPage>
   }
 }
 
-class _ManualIllnessTile extends StatelessWidget {
-  final String name;
+// ── ILLNESS ITEM TILE ───────────────────────────────────────────────────────
+class _ManualIllnessItem extends StatelessWidget {
+  final Color dotColor;
+  final String title;
   final String triggers;
   final String symptoms;
-  final String prevention;
+  final bool isLast;
 
-  const _ManualIllnessTile({
-    required this.name,
+  const _ManualIllnessItem({
+    required this.dotColor,
+    required this.title,
     required this.triggers,
     required this.symptoms,
-    required this.prevention,
+    this.isLast = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Column(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-          const SizedBox(height: 2),
-          Text("Triggers: $triggers", style: const TextStyle(fontSize: 11, color: Color(0xFFDC2626))),
-          const SizedBox(height: 1),
-          Text("Symptoms: $symptoms", style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
-          const SizedBox(height: 1),
-          Text("Prevention: $prevention", style: const TextStyle(fontSize: 11, color: Color(0xFF166534))),
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: dotColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
+                    children: [
+                      const TextSpan(
+                        text: "Triggered by: ",
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                      ),
+                      TextSpan(text: triggers),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 1),
+                RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
+                    children: [
+                      const TextSpan(
+                        text: "Symptoms: ",
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                      ),
+                      TextSpan(text: symptoms),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── DO'S AND DON'TS ITEM TILE ───────────────────────────────────────────────
+class _DosDontsItem extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String boldText;
+  final String normalText;
+  final bool isLast;
+
+  const _DosDontsItem({
+    required this.icon,
+    required this.iconColor,
+    required this.boldText,
+    required this.normalText,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: iconColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 11, color: Color(0xFF475569), height: 1.35),
+                children: [
+                  TextSpan(
+                    text: "$boldText — ",
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  ),
+                  TextSpan(text: normalText),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
