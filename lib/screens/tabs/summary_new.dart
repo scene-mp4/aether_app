@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/stores/app_data_store.dart';
@@ -11,7 +12,14 @@ class SummaryNewPage extends StatefulWidget {
   State<SummaryNewPage> createState() => _SummaryNewPageState();
 }
 
-class _SummaryNewPageState extends State<SummaryNewPage> {
+class _SummaryNewPageState extends State<SummaryNewPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController =
+      TabController(length: 4, vsync: this);
+
+  // ── Alert banner dismiss state ─────────────────────────────────────────
+  bool _alertBannerDismissed = false;
+
   // ── Manual expand state (kept as-is) ─────────────────────────────────────
   bool _isManualExpanded       = false;
   bool _isRespiratoryExpanded  = false;
@@ -31,6 +39,19 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
     'Temp':     false,
     'Humidity': false,
   };
+
+  // ── Shared "dashboard card" decoration ────────────────────────────────────
+  static final BoxDecoration _cardDecoration = BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.045),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
 
   // ── AQI helpers ───────────────────────────────────────────────────────────
   Color _aqiColor(int aqi) {
@@ -183,6 +204,12 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
   }
 
   @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Consumer<AppDataStore>(
       builder: (context, store, _) {
@@ -191,35 +218,39 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
             .map((t) => store.readingFor(t.id))
             .whereType<TrackerReading>()
             .toList();
+        final alertCount = readings.where((r) => r.coAlert == true).length;
+
+        // Reset the dismissed flag once alerts clear, so a *new* alert
+        // later on will surface the banner again.
+        if (alertCount == 0 && _alertBannerDismissed) {
+          _alertBannerDismissed = false;
+        }
+        final showAlertBanner = alertCount > 0 && !_alertBannerDismissed;
 
         return Scaffold(
           backgroundColor: const Color(0xFFF1F5F9),
           body: Column(
             children: [
               _buildHeaderBanner(trackers.length, readings.length),
+              if (showAlertBanner) _buildAlertBanner(alertCount),
+              // ── Quick-glance KPI strip stays visible above the tabs ─────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: _buildStatsStrip(readings, trackers.length),
+              ),
+              const SizedBox(height: 14),
+              _buildTabBar(),
               Expanded(
                 child: store.loading && readings.isEmpty
                     ? const Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0, vertical: 16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildOverallAqiCard(readings),
-                              const SizedBox(height: 16),
-                              _buildTrackerStatusCard(readings),
-                              const SizedBox(height: 16),
-                              _buildAverageReadingsCard(readings),
-                              const SizedBox(height: 16),
-                              _buildIndividualTrackersCard(store, trackers),
-                              const SizedBox(height: 16),
-                              _buildHealthManualCard(),
-                              const SizedBox(height: 24),
-                            ],
-                          ),
-                        ),
+                    : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildOverviewTab(readings),
+                          _buildReadingsTab(readings),
+                          _buildTrackersTab(store, trackers),
+                          _buildManualTab(),
+                        ],
                       ),
               ),
             ],
@@ -229,7 +260,7 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
     );
   }
 
-  // ── 1. HEADER BANNER ───────────────────────────────────────────────────────
+  // ── 0. HEADER BANNER ───────────────────────────────────────────────────────
   Widget _buildHeaderBanner(int total, int active) {
     return Container(
       width: double.infinity,
@@ -257,6 +288,319 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
     );
   }
 
+  // ── ALERT BANNER (shown above tabs when any tracker has an active CO alert) ─
+  Widget _buildAlertBanner(int alertCount) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFFEE2E2),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              size: 18, color: Color(0xFFDC2626)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              alertCount == 1
+                  ? '1 tracker has an active CO alert — ventilate immediately'
+                  : '$alertCount trackers have active CO alerts — ventilate immediately',
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF991B1B)),
+            ),
+          ),
+          InkWell(
+            onTap: () => setState(() => _alertBannerDismissed = true),
+            borderRadius: BorderRadius.circular(20),
+            child: const Padding(
+              padding: EdgeInsets.all(4.0),
+              child: Icon(Icons.close, size: 16, color: Color(0xFF991B1B)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── SECTION TAB BAR ─────────────────────────────────────────────────────
+  Widget _buildTabBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TabBar(
+        controller: _tabController,
+        labelColor: Colors.white,
+        unselectedLabelColor: const Color(0xFF64748B),
+        labelStyle: const TextStyle(
+            fontSize: 12, fontWeight: FontWeight.bold),
+        unselectedLabelStyle: const TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w500),
+        indicator: BoxDecoration(
+          color: const Color(0xFF0052FF),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        splashBorderRadius: BorderRadius.circular(10),
+        tabs: const [
+          Tab(icon: Icon(Icons.eco_outlined, size: 16), text: "Overview"),
+          Tab(
+              icon: Icon(Icons.query_stats_outlined, size: 16),
+              text: "Readings"),
+          Tab(
+              icon: Icon(Icons.devices_other_outlined, size: 16),
+              text: "Trackers"),
+          Tab(
+              icon: Icon(Icons.menu_book_outlined, size: 16),
+              text: "Manual"),
+        ],
+      ),
+    );
+  }
+
+  // ── TAB 1: OVERVIEW (Overall AQI + Tracker Status) ─────────────────────
+  Widget _buildOverviewTab(List<TrackerReading> readings) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final aqiCard = _buildOverallAqiCard(readings);
+          final statusCard = _buildTrackerStatusCard(readings);
+          final isWide = constraints.maxWidth > 640;
+
+          if (!isWide) {
+            return Column(
+              children: [
+                aqiCard,
+                const SizedBox(height: 16),
+                statusCard,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: aqiCard),
+              const SizedBox(width: 16),
+              Expanded(child: statusCard),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ── TAB 2: READINGS ──────────────────────────────────────────────────────
+  Widget _buildReadingsTab(List<TrackerReading> readings) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: _buildAverageReadingsCard(readings),
+    );
+  }
+
+  // ── TAB 3: TRACKERS ──────────────────────────────────────────────────────
+  Widget _buildTrackersTab(AppDataStore store, List<TrackerInfo> trackers) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: _buildIndividualTrackersCard(store, trackers),
+    );
+  }
+
+  // ── TAB 4: MANUAL ─────────────────────────────────────────────────────────
+  Widget _buildManualTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: _buildHealthManualCard(),
+    );
+  }
+
+  // ── 1. STATS STRIP (dashboard KPI row) ─────────────────────────────────────
+  // Creative asymmetric layout: a large, featured Overall AQI tile on the
+  // left, with Trackers and Active Alerts stacked as smaller tiles on the
+  // right — instead of four equal-width tiles in a row.
+  Widget _buildStatsStrip(List<TrackerReading> readings, int totalTrackers) {
+    final avgAqi = readings.isEmpty
+        ? 0
+        : (_avg(readings.map((r) => r.iaqi.toDouble()).toList())).round();
+    final alertCount = readings.where((r) => r.coAlert == true).length;
+    final aqiColor = readings.isEmpty
+        ? const Color(0xFF94A3B8)
+        : _aqiColor(avgAqi);
+    final aqiLabel = readings.isEmpty ? '--' : _aqiLabel(avgAqi);
+
+    return SizedBox(
+      height: 168,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Large featured Overall AQI tile ──────────────────────────
+          Expanded(
+            flex: 11,
+            child: _buildFeaturedAqiTile(
+              value: readings.isEmpty ? '--' : '$avgAqi',
+              label: aqiLabel,
+              color: aqiColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          // ── Stacked smaller tiles ─────────────────────────────────────
+          Expanded(
+            flex: 9,
+            child: Column(
+              children: [
+                Expanded(
+                  child: _buildStatTile(
+                    icon: Icons.sensors,
+                    label: "Trackers",
+                    value: '$totalTrackers',
+                    color: const Color(0xFF0052FF),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: _buildStatTile(
+                    icon: Icons.warning_amber_rounded,
+                    label: "Active Alerts",
+                    value: '$alertCount',
+                    color: alertCount > 0
+                        ? const Color(0xFFDC2626)
+                        : const Color(0xFF22C55E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeaturedAqiTile({
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withOpacity(0.12), color.withOpacity(0.03)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withOpacity(0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.045),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.air, size: 18, color: color),
+              const SizedBox(width: 6),
+              const Text("Overall AQI",
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B))),
+            ],
+          ),
+          Text(
+            value,
+            style: TextStyle(
+                fontSize: 46,
+                fontWeight: FontWeight.bold,
+                color: color,
+                height: 1.0),
+          ),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: color)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    double valueFontSize = 18,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: _cardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          Icon(icon, size: 15, color: color),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: valueFontSize,
+                fontWeight: FontWeight.bold,
+                color: color),
+          ),
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 10, color: Color(0xFF94A3B8))),
+        ],
+      ),
+    );
+  }
+
+  // ── Reusable section title with icon ────────────────────────────────────
+  Widget _sectionTitle(IconData icon, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF0052FF)),
+        const SizedBox(width: 8),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A))),
+      ],
+    );
+  }
+
   // ── 2. OVERALL AQI CARD ────────────────────────────────────────────────────
   Widget _buildOverallAqiCard(List<TrackerReading> readings) {
     final avgAqi = readings.isEmpty
@@ -264,24 +608,18 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
         : (_avg(readings.map((r) => r.iaqi.toDouble()).toList())).round();
     final color     = _aqiColor(avgAqi);
     final label     = _aqiLabel(avgAqi);
-    final progress  = (avgAqi / 500).clamp(0.0, 1.0);
     final lastDt    = _latestTimestamp(readings);
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: _cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Overall AQI (Average)",
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A))),
+              _sectionTitle(Icons.eco_outlined, "Overall AQI (Average)"),
               InkWell(
                 onTap: () =>
                     setState(() => _isAqiInfoExpanded = !_isAqiInfoExpanded),
@@ -345,74 +683,76 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
             ),
           ],
           const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                readings.isEmpty ? '--' : '$avgAqi',
-                style: TextStyle(
-                    fontSize: 44,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                    height: 1.0),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _aqiBgColor(avgAqi),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(label,
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: color)),
-                  ),
-                ],
-              ),
-            ],
+          Center(
+            child: _buildAqiGauge(
+              aqi: avgAqi,
+              color: color,
+              label: label,
+              hasData: readings.isNotEmpty,
+            ),
           ),
-          const SizedBox(height: 8),
-          Stack(children: [
-            Container(
-              width: 180,
-              height: 8,
-              decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(4)),
+          const SizedBox(height: 4),
+          Center(
+            child: Text(
+              lastDt != null ? 'Updated ${_timeAgo(lastDt)}' : '--',
+              style: const TextStyle(
+                  fontSize: 11, color: Color(0xFF94A3B8)),
             ),
-            Container(
-              width: 180 * progress,
-              height: 8,
-              decoration: BoxDecoration(
-                  color: color, borderRadius: BorderRadius.circular(4)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Semicircular AQI gauge dial ─────────────────────────────────────────
+  Widget _buildAqiGauge({
+    required int aqi,
+    required Color color,
+    required String label,
+    required bool hasData,
+  }) {
+    final progress = hasData ? (aqi / 500).clamp(0.0, 1.0) : 0.0;
+    return SizedBox(
+      width: 200,
+      height: 116,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          CustomPaint(
+            size: const Size(200, 100),
+            painter: _AqiGaugePainter(progress: progress, color: color),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  hasData ? '$aqi' : '--',
+                  style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                      height: 1.0),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: hasData
+                        ? color.withOpacity(0.14)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(label,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: color)),
+                ),
+              ],
             ),
-          ]),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                lastDt != null ? 'Updated ${_timeAgo(lastDt)}' : '--',
-                style: const TextStyle(
-                    fontSize: 11, color: Color(0xFF94A3B8)),
-              ),
-              Row(children: const [
-                Text("Good",
-                    style: TextStyle(
-                        fontSize: 10, color: Color(0xFF94A3B8))),
-                SizedBox(width: 100),
-                Text("Hazardous",
-                    style: TextStyle(
-                        fontSize: 10, color: Color(0xFF94A3B8))),
-              ]),
-            ],
           ),
         ],
       ),
@@ -458,20 +798,18 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: _cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Tracker Status",
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A))),
+          _sectionTitle(Icons.dashboard_outlined, "Tracker Status"),
           const SizedBox(height: 2),
-          const Text("How many trackers are in each range right now",
-              style:
-                  TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          const Padding(
+            padding: EdgeInsets.only(left: 26),
+            child: Text("How many trackers are in each range right now",
+                style:
+                    TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          ),
           const SizedBox(height: 16),
           _buildStatusRow(const Color(0xFF22C55E), "Good",
               "AQI 0–50", '$good'),
@@ -545,141 +883,168 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
     String fmt(double v, int d) =>
         hasData ? v.toStringAsFixed(d) : '--';
 
+    // ── Bento layout: PM2.5 and CO₂ are the two safety-critical metrics,
+    //     so they're shown as larger "hero" tiles. The rest sit in a
+    //     smaller grid underneath.
+    final heroPm25 = _buildGridTile(
+      "PM2.5", fmt(pm25, 1), "µg/m³",
+      hasData ? _pm25Status(pm25)     : '--',
+      hasData ? _pm25StatusBg(pm25)   : const Color(0xFFF1F5F9),
+      hasData ? _pm25StatusText(pm25) : const Color(0xFF94A3B8),
+      isDownTrend: true,
+      large: true,
+      infoText:
+          "PM2.5 are fine dust particles — about 30 times smaller "
+          "than a grain of sand. They come from smoke, cooking, or "
+          "outdoor pollution entering the building.\n\nSafe below "
+          "12 µg/m³ (WHO guideline)",
+    );
+
+    final heroCo2 = _buildGridTile(
+      "CO₂", fmt(co2, 0), "ppm",
+      hasData ? _co2Status(co2)     : '--',
+      hasData ? _co2StatusBg(co2)   : const Color(0xFFF1F5F9),
+      hasData ? _co2StatusText(co2) : const Color(0xFF94A3B8),
+      isDownTrend: true,
+      large: true,
+      infoText:
+          "CO₂ (Carbon Dioxide) is the gas people exhale when "
+          "breathing. It builds up in rooms with many people and poor "
+          "air circulation, causing stuffiness and tiredness.\n\n"
+          "Good below 800 ppm · Stuffy above 1000 ppm",
+    );
+
+    final smallTiles = [
+      _buildGridTile(
+        "PM1.0", fmt(pm1, 1), "µg/m³",
+        hasData ? _pm25Status(pm1)     : '--',
+        hasData ? _pm25StatusBg(pm1)   : const Color(0xFFF1F5F9),
+        hasData ? _pm25StatusText(pm1) : const Color(0xFF94A3B8),
+        isDownTrend: true,
+        infoText:
+            "PM1.0 are extremely tiny particles — smaller than 1/70th "
+            "of a human hair. They float in the air and can be inhaled "
+            "deep into the lungs.\n\nSafe below 10 µg/m³",
+      ),
+      _buildGridTile(
+        "PM10", fmt(pm10, 1), "µg/m³",
+        hasData ? _pm25Status(pm10)     : '--',
+        hasData ? _pm25StatusBg(pm10)   : const Color(0xFFF1F5F9),
+        hasData ? _pm25StatusText(pm10) : const Color(0xFF94A3B8),
+        isDownTrend: true,
+        infoText:
+            "PM10 are larger dust particles you can sometimes see "
+            "floating in a beam of light. They come from dust, pollen, "
+            "and dirt tracked indoors.\n\nSafe below 54 µg/m³",
+      ),
+      _buildGridTile(
+        "CO", fmt(co, 1), "ppm",
+        hasData ? _coStatus(co)     : '--',
+        hasData ? _coStatusBg(co)   : const Color(0xFFF1F5F9),
+        hasData ? _coStatusText(co) : const Color(0xFF94A3B8),
+        isDownTrend: true,
+        infoText:
+            "CO (Carbon Monoxide) is a colorless, odorless gas produced "
+            "when fuel is burned incompletely — from gas stoves, heaters, "
+            "or car exhaust nearby. High levels are very dangerous.\n\n"
+            "Safe below 9 ppm",
+      ),
+      _buildGridTile(
+        "O₃", fmt(o3, 1), "ppb",
+        hasData ? (o3 <= 70 ? 'Good' : 'Elevated') : '--',
+        hasData
+            ? (o3 <= 70
+                ? const Color(0xFFDCFCE7)
+                : const Color(0xFFFEF9C3))
+            : const Color(0xFFF1F5F9),
+        hasData
+            ? (o3 <= 70
+                ? const Color(0xFF16A34A)
+                : const Color(0xFFA16207))
+            : const Color(0xFF94A3B8),
+        isDownTrend: false,
+        infoText:
+            "O₃ (Ozone) at ground level is an irritant. It can irritate "
+            "the throat and lungs, especially for residents with asthma "
+            "or other breathing conditions.\n\nSafe below 70 ppb",
+      ),
+      _buildGridTile(
+        "Temp", fmt(temp, 1), "°C",
+        hasData ? _tempStatus(temp)     : '--',
+        hasData ? _tempStatusBg(temp)   : const Color(0xFFF1F5F9),
+        hasData ? _tempStatusText(temp) : const Color(0xFF94A3B8),
+        isDownTrend: true,
+        infoText:
+            "This is the air temperature inside the monitored room. "
+            "Elderly and ill residents are more sensitive to heat and "
+            "cold than healthy adults.\n\nComfortable range: 18–30°C",
+      ),
+      _buildGridTile(
+        "Humidity", fmt(hum, 0), "%",
+        hasData ? _humStatus(hum)     : '--',
+        hasData ? _humStatusBg(hum)   : const Color(0xFFF1F5F9),
+        hasData ? _humStatusText(hum) : const Color(0xFF94A3B8),
+        isDownTrend: false,
+        infoText:
+            "Humidity measures how much moisture is in the air. Too "
+            "much causes stuffiness and mold; too little causes dry "
+            "skin and irritated airways.\n\nComfortable range: 30–60%",
+      ),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: _cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Average Readings (All Trackers)",
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A))),
+          _sectionTitle(
+              Icons.query_stats_outlined, "Average Readings (All Trackers)"),
+          const SizedBox(height: 4),
+          const Padding(
+            padding: EdgeInsets.only(left: 26),
+            child: Text(
+              "PM2.5 and CO₂ are the most safety-critical, shown larger.",
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
+          ),
           const SizedBox(height: 12),
-          _gridRow([
-            _buildGridTile(
-              "PM1.0", fmt(pm1, 1), "µg/m³",
-              hasData ? _pm25Status(pm1)     : '--',
-              hasData ? _pm25StatusBg(pm1)   : const Color(0xFFF1F5F9),
-              hasData ? _pm25StatusText(pm1) : const Color(0xFF94A3B8),
-              isDownTrend: true,
-              infoText:
-                  "PM1.0 are extremely tiny particles — smaller than 1/70th "
-                  "of a human hair. They float in the air and can be inhaled "
-                  "deep into the lungs.\n\nSafe below 10 µg/m³",
+          // ── Hero row: PM2.5 + CO₂ ──────────────────────────────────────
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: heroPm25),
+                const SizedBox(width: 10),
+                Expanded(child: heroCo2),
+              ],
             ),
-            _buildGridTile(
-              "PM2.5", fmt(pm25, 1), "µg/m³",
-              hasData ? _pm25Status(pm25)     : '--',
-              hasData ? _pm25StatusBg(pm25)   : const Color(0xFFF1F5F9),
-              hasData ? _pm25StatusText(pm25) : const Color(0xFF94A3B8),
-              isDownTrend: true,
-              infoText:
-                  "PM2.5 are fine dust particles — about 30 times smaller "
-                  "than a grain of sand. They come from smoke, cooking, or "
-                  "outdoor pollution entering the building.\n\nSafe below "
-                  "12 µg/m³ (WHO guideline)",
-            ),
-          ]),
+          ),
           const SizedBox(height: 10),
-          _gridRow([
-            _buildGridTile(
-              "PM10", fmt(pm10, 1), "µg/m³",
-              hasData ? _pm25Status(pm10)     : '--',
-              hasData ? _pm25StatusBg(pm10)   : const Color(0xFFF1F5F9),
-              hasData ? _pm25StatusText(pm10) : const Color(0xFF94A3B8),
-              isDownTrend: true,
-              infoText:
-                  "PM10 are larger dust particles you can sometimes see "
-                  "floating in a beam of light. They come from dust, pollen, "
-                  "and dirt tracked indoors.\n\nSafe below 54 µg/m³",
-            ),
-            _buildGridTile(
-              "CO", fmt(co, 1), "ppm",
-              hasData ? _coStatus(co)     : '--',
-              hasData ? _coStatusBg(co)   : const Color(0xFFF1F5F9),
-              hasData ? _coStatusText(co) : const Color(0xFF94A3B8),
-              isDownTrend: true,
-              infoText:
-                  "CO (Carbon Monoxide) is a colorless, odorless gas produced "
-                  "when fuel is burned incompletely — from gas stoves, heaters, "
-                  "or car exhaust nearby. High levels are very dangerous.\n\n"
-                  "Safe below 9 ppm",
-            ),
-          ]),
-          const SizedBox(height: 10),
-          _gridRow([
-            _buildGridTile(
-              "CO₂", fmt(co2, 0), "ppm",
-              hasData ? _co2Status(co2)     : '--',
-              hasData ? _co2StatusBg(co2)   : const Color(0xFFF1F5F9),
-              hasData ? _co2StatusText(co2) : const Color(0xFF94A3B8),
-              isDownTrend: true,
-              infoText:
-                  "CO₂ (Carbon Dioxide) is the gas people exhale when "
-                  "breathing. It builds up in rooms with many people and poor "
-                  "air circulation, causing stuffiness and tiredness.\n\n"
-                  "Good below 800 ppm · Stuffy above 1000 ppm",
-            ),
-            _buildGridTile(
-              "O₃", fmt(o3, 1), "ppb",
-              hasData ? (o3 <= 70 ? 'Good' : 'Elevated') : '--',
-              hasData
-                  ? (o3 <= 70
-                      ? const Color(0xFFDCFCE7)
-                      : const Color(0xFFFEF9C3))
-                  : const Color(0xFFF1F5F9),
-              hasData
-                  ? (o3 <= 70
-                      ? const Color(0xFF16A34A)
-                      : const Color(0xFFA16207))
-                  : const Color(0xFF94A3B8),
-              isDownTrend: false,
-              infoText:
-                  "O₃ (Ozone) at ground level is an irritant. It can irritate "
-                  "the throat and lungs, especially for residents with asthma "
-                  "or other breathing conditions.\n\nSafe below 70 ppb",
-            ),
-          ]),
-          const SizedBox(height: 10),
-          _gridRow([
-            _buildGridTile(
-              "Temp", fmt(temp, 1), "°C",
-              hasData ? _tempStatus(temp)     : '--',
-              hasData ? _tempStatusBg(temp)   : const Color(0xFFF1F5F9),
-              hasData ? _tempStatusText(temp) : const Color(0xFF94A3B8),
-              isDownTrend: true,
-              infoText:
-                  "This is the air temperature inside the monitored room. "
-                  "Elderly and ill residents are more sensitive to heat and "
-                  "cold than healthy adults.\n\nComfortable range: 18–30°C",
-            ),
-            _buildGridTile(
-              "Humidity", fmt(hum, 0), "%",
-              hasData ? _humStatus(hum)     : '--',
-              hasData ? _humStatusBg(hum)   : const Color(0xFFF1F5F9),
-              hasData ? _humStatusText(hum) : const Color(0xFF94A3B8),
-              isDownTrend: false,
-              infoText:
-                  "Humidity measures how much moisture is in the air. Too "
-                  "much causes stuffiness and mold; too little causes dry "
-                  "skin and irritated airways.\n\nComfortable range: 30–60%",
-            ),
-          ]),
+          // ── Smaller grid for the remaining metrics ─────────────────────
+          // Uses Wrap instead of a fixed-aspect-ratio GridView so each
+          // tile can grow taller when its "More Info" panel is expanded,
+          // instead of overflowing a fixed cell height.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = 10.0;
+              final columns = constraints.maxWidth > 700 ? 3 : 2;
+              final tileWidth =
+                  (constraints.maxWidth - spacing * (columns - 1)) /
+                      columns;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: smallTiles
+                    .map((tile) => SizedBox(width: tileWidth, child: tile))
+                    .toList(),
+              );
+            },
+          ),
         ],
       ),
     );
   }
-
-  Widget _gridRow(List<Widget> children) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children
-            .expand((w) => [Expanded(child: w), const SizedBox(width: 10)])
-            .toList()
-          ..removeLast(),
-      );
 
   Widget _buildGridTile(
     String label,
@@ -690,11 +1055,12 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
     Color statusTextColor, {
     required bool isDownTrend,
     required String infoText,
+    bool large = false,
   }) {
     final isExpanded = _expandedMetrics[label] ?? false;
 
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: EdgeInsets.all(large ? 14 : 10),
       decoration: BoxDecoration(
           color: const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(12)),
@@ -703,33 +1069,34 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: Color(0xFF64748B))),
-          const SizedBox(height: 4),
+              style: TextStyle(
+                  fontSize: large ? 12 : 11, color: const Color(0xFF64748B))),
+          SizedBox(height: large ? 6 : 4),
           Row(children: [
             Text(value,
-                style: const TextStyle(
-                    fontSize: 18,
+                style: TextStyle(
+                    fontSize: large ? 28 : 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A))),
+                    color: const Color(0xFF0F172A))),
             const SizedBox(width: 4),
             Icon(
               isDownTrend
                   ? Icons.trending_down
                   : Icons.trending_up,
-              size: 16,
+              size: large ? 20 : 16,
               color: isDownTrend
                   ? const Color(0xFF22C55E)
                   : const Color(0xFFEA580C),
             ),
           ]),
-          const SizedBox(height: 4),
+          SizedBox(height: large ? 6 : 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(unit,
-                  style: const TextStyle(
-                      fontSize: 10, color: Color(0xFF94A3B8))),
+                  style: TextStyle(
+                      fontSize: large ? 11 : 10,
+                      color: const Color(0xFF94A3B8))),
               Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 6, vertical: 2),
@@ -738,13 +1105,13 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
                     borderRadius: BorderRadius.circular(4)),
                 child: Text(status,
                     style: TextStyle(
-                        fontSize: 9,
+                        fontSize: large ? 10 : 9,
                         fontWeight: FontWeight.bold,
                         color: statusTextColor)),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: large ? 10 : 8),
           InkWell(
             onTap: () => setState(
                 () => _expandedMetrics[label] = !isExpanded),
@@ -807,16 +1174,11 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
       AppDataStore store, List<TrackerInfo> trackers) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: _cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Individual Trackers",
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A))),
+          _sectionTitle(Icons.devices_other_outlined, "Individual Trackers"),
           const SizedBox(height: 12),
 
           if (trackers.isEmpty)
@@ -991,19 +1353,15 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
   Widget _buildHealthManualCard() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: _cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Health Supervising Manual",
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A))),
+              _sectionTitle(
+                  Icons.menu_book_outlined, "Health Supervising Manual"),
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -1019,11 +1377,14 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            "Common illnesses senior citizens may develop from indoor air "
-            "pollutants, with do's and don'ts.",
-            style: TextStyle(
-                fontSize: 12, color: Color(0xFF64748B), height: 1.3),
+          const Padding(
+            padding: EdgeInsets.only(left: 26),
+            child: Text(
+              "Common illnesses senior citizens may develop from indoor air "
+              "pollutants, with do's and don'ts.",
+              style: TextStyle(
+                  fontSize: 12, color: Color(0xFF64748B), height: 1.3),
+            ),
           ),
           if (_isManualExpanded) ...[
             const SizedBox(height: 16),
@@ -1381,4 +1742,47 @@ class _SummaryNewPageState extends State<SummaryNewPage> {
       ),
     );
   }
+}
+
+// ── Custom painter for the semicircular AQI gauge dial ─────────────────────
+class _AqiGaugePainter extends CustomPainter {
+  final double progress; // 0.0–1.0
+  final Color color;
+
+  _AqiGaugePainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const strokeWidth = 14.0;
+    final rect = Rect.fromLTWH(
+      strokeWidth / 2,
+      strokeWidth / 2,
+      size.width - strokeWidth,
+      size.width - strokeWidth,
+    );
+
+    final bgPaint = Paint()
+      ..color = const Color(0xFFF1F5F9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final fgPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    const startAngle = math.pi; // left side, 180°
+    const fullSweep = math.pi; // half circle, 180°
+
+    // Background track (full semicircle)
+    canvas.drawArc(rect, startAngle, fullSweep, false, bgPaint);
+    // Foreground progress arc
+    canvas.drawArc(rect, startAngle, fullSweep * progress, false, fgPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AqiGaugePainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }
