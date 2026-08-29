@@ -249,7 +249,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                             : TabBarView(
                                 controller: _tabController,
                                 children: [
-                                  _buildOverviewTab(readings),
+                                  _buildOverviewTab(store),
                                   _buildReadingsTab(readings),
                                   _buildManualTab(),
                                 ],
@@ -338,7 +338,6 @@ class _SummaryNewPageState extends State<SummaryNewPage>
   }
 
   // ── HEADER BANNER ──────────────────────────────────────────────────────────
-// ── HEADER BANNER ──────────────────────────────────────────────────────────
   Widget _buildHeaderBanner() {
     return Container(
       width: double.infinity,
@@ -367,7 +366,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
   }
 
   // ── HEADER DASHBOARD GRID ──────────────────────────────────────────────────
-Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTrackers) {
+  Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTrackers) {
     final avgAqi = readings.isEmpty
         ? 0
         : (_avg(readings.map((r) => r.iaqi.toDouble()).toList())).round();
@@ -569,6 +568,7 @@ Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTracker
       ],
     );
   }
+
   // ── TAB BAR ───────────────────────────────────────────────────────────────
   Widget _buildTabBar() {
     return Container(
@@ -614,7 +614,13 @@ Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTracker
   }
 
   // ── TAB 1: TRACKER OVERVIEW ───────────────────────────────────────────────
-  Widget _buildOverviewTab(List<TrackerReading> readings) {
+  Widget _buildOverviewTab(AppDataStore store) {
+    final trackers = store.trackers;
+    final readings = trackers
+        .map((t) => store.readingFor(t.id))
+        .whereType<TrackerReading>()
+        .toList();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -628,7 +634,7 @@ Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTracker
           Container(
             padding: const EdgeInsets.all(16),
             decoration: _cardDecoration,
-            child: _buildRankingsSection(readings),
+            child: _buildRankingsSection(store),
           ),
         ],
       ),
@@ -687,7 +693,35 @@ Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTracker
     );
   }
 
-  Widget _buildRankingsSection(List<TrackerReading> readings) {
+  // ── UPDATED: RANKINGS SECTION WITH TRACKER NAMES ─────────────────────────
+Widget _buildRankingsSection(AppDataStore store) {
+    // Collect all trackers along with their latest readings
+    final trackerRankList = store.trackers.map((t) {
+      final reading = store.readingFor(t.id);
+
+      // Extract device name using TrackerInfo properties matching trackers_new.dart
+      String trackerName = t.deviceName.trim();
+
+      // Fallback 1: Use location if deviceName is empty
+      if (trackerName.isEmpty && t.location.trim().isNotEmpty) {
+        trackerName = t.location.trim();
+      }
+
+      // Fallback 2: Use Tracker ID if both deviceName and location are empty
+      if (trackerName.isEmpty) {
+        trackerName = 'Tracker ${t.id}';
+      }
+
+      return {
+        'name': trackerName,
+        'reading': reading,
+        'aqi': reading?.iaqi ?? 0,
+      };
+    }).toList();
+
+    // Sort by lowest AQI first (lower is better)
+    trackerRankList.sort((a, b) => (a['aqi'] as int).compareTo(b['aqi'] as int));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -701,57 +735,86 @@ Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTracker
           style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
         ),
         const SizedBox(height: 16),
-        if (readings.isEmpty)
+        if (trackerRankList.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Text("No rankings available", style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
           )
         else
-          ...readings.asMap().entries.map((entry) {
+          ...trackerRankList.asMap().entries.map((entry) {
             final idx = entry.key + 1;
-            final r = entry.value;
-            final val = r.iaqi;
+            final item = entry.value;
+            final trackerName = item['name'] as String;
+            final val = item['aqi'] as int;
             final color = _aqiColor(val);
             final factor = (val / 500).clamp(0.05, 1.0);
 
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: Row(
+              padding: const EdgeInsets.only(bottom: 14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 24,
-                    child: Text('R $idx', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                  ),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        Container(
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(4),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        child: Text(
+                          'R $idx',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF64748B),
                           ),
                         ),
-                        FractionallySizedBox(
-                          widthFactor: factor,
-                          child: Container(
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: BorderRadius.circular(4),
+                      ),
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Container(
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                             ),
+                            FractionallySizedBox(
+                              widthFactor: factor,
+                              child: Container(
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 32,
+                        child: Text(
+                          '$val',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 32,
+                  const SizedBox(height: 2),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 24.0),
                     child: Text(
-                      '$val',
-                      textAlign: TextAlign.end,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      trackerName,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF475569),
+                      ),
                     ),
                   ),
                 ],
@@ -795,7 +858,7 @@ Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTracker
     );
   }
 
-Widget _buildPollutantGrid(List<TrackerReading> readings) {
+  Widget _buildPollutantGrid(List<TrackerReading> readings) {
     final pm1 = _avg(readings.map((r) => r.pm1Ugm3).toList());
     final pm25 = _avg(readings.map((r) => r.pm25Ugm3).toList());
     final pm10 = _avg(readings.map((r) => r.pm10Ugm3).toList());
@@ -1043,7 +1106,7 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
   }
 
   // ── TAB 3: HEALTH SUPERVISING MANUAL ───────────────────────────────────────
-Widget _buildManualTab() {
+  Widget _buildManualTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Container(
