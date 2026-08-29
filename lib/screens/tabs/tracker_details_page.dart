@@ -23,8 +23,7 @@ class TrackerDetailsPage extends StatefulWidget {
 }
 
 class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
-  int  _selectedTabIndex      = 0;
-  int  _bottomNavIndex        = 0;
+  int  _selectedTabIndex       = 0;
   bool _isAqiReferenceExpanded = false;
 
   final List<String> _tabs = ['Pollutants', 'History', 'Climate', 'Advice'];
@@ -340,24 +339,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
               ),
             ],
           ),
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _bottomNavIndex,
-            selectedItemColor: const Color(0xFF0052FF),
-            unselectedItemColor: const Color(0xFF64748B),
-            type: BottomNavigationBarType.fixed,
-            onTap: (i) => setState(() => _bottomNavIndex = i),
-            items: const [
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.track_changes), label: "Trackers"),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.analytics_outlined), label: "Summary"),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.stacked_line_chart_rounded),
-                  label: "Analytics"),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.settings), label: "Settings"),
-            ],
-          ),
+
         );
       },
     );
