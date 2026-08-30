@@ -18,7 +18,7 @@ class AiService {
 
   void _initSession() {
     _model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       apiKey: _apiKey,
       systemInstruction: Content.system(
         'You are AETHER Assistant, an air quality expert embedded in the '

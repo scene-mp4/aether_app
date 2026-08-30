@@ -1,3 +1,5 @@
+// TO RUN THE PROGRAM USE RUN.BAT SCRIPT TO GET AI ASSISTANT TO WORK PROPERLY
+
 // navigation
 import 'package:flutter/material.dart';
 import 'package:pollutracker_app/screens/admin_navbar.dart';
