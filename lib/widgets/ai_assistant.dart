@@ -25,7 +25,7 @@ class _AiAssistantState extends State<AiAssistant> {
     _ctrl.clear();
 
     try {
-      final resp = await _service.query(text);
+      final resp = await _service.query(text, context: context);
       setState(() {
         _messages.add(_Msg(resp, false));
       });
@@ -69,7 +69,7 @@ class _AiAssistantState extends State<AiAssistant> {
               _ctrl.clear();
 
               try {
-                final resp = await _service.query(text);
+                final resp = await _service.query(text, context: context);
                 setModalState(() {
                   _messages.add(_Msg(resp, false));
                 });
@@ -345,7 +345,7 @@ Future<void> showAiAssistant(BuildContext context) async {
             });
             ctrl.clear();
             try {
-              final resp = await service.query(text);
+              final resp = await service.query(text, context: ctx);
               setModalState(() {
                 messages.add(_Msg(resp, false));
               });
