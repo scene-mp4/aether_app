@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/ai_service.dart';
 import 'dart:async';
 
@@ -128,7 +129,7 @@ class _AiAssistantState extends State<AiAssistant> {
                                     ),
                                     SizedBox(height: 2),
                                     Text(
-                                      'Ask about air quality',
+                                      'AETHER Assistant is an AI and can make mistakes.\nMake sure to double check the provided information.',
                                       style: TextStyle(
                                         color: Colors.white70,
                                         fontSize: 12,
@@ -167,22 +168,53 @@ class _AiAssistantState extends State<AiAssistant> {
                                       horizontal: 14,
                                       vertical: 10,
                                     ),
+                                    constraints: BoxConstraints(
+                                      maxWidth: MediaQuery.of(context).size.width * 0.75,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: m.me
                                           ? const Color(0xFF2B52FF)
                                           : const Color(0xFFF0F4FF),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: Text(
-                                      m.text,
-                                      style: TextStyle(
-                                        color: m.me
-                                            ? Colors.white
-                                            : const Color(0xFF333333),
-                                        fontSize: 13,
-                                        height: 1.3,
-                                      ),
-                                    ),
+                                    child: m.me
+                                        ? Text(
+                                            m.text,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                              height: 1.3,
+                                            ),
+                                          )
+                                        : MarkdownBody(
+                                            data: m.text,
+                                            styleSheet: MarkdownStyleSheet(
+                                              p: const TextStyle(
+                                                color: Color(0xFF333333),
+                                                fontSize: 13,
+                                                height: 1.4,
+                                              ),
+                                              strong: const TextStyle(
+                                                color: Color(0xFF111111),
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              em: const TextStyle(
+                                                color: Color(0xFF333333),
+                                                fontSize: 13,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                              listBullet: const TextStyle(
+                                                color: Color(0xFF333333),
+                                                fontSize: 13,
+                                              ),
+                                              code: const TextStyle(
+                                                backgroundColor: Color(0xFFE8EDFF),
+                                                fontFamily: 'monospace',
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
                                   ),
                                 );
                               },
@@ -400,7 +432,7 @@ Future<void> showAiAssistant(BuildContext context) async {
                                   ),
                                   SizedBox(height: 2),
                                   Text(
-                                    'Ask about air quality',
+                                    'AI · May make mistakes',
                                     style: TextStyle(
                                       color: Colors.white70,
                                       fontSize: 12,
@@ -437,22 +469,53 @@ Future<void> showAiAssistant(BuildContext context) async {
                                     horizontal: 14,
                                     vertical: 10,
                                   ),
+                                  constraints: BoxConstraints(
+                                    maxWidth: MediaQuery.of(context).size.width * 0.75,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: m.me
                                         ? const Color(0xFF2B52FF)
                                         : const Color(0xFFF0F4FF),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Text(
-                                    m.text,
-                                    style: TextStyle(
-                                      color: m.me
-                                          ? Colors.white
-                                          : const Color(0xFF333333),
-                                      fontSize: 13,
-                                      height: 1.3,
-                                    ),
-                                  ),
+                                  child: m.me
+                                      ? Text(
+                                          m.text,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            height: 1.3,
+                                          ),
+                                        )
+                                      : MarkdownBody(
+                                          data: m.text,
+                                          styleSheet: MarkdownStyleSheet(
+                                            p: const TextStyle(
+                                              color: Color(0xFF333333),
+                                              fontSize: 13,
+                                              height: 1.4,
+                                            ),
+                                            strong: const TextStyle(
+                                              color: Color(0xFF111111),
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            em: const TextStyle(
+                                              color: Color(0xFF333333),
+                                              fontSize: 13,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                            listBullet: const TextStyle(
+                                              color: Color(0xFF333333),
+                                              fontSize: 13,
+                                            ),
+                                            code: const TextStyle(
+                                              backgroundColor: Color(0xFFE8EDFF),
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
                                 ),
                               );
                             },
