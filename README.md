@@ -1,5 +1,9 @@
 # AETHER
 
+IN ORDER TO RUN WITH API KEY USE COMMAND 
+`.\run.bat` 
+IN THE TERMINAL
+
 ## Setup — API Keys
 
 1. Copy `.env.example` to `.env` in the project root
