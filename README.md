@@ -1,5 +1,12 @@
 # AETHER
 
+## Setup — API Keys
+
+1. Copy `.env.example` to `.env` in the project root
+2. Fill in your Gemini API key from https://aistudio.google.com
+3. Run the app using `run.bat` (Windows) instead of `flutter run` directly
+
+
 (Placeholder README, will update soon)
 **Project Title:** AETHER: Air Quality Monitoring Device with an Integrated Mobile Application for Senior Healthcare Facility Caregivers
 

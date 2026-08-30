@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../stores/app_data_store.dart';
 
 class AiService {
-  static const String _apiKey = 'INSERT_API_KEY';
+  // API key is loaded from --dart-define at build time.
+  // Never hardcode the key here — use the setup instructions in .env.example.
+  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
 
   late GenerativeModel _model;
   late ChatSession     _chat;
@@ -16,7 +18,7 @@ class AiService {
 
   void _initSession() {
     _model = GenerativeModel(
-      model: 'gemini-3.6-flash',
+      model: 'gemini-2.5-flash',
       apiKey: _apiKey,
       systemInstruction: Content.system(
         'You are AETHER Assistant, an air quality expert embedded in the '
