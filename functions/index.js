@@ -46,13 +46,20 @@ const db = getFirestore();
 // These values came from your debug console readings.
 // ═══════════════════════════════════════════════════════════════════════════════
 const CALIBRATION = {
-  Ro_MQ2:   8.5,   // kΩ
-  Ro_MQ9:   7.3,   // kΩ
-  Ro_MQ135: 78.9,  // kΩ
-  RL_MQ2:   5.0,   // kΩ — load resistor on MQ-2 module
-  RL_MQ9:   5.0,   // kΩ — load resistor on MQ-9 module
-  RL_MQ135: 10.0,  // kΩ — load resistor on MQ-135 module
-  Vc:       5.0,   // V  — MQ sensor supply voltage
+  // FIX: Vc must match the actual supply voltage to your MQ sensors.
+  // If MQ sensors are powered from ESP32 3.3V pin → set 3.3
+  // If MQ sensors are powered from a separate 5V supply → set 5.0
+  Vc: 3.3,
+
+  // These Ro values need to be recalibrated after fixing Vc
+  // Run the sensor for 24-48h then check Serial Monitor for suggested Ro values
+  Ro_MQ2:   8.5,
+  Ro_MQ9:   7.3,
+  Ro_MQ135: 78.9,
+
+  RL_MQ2:   5.0,
+  RL_MQ9:   5.0,
+  RL_MQ135: 10.0,
 };
 
 // Set to 1.5 if using a 10kΩ/20kΩ voltage divider between MQ AOUT and ADS1115.
@@ -290,5 +297,12 @@ exports.computeSensorMetrics = onDocumentCreated(
       `CO=${co_ppm.toFixed(1)}ppm CO2=${co2_ppm.toFixed(0)}ppm ` +
       `PM2.5=${pm25}µg/m³ IAQI=${iaqi}(${iaqi_label})`
     );
-  }
+
+    // Temporary — add inside computeSensorMetrics, after computing ratios
+    // This logs the Ro that would make ratio = 1.0 in current conditions
+    // Run for 30+ minutes in clean outdoor air, then average the logged values
+    console.log(`[Ro calibration] MQ2 Rs=${(getRsRatio(mq2_v, CALIBRATION.RL_MQ2, 1.0) * 1.0).toFixed(3)}`);
+    console.log(`[Ro calibration] MQ9 Rs=${(getRsRatio(mq9_v, CALIBRATION.RL_MQ9, 1.0) * 1.0).toFixed(3)}`);
+    console.log(`[Ro calibration] MQ135 Rs=${(getRsRatio(mq135_v, CALIBRATION.RL_MQ135, 1.0) * 1.0).toFixed(3)}`);
+  },
 );
