@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../models/tracker_reading.dart';
 import '../models/tracker_history.dart';
@@ -207,7 +208,20 @@ class AppDataStore extends ChangeNotifier {
 
     // Listen to active advice entries — shared across all users
     _openAdviceStream();
+
+    await _saveFcmToken();
+
   }
+
+      // In AppDataStore.initialize(), after opening streams:
+    Future<void> _saveFcmToken() async {
+      final uid   = _auth.currentUser?.uid;
+      final token = await FirebaseMessaging.instance.getToken();
+      if (uid == null || token == null) return;
+      await _db.collection('users').doc(uid).update({
+        'fcm_tokens': FieldValue.arrayUnion([token]),
+      });
+}
 
   // ── Advice stream ──────────────────────────────────────────────────────────
   // Opens a live stream on the advice collection filtered to active entries.

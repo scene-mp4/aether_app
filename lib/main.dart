@@ -3,6 +3,7 @@
 // navigation
 import 'package:flutter/material.dart';
 import 'package:pollutracker_app/screens/admin_navbar.dart';
+import 'package:pollutracker_app/services/notification_service.dart';
 import 'screens/login.dart';
 import 'screens/bottom_navbar.dart';
 
@@ -24,6 +25,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await NotificationService.initialize();
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppDataStore(),
