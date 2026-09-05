@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/stores/app_data_store.dart';
@@ -12,6 +13,21 @@ class SummaryNewPage extends StatefulWidget {
 
 class _SummaryNewPageState extends State<SummaryNewPage>
     with SingleTickerProviderStateMixin {
+
+        // get FCM token for notifications
+      @override
+      void initState() {
+        super.initState();
+        _printFcmToken();
+      }
+
+      Future<void> _printFcmToken() async {
+        final token = await FirebaseMessaging.instance.getToken();
+        debugPrint('==============================');
+        debugPrint('[FCM Token] $token');
+        debugPrint('==============================');
+      }
+
   late final TabController _tabController = TabController(
     length: 3,
     vsync: this,

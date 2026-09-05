@@ -166,6 +166,7 @@ class _RoleRouterState extends State<_RoleRouter> {
   void initState() {
     super.initState();
     _resolveAndInit();
+    
   }
 
   Future<void> _resolveAndInit() async {
