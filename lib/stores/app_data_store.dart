@@ -214,14 +214,17 @@ class AppDataStore extends ChangeNotifier {
   }
 
       // In AppDataStore.initialize(), after opening streams:
-    Future<void> _saveFcmToken() async {
-      final uid   = _auth.currentUser?.uid;
-      final token = await FirebaseMessaging.instance.getToken();
-      if (uid == null || token == null) return;
-      await _db.collection('users').doc(uid).update({
-        'fcm_tokens': FieldValue.arrayUnion([token]),
-      });
-}
+      Future<void> _saveFcmToken() async {
+        // FCM tokens are not used on web in this project
+        if (kIsWeb) return;
+
+        final uid   = _auth.currentUser?.uid;
+        final token = await FirebaseMessaging.instance.getToken();
+        if (uid == null || token == null) return;
+        await _db.collection('users').doc(uid).update({
+          'fcm_tokens': FieldValue.arrayUnion([token]),
+        });
+      }
 
   // ── Advice stream ──────────────────────────────────────────────────────────
   // Opens a live stream on the advice collection filtered to active entries.
