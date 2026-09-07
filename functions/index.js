@@ -47,20 +47,22 @@ const db = getFirestore();
 // These values came from your debug console readings.
 // ═══════════════════════════════════════════════════════════════════════════════
 const CALIBRATION = {
-  // FIX: Vc must match the actual supply voltage to your MQ sensors.
-  // If MQ sensors are powered from ESP32 3.3V pin → set 3.3
-  // If MQ sensors are powered from a separate 5V supply → set 5.0
   Vc: 3.3,
 
-  // These Ro values need to be recalibrated after fixing Vc
-  // Run the sensor for 24-48h then check Serial Monitor for suggested Ro values
-  Ro_MQ2:   8.5,
-  Ro_MQ9:   7.3,
-  Ro_MQ135: 78.9,
+  // Updated Ro values — derived from Rs at current conditions
+  // using MQ datasheet clean-air Rs/Ro ratios
+  Ro_MQ2:   11.64,   // was 8.5  — MQ-2  datasheet clean-air ratio = 2.0
+  Ro_MQ9:   1.34,    // was 7.3  — MQ-9  datasheet clean-air ratio = 9.5
+  Ro_MQ135: 15.03,   // was 78.9 — MQ-135 datasheet clean-air ratio = 3.6
 
   RL_MQ2:   5.0,
   RL_MQ9:   5.0,
   RL_MQ135: 10.0,
+
+  // MQ-131: Ozone (O3)
+  // Ro derived from Rs=27.84 kΩ at mq131_v=0.872V using clean-air ratio=3.0
+  Ro_MQ131: 9.28,
+  RL_MQ131: 10.0,
 };
 
 // Set to 1.5 if using a 10kΩ/20kΩ voltage divider between MQ AOUT and ADS1115.
@@ -209,7 +211,7 @@ exports.computeSensorMetrics = onDocumentCreated(
     // ── MQ-131: Ozone ───────────────────────────────────────────────────────
     // Ro_MQ131 ≈ 15kΩ typical in clean air, RL = 10kΩ typical on module
     // Update Ro_MQ131 in CALIBRATION block above once you measure yours
-    const ratio_mq131 = getRsRatio(mq131_v, 10.0, 15.0);
+    const ratio_mq131 = getRsRatio(mq131_v, CALIBRATION.RL_MQ131, CALIBRATION.Ro_MQ131);
     const o3_ppm      = getPPM(ratio_mq131, 23.943, -1.1);
 
     // ── Climate metrics ─────────────────────────────────────────────────────
@@ -305,13 +307,24 @@ exports.computeSensorMetrics = onDocumentCreated(
     console.log(`[Ro calibration] MQ2 Rs=${(getRsRatio(mq2_v, CALIBRATION.RL_MQ2, 1.0) * 1.0).toFixed(3)}`);
     console.log(`[Ro calibration] MQ9 Rs=${(getRsRatio(mq9_v, CALIBRATION.RL_MQ9, 1.0) * 1.0).toFixed(3)}`);
     console.log(`[Ro calibration] MQ135 Rs=${(getRsRatio(mq135_v, CALIBRATION.RL_MQ135, 1.0) * 1.0).toFixed(3)}`);
+    console.log(`[Ro calibration] MQ131 Rs=${(getRsRatio(mq131_v, CALIBRATION.RL_MQ131, 1.0) * 1.0).toFixed(3)}`);
 
+
+    // Call sendAlertIfNeeded — cooldown and all logic handled inside the function
+    await sendAlertIfNeeded(deviceId, raw?.device_name ?? deviceId, computedDoc);
+  },
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FCM ALERT HELPER
+// Defined at module level so it is not recreated on every function invocation.
+// ═══════════════════════════════════════════════════════════════════════════════
 
 async function sendAlertIfNeeded(deviceId, deviceName, computed) {
   // Only send for serious conditions — skip early to avoid unnecessary reads
   if (!computed.co_alert && computed.iaqi < 150) return;
 
-  // FIX: fetch devDoc inside the function so it's in scope
+  // Fetch device document to get owner and cooldown timestamp
   const devDoc  = await db.collection('devices').doc(deviceId).get();
   const ownerId = devDoc.data()?.owner_id;
   if (!ownerId) {
@@ -371,15 +384,9 @@ async function sendAlertIfNeeded(deviceId, deviceName, computed) {
   console.log(`[FCM] Alert sent to ${tokens.length} device(s) for ${deviceId}`);
   console.log(`[FCM] Success: ${response.successCount} Failed: ${response.failureCount}`);
 
-  // Log any individual token failures
   response.responses.forEach((resp, i) => {
     if (!resp.success) {
       console.error(`[FCM] Token ${i} failed: ${resp.error?.message}`);
     }
   });
 }
-
-    // Call sendAlertIfNeeded — cooldown and all logic handled inside the function
-    await sendAlertIfNeeded(deviceId, raw?.device_name ?? deviceId, computedDoc);
-  },
-);

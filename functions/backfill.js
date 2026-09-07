@@ -13,13 +13,21 @@ const db = admin.firestore();
 
 // ── Paste your CALIBRATION constants here ─────────────────────────────────────
 const CALIBRATION = {
-  Vc:       3.3,   // FIX: set to your actual sensor supply voltage
-  Ro_MQ2:   8.5,
-  Ro_MQ9:   7.3,
-  Ro_MQ135: 78.9,
+  Vc: 3.3,
+
+  // Updated Ro values — derived from Rs at current conditions
+  // using MQ datasheet clean-air Rs/Ro ratios
+  Ro_MQ2:   11.64,   // was 8.5  — MQ-2  datasheet clean-air ratio = 2.0
+  Ro_MQ9:   1.34,    // was 7.3  — MQ-9  datasheet clean-air ratio = 9.5
+  Ro_MQ135: 15.03,   // was 78.9 — MQ-135 datasheet clean-air ratio = 3.6
+
   RL_MQ2:   5.0,
   RL_MQ9:   5.0,
   RL_MQ135: 10.0,
+
+  // MQ-131: Ozone (O3)
+  Ro_MQ131: 9.28,
+  RL_MQ131: 10.0,
 };
 
 // ── Paste the same helper functions from your index.js here ───────────────────
@@ -42,6 +50,24 @@ function getCorrectionFactor(t, h) {
   const cf = -0.00035 * t * t + 0.0177 * t
            - 0.0000179 * h * h + 0.00699 * h - 0.1689;
   return Math.min(Math.max(cf, 0.1), 10.0);
+}
+
+function getAbsoluteHumidity(temp, hum) {
+  const es = 6.112 * Math.exp((17.67 * temp) / (temp + 243.5));
+  return (es * hum * 2.1674) / (273.15 + temp);
+}
+
+function getHeatIndex(t, rh) {
+  if (t < 27 || rh < 40) return t;
+  return -8.78469475556
+    + 1.61139411      * t
+    + 2.33854883889   * rh
+    - 0.14611605      * t  * rh
+    - 0.012308094     * t  * t
+    - 0.0164248277778 * rh * rh
+    + 0.002211732     * t  * t  * rh
+    + 0.00072546      * t  * rh * rh
+    - 0.000003582     * t  * t  * rh * rh;
 }
 
 function calculatePM25AQI(pm25) {
@@ -129,6 +155,14 @@ async function backfill() {
         const co2_ppm = rawCo2 < 420 ? 420.0 : rawCo2;
         const nh3_ppm = getPPM(ratio_mq135, 102.2, -2.473);
 
+        // ── MQ-131: Ozone ─────────────────────────────────────────────────
+        const ratio_mq131 = getRsRatio(mq131_v, CALIBRATION.RL_MQ131, CALIBRATION.Ro_MQ131);
+        const o3_ppm      = getPPM(ratio_mq131, 23.943, -1.1);
+
+        // ── Climate metrics ────────────────────────────────────────────────
+        const abs_humidity = getAbsoluteHumidity(temp, hum);
+        const heat_index   = getHeatIndex(temp, hum);
+
         const pm25_aqi   = calculatePM25AQI(pm25);
         const iaqi       = calculateCompositeIAQI(co_ppm, co2_ppm, nh3_ppm, pm25_aqi);
         const iaqi_label = getAQILabel(iaqi);
@@ -151,13 +185,16 @@ async function backfill() {
           co_ppm:    parseFloat(co_ppm.toFixed(2)),
           co2_ppm:   parseFloat(co2_ppm.toFixed(1)),
           nh3_ppm:   parseFloat(nh3_ppm.toFixed(2)),
+          o3_ppm:    parseFloat(o3_ppm.toFixed(3)),
 
           pm1_ugm3:  pm1,
           pm25_ugm3: pm25,
           pm10_ugm3: pm10,
 
-          temperature_c:     temp,
-          humidity_pct:      hum,
+          temperature_c:       temp,
+          humidity_pct:        hum,
+          abs_humidity_gm3:    parseFloat(abs_humidity.toFixed(3)),
+          heat_index_c:        parseFloat(heat_index.toFixed(1)),
 
           pm25_aqi,
           iaqi,
