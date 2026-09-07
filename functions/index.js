@@ -36,6 +36,7 @@ setGlobalOptions({ maxInstances: 10 });
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { initializeApp }     = require("firebase-admin/app");
 const { getFirestore }      = require("firebase-admin/firestore");
+const { getMessaging }      = require("firebase-admin/messaging");
 
 initializeApp();
 const db = getFirestore();
@@ -305,70 +306,80 @@ exports.computeSensorMetrics = onDocumentCreated(
     console.log(`[Ro calibration] MQ9 Rs=${(getRsRatio(mq9_v, CALIBRATION.RL_MQ9, 1.0) * 1.0).toFixed(3)}`);
     console.log(`[Ro calibration] MQ135 Rs=${(getRsRatio(mq135_v, CALIBRATION.RL_MQ135, 1.0) * 1.0).toFixed(3)}`);
 
-    // Notification Handler
-    const { getMessaging } = require('firebase-admin/messaging');
 
-    // After computing alerts, send FCM if critical condition detected
-    async function sendAlertIfNeeded(deviceId, deviceName, computed) {
-      // Only send for serious conditions
-      if (!computed.co_alert && computed.iaqi < 150) return;
+async function sendAlertIfNeeded(deviceId, deviceName, computed) {
+  // Only send for serious conditions — skip early to avoid unnecessary reads
+  if (!computed.co_alert && computed.iaqi < 150) return;
 
-      // Find all users who own this tracker
-      const devDoc = await db.collection('devices').doc(deviceId).get();
-      const ownerId = devDoc.data()?.owner_id;
-      if (!ownerId) return;
+  // FIX: fetch devDoc inside the function so it's in scope
+  const devDoc  = await db.collection('devices').doc(deviceId).get();
+  const ownerId = devDoc.data()?.owner_id;
+  if (!ownerId) {
+    console.log(`[FCM] No owner for ${deviceId} — skipping`);
+    return;
+  }
 
-      // Get their FCM tokens
-      const userDoc = await db.collection('users').doc(ownerId).get();
-      const tokens  = userDoc.data()?.fcm_tokens ?? [];
-      if (tokens.length === 0) return;
+  // Cooldown check — only send if last alert was more than 30 min ago
+  const lastAlert  = devDoc.data()?.last_alert_sent?.toDate();
+  const now        = new Date();
+  const thirtyMins = 30 * 60 * 1000;
+  if (lastAlert && (now - lastAlert) < thirtyMins) {
+    console.log(`[FCM] Cooldown active for ${deviceId} — skipping`);
+    return;
+  }
 
-      // Build the notification
-      let title = '⚠️ Air Quality Alert';
-      let body  = `${deviceName}: IAQI ${computed.iaqi} — ${computed.iaqi_label}`;
+  // Get owner's FCM tokens from Firestore
+  const userDoc = await db.collection('users').doc(ownerId).get();
+  const tokens  = userDoc.data()?.fcm_tokens ?? [];
+  if (tokens.length === 0) {
+    console.log(`[FCM] No FCM tokens for user ${ownerId} — skipping`);
+    return;
+  }
 
-      if (computed.co_alert) {
-        title = '🚨 CO Emergency Alert';
-        body  = `${deviceName}: CO at ${computed.co_ppm.toFixed(1)} ppm — ventilate immediately`;
-      } else if (computed.pm25_alert) {
-        title = '⚠️ PM2.5 Alert';
-        body  = `${deviceName}: PM2.5 AQI ${computed.pm25_aqi} — air quality unhealthy`;
-      }
+  // Build notification content based on alert type
+  let title = '⚠️ Air Quality Alert';
+  let body  = `${deviceName}: IAQI ${computed.iaqi} — ${computed.iaqi_label}`;
 
-      // Send to all registered devices for this user
-      await getMessaging().sendEachForMulticast({
-        tokens,
-        notification: { title, body },
-        android: {
-          priority: computed.co_alert ? 'high' : 'normal',
-          notification: { channelId: 'aether_alerts' },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound:             'default',
-              'content-available': 1,
-            },
-          },
-        },
-      });
+  if (computed.co_alert) {
+    title = '🚨 CO Emergency Alert';
+    body  = `${deviceName}: CO at ${computed.co_ppm.toFixed(1)} ppm — ventilate immediately`;
+  } else if (computed.pm25_alert) {
+    title = '⚠️ PM2.5 Alert';
+    body  = `${deviceName}: PM2.5 at ${computed.pm25_ugm3.toFixed(1)} µg/m³ — air quality unhealthy`;
+  }
 
-      console.log(`[FCM] Alert sent to ${tokens.length} device(s) for ${deviceId}`);
+  // Update cooldown timestamp before sending
+  await db.collection('devices').doc(deviceId).update({
+    last_alert_sent: new Date(),
+  });
+
+  // Send to all registered devices for this user
+  const response = await getMessaging().sendEachForMulticast({
+    tokens,
+    notification: { title, body },
+    android: {
+      priority: computed.co_alert ? 'high' : 'normal',
+      notification: { channelId: 'aether_alerts' },
+    },
+    apns: {
+      payload: {
+        aps: { sound: 'default', 'content-available': 1 },
+      },
+    },
+  });
+
+  console.log(`[FCM] Alert sent to ${tokens.length} device(s) for ${deviceId}`);
+  console.log(`[FCM] Success: ${response.successCount} Failed: ${response.failureCount}`);
+
+  // Log any individual token failures
+  response.responses.forEach((resp, i) => {
+    if (!resp.success) {
+      console.error(`[FCM] Token ${i} failed: ${resp.error?.message}`);
     }
+  });
+}
 
-        const cooldownRef = db.collection('devices').doc(deviceId);
-    const lastAlert   = devDoc.data()?.last_alert_sent?.toDate();
-    const now         = new Date();
-    const thirtyMins  = 30 * 60 * 1000;
-
-    if (lastAlert && (now - lastAlert) < thirtyMins) {
-      console.log(`[FCM] Cooldown active for ${deviceId} — skipping notification`);
-      return;
-    }
-
-    await cooldownRef.update({ last_alert_sent: new Date() });
-    
-    // Call it at the end of computeSensorMetrics, after the Firestore writes:
-    await sendAlertIfNeeded(deviceId, data?.device_name ?? deviceId, computedDoc);
+    // Call sendAlertIfNeeded — cooldown and all logic handled inside the function
+    await sendAlertIfNeeded(deviceId, raw?.device_name ?? deviceId, computedDoc);
   },
 );
