@@ -212,7 +212,13 @@ exports.computeSensorMetrics = onDocumentCreated(
     // Ro_MQ131 ≈ 15kΩ typical in clean air, RL = 10kΩ typical on module
     // Update Ro_MQ131 in CALIBRATION block above once you measure yours
     const ratio_mq131 = getRsRatio(mq131_v, CALIBRATION.RL_MQ131, CALIBRATION.Ro_MQ131);
-    const o3_ppm      = getPPM(ratio_mq131, 23.943, -1.1);
+    // O3: MQ-131 ambient range coefficients (valid for 10–500 ppb)
+    // Standard datasheet uses 23.943/−1.1 for industrial ppm ranges which
+    // produces unrealistically high values for clean indoor/outdoor air.
+    // Ambient coefficients a=7.12, b=−1.5 output directly in ppb.
+    // Divide by 1000 to store as ppm — the app multiplies back by 1000 for display.
+    const o3_ppb = Math.min(Math.max(7.12 * Math.pow(Math.min(Math.max(ratio_mq131, 0.01), 100.0), -1.5), 0.0), 500.0);
+    const o3_ppm = o3_ppb / 1000.0;
 
     // ── Climate metrics ─────────────────────────────────────────────────────
     const abs_humidity = getAbsoluteHumidity(temp, hum);

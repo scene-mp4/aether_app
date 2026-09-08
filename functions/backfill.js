@@ -157,7 +157,9 @@ async function backfill() {
 
         // ── MQ-131: Ozone ─────────────────────────────────────────────────
         const ratio_mq131 = getRsRatio(mq131_v, CALIBRATION.RL_MQ131, CALIBRATION.Ro_MQ131);
-        const o3_ppm      = getPPM(ratio_mq131, 23.943, -1.1);
+        // O3: ambient-range coefficients outputting ppb, stored as ppm
+        const o3_ppb = Math.min(Math.max(7.12 * Math.pow(Math.min(Math.max(ratio_mq131, 0.01), 100.0), -1.5), 0.0), 500.0);
+        const o3_ppm = o3_ppb / 1000.0;
 
         // ── Climate metrics ────────────────────────────────────────────────
         const abs_humidity = getAbsoluteHumidity(temp, hum);
