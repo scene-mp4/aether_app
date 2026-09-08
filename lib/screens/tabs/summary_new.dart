@@ -403,19 +403,25 @@ class _SummaryNewPageState extends State<SummaryNewPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      "Overall AQI",
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
+                    const Expanded(
+                      child: Text(
+                        "Overall AQI",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E293B),
+                        ),
                       ),
                     ),
-                    Text(
-                      lastDt != null ? 'Updated ${_timeAgo(lastDt)}' : 'Updated --',
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                    Flexible(
+                      child: Text(
+                        lastDt != null ? 'Updated ${_timeAgo(lastDt)}' : 'Updated --',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                      ),
                     ),
                   ],
                 ),
@@ -520,9 +526,13 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                       children: const [
                         Icon(Icons.sensors, color: Color(0xFF2563EB), size: 18),
                         SizedBox(width: 6),
-                        Text(
-                          "Trackers",
-                          style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        Flexible(
+                          child: Text(
+                            "Trackers",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                          ),
                         ),
                       ],
                     ),
@@ -556,12 +566,16 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                       children: const [
                         Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 18),
                         SizedBox(width: 6),
-                        Text(
-                          "Active Alerts",
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFDC2626),
+                        Flexible(
+                          child: Text(
+                            "Active Alerts",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFDC2626),
+                            ),
                           ),
                         ),
                       ],

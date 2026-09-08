@@ -569,7 +569,9 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
               () => _isAqiReferenceExpanded = !_isAqiReferenceExpanded),
           child: Padding(
             padding: const EdgeInsets.all(12.0),
-            child: Column(children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               Row(children: [
                 const Icon(Icons.info_outline,
                     size: 18, color: Color(0xFF2563EB)),
@@ -605,7 +607,9 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         if (_isAqiReferenceExpanded)
           Padding(
             padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
-            child: Column(children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               const SizedBox(height: 4),
               _aqiCategoryItem("Good", "AQI 0–50",
                   "Little to no health risk.",
@@ -652,6 +656,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
       String title, String range, String desc,
       Color dot, Color bg, Color border, Color badgeBg, Color badgeText) {
     return Container(
+      width: double.infinity,
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -659,15 +664,19 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: border)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Container(
               width: 12,
               height: 12,
               decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
           const SizedBox(width: 8),
-          Text(title,
-              style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.bold, color: dot)),
+          Expanded(
+            child: Text(title,
+                style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.bold, color: dot)),
+          ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -736,16 +745,18 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(item["name"],
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF1E293B))),
               ),
+              const SizedBox(width: 8),
               InkWell(
                 borderRadius: BorderRadius.circular(10),
                 onTap: () => setState(() {
@@ -871,13 +882,19 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("View Threshold Scale",
+                    const Expanded(
+                      child: Text(
+                        "View Threshold Scale",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155))),
+                            color: Color(0xFF334155)),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                     Icon(
                       isThresholdExpanded
                           ? Icons.keyboard_arrow_up
@@ -920,7 +937,8 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                                   color: const Color(0xFF86EFAC), width: 1)
                               : null,
                         ),
-                        child: Row(children: [
+                        child: Row(
+                          children: [
                           Container(
                               width: 8,
                               height: 8,
@@ -928,23 +946,27 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                                   color: t["color"] ?? Colors.grey,
                                   shape: BoxShape.circle)),
                           const SizedBox(width: 6),
-                          Text(t["label"] ?? "",
+                            const SizedBox(width: 6),
+                            Expanded(
+                            child: Text(t["label"] ?? "",
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: isCurrent
-                                      ? FontWeight.bold
-                                      : FontWeight.w500,
-                                  color: const Color(0xFF334155))),
-                          const Spacer(),
-                          Text(t["range"] ?? "",
+                                fontSize: 10,
+                                fontWeight: isCurrent
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                                color: const Color(0xFF334155))),
+                            ),
+                            Text(t["range"] ?? "",
+                              textAlign: TextAlign.right,
                               style: TextStyle(
-                                  fontSize: 9,
-                                  color: isCurrent
-                                      ? const Color(0xFF166534)
-                                      : const Color(0xFF64748B),
-                                  fontWeight: isCurrent
-                                      ? FontWeight.bold
-                                      : FontWeight.normal)),
+                                fontSize: 9,
+                                color: isCurrent
+                                  ? const Color(0xFF166534)
+                                  : const Color(0xFF64748B),
+                                fontWeight: isCurrent
+                                  ? FontWeight.bold
+                                  : FontWeight.normal)),
                           if (isCurrent) ...[
                             const SizedBox(width: 4),
                             Container(

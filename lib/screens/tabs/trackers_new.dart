@@ -481,7 +481,8 @@ class _TrackerCardState extends State<TrackerCard> {
               const SizedBox(height: 16),
 
               // ── IAQI row ─────────────────────────────────────────────────
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     hasData ? '$iaqi' : '--',
@@ -491,82 +492,82 @@ class _TrackerCardState extends State<TrackerCard> {
                       color: aqiColor,
                     ),
                   ),
-                  const SizedBox(width: 10),
-
-                  // Status chip
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: aqiColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      iaqiLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: aqiColor,
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: aqiColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          iaqiLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: aqiColor,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // CO alert badge — only shown when alert is active
-                  if (hasData && r.coAlert)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.shade300),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.warning_amber_rounded,
-                              size: 12, color: Colors.red),
-                          SizedBox(width: 4),
-                          Text('CO Alert',
-                              style: TextStyle(
+                      if (hasData && r.coAlert)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.warning_amber_rounded,
+                                  size: 12, color: Colors.red),
+                              SizedBox(width: 4),
+                              Text('CO Alert',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _showAqiInfo = !_showAqiInfo),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                                color: const Color(0xFFBFDBFE)),
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.info_outline,
+                                  size: 12, color: Color(0xFF0052FF)),
+                              SizedBox(width: 4),
+                              Text(
+                                "What is AQI?",
+                                style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.red)),
-                        ],
-                      ),
-                    ),
-
-                  const Spacer(),
-
-                  // "What is AQI?" toggle
-                  GestureDetector(
-                    onTap: () =>
-                        setState(() => _showAqiInfo = !_showAqiInfo),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                            color: const Color(0xFFBFDBFE)),
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.info_outline,
-                              size: 12, color: Color(0xFF0052FF)),
-                          SizedBox(width: 4),
-                          Text(
-                            "What is AQI?",
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0052FF),
-                            ),
+                                  color: Color(0xFF0052FF),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),

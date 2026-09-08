@@ -238,7 +238,7 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
-            childAspectRatio: 2.0,
+            childAspectRatio: 1.55,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             children: [
@@ -498,9 +498,13 @@ class _MetricTile extends StatelessWidget {
           Row(children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 10, color: Color(0xFF64748B))),
+            Expanded(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 10, color: Color(0xFF64748B))),
+            ),
           ]),
           const SizedBox(height: 4),
           Text(value,
