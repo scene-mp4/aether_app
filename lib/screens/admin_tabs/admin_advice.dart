@@ -16,22 +16,12 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
   // Trigger options — maps display label to Firestore field name
   static const List<Map<String, String>> _triggerOptions = [
     {'label': 'IAQI (Overall AQI)',           'value': 'iaqi'},
-// {'label': 'PM2.5 AQI',                    'value': 'pm25_aqi'},
     {'label': 'PM1.0 (µg/m³)',                'value': 'pm1_ugm3'},
     {'label': 'PM2.5 (µg/m³)',               'value': 'pm25_ugm3'},
     {'label': 'PM10 (µg/m³)',                'value': 'pm10_ugm3'},
     {'label': 'CO (ppm)',                     'value': 'co_ppm'},
     {'label': 'CO₂ (ppm)',                   'value': 'co2_ppm'},
-    // {'label': 'LPG/Smoke (ppm)',             'value': 'lpg_ppm'},
     {'label': 'O₃ (ppm)',                    'value': 'o3_ppm'},
-    // {'label': 'NH₃ (ppm)',                   'value': 'nh3_ppm'},
-    // {'label': 'Temperature (°C)',            'value': 'temperature_c'},
-    // {'label': 'Humidity (%)',                'value': 'humidity_pct'},
-    // {'label': 'Heat Index (°C)',             'value': 'heat_index_c'},
-    // {'label': 'CO Alert (flag)',             'value': 'co_alert'},
-    // {'label': 'LPG Alert (flag)',            'value': 'lpg_alert'},
-    // {'label': 'PM2.5 Alert (flag)',          'value': 'pm25_alert'},
-    // {'label': 'CO₂ Alert (flag)',            'value': 'co2_alert'},
   ];
 
   static const List<Map<String, String>> _comparatorOptions = [
@@ -54,7 +44,6 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
     required String comparator,
     required double threshold,
     required String severity,
-    required String message,
     required List<String> actions,
     required bool   active,
   }) async {
@@ -65,7 +54,6 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
       'comparator': comparator,
       'threshold':  threshold,
       'severity':   severity,
-      'message':    message.trim(),
       'actions':    actions.where((a) => a.trim().isNotEmpty).toList(),
       'active':     active,
     };
@@ -133,7 +121,6 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
           required String comparator,
           required double threshold,
           required String severity,
-          required String message,
           required List<String> actions,
           required bool   active,
         }) async {
@@ -145,7 +132,6 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
             comparator: comparator,
             threshold:  threshold,
             severity:   severity,
-            message:    message,
             actions:    actions,
             active:     active,
           );
@@ -546,18 +532,9 @@ class _AdviceCard extends StatelessWidget {
             ),
           ]),
         ),
-        const SizedBox(height: 8),
-
-        // Message preview
-        Text(
-          (data['message'] as String? ?? '').length > 80
-              ? '${(data['message'] as String).substring(0, 80)}…'
-              : (data['message'] as String? ?? ''),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
-        ),
         if (actions.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text('${actions.length} action${actions.length == 1 ? '' : 's'} defined',
+          const SizedBox(height: 8),
+          Text('${actions.length} advice item${actions.length == 1 ? '' : 's'} defined',
               style: const TextStyle(
                   fontSize: 11, color: Color(0xFF94A3B8))),
         ],
@@ -622,7 +599,6 @@ class _AdviceModal extends StatefulWidget {
     required String comparator,
     required double threshold,
     required String severity,
-    required String message,
     required List<String> actions,
     required bool   active,
   }) onSave;
@@ -644,7 +620,6 @@ class _AdviceModalState extends State<_AdviceModal> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _categoryCtrl;
   late final TextEditingController _thresholdCtrl;
-  late final TextEditingController _messageCtrl;
   late List<TextEditingController> _actionCtrls;
 
   late String _trigger;
@@ -663,7 +638,6 @@ class _AdviceModalState extends State<_AdviceModal> {
     _categoryCtrl  = TextEditingController(text: e?['category'] ?? '');
     _thresholdCtrl = TextEditingController(
         text: e?['threshold']?.toString() ?? '0');
-    _messageCtrl   = TextEditingController(text: e?['message']  ?? '');
 
     final existingActions = (e?['actions'] as List? ?? [])
         .map((a) => TextEditingController(text: a.toString()))
@@ -683,7 +657,6 @@ class _AdviceModalState extends State<_AdviceModal> {
     _titleCtrl.dispose();
     _categoryCtrl.dispose();
     _thresholdCtrl.dispose();
-    _messageCtrl.dispose();
     for (final c in _actionCtrls) c.dispose();
     super.dispose();
   }
@@ -708,7 +681,6 @@ class _AdviceModalState extends State<_AdviceModal> {
         comparator: _comparator,
         threshold:  threshold,
         severity:   _severity,
-        message:    _messageCtrl.text,
         actions:    _actionCtrls.map((c) => c.text.trim()).toList(),
         active:     _active,
       );
@@ -824,17 +796,11 @@ class _AdviceModalState extends State<_AdviceModal> {
               }).toList()),
               const SizedBox(height: 14),
 
-              _field('Message', _messageCtrl,
-                  'Explain what this condition means and why it matters.\n'
-                  'Use {value} to insert the current sensor reading.',
-                  maxLines: 4),
-              const SizedBox(height: 14),
-
-              // Actions list
+              // Advice list
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Recommended Actions',
+                  const Text('Advice',
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -863,7 +829,7 @@ class _AdviceModalState extends State<_AdviceModal> {
                         decoration: InputDecoration(
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 10),
-                          hintText: 'Action step ${i + 1}',
+                          hintText: 'Advice item ${i + 1}',
                           hintStyle: const TextStyle(
                               color: Color(0xFF94A3B8)),
                           enabledBorder: OutlineInputBorder(
