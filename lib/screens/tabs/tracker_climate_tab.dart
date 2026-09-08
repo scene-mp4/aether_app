@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../stores/app_data_store.dart';
 import '../../models/tracker_reading.dart';
 import '../../models/tracker_history.dart';
-import 'tracker_history_tab.dart' show ChartPainter;
+import 'tracker_history_tab.dart' show MultiLineChartPainter, ChartLine;
 
 class TrackerClimateTab extends StatefulWidget {
   final String deviceId;
@@ -169,11 +169,15 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
               },
               buildPainter: (r, days) {
                 final sub = _subsample(r);
-                return ChartPainter(
-                  lineColor:        const Color(0xFFEF4444),
-                  yLabels:          const ['40', '35', '30', '25', '20'],
-                  xLabels:          _xLabels(sub, days),
-                  normalizedPoints: _normalise(sub, (x) => x.temperatureC - 20, 20),
+                return MultiLineChartPainter(
+                  yLabels: const ['40', '35', '30', '25', '20'],
+                  xLabels: _xLabels(sub, days),
+                  lines: [
+                    ChartLine(
+                      color:  const Color(0xFFEF4444),
+                      points: _normalise(sub, (x) => x.temperatureC - 20, 20),
+                    ),
+                  ],
                 );
               },
             ),
@@ -196,11 +200,15 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
               },
               buildPainter: (r, days) {
                 final sub = _subsample(r);
-                return ChartPainter(
-                  lineColor:        const Color(0xFF3B82F6),
-                  yLabels:          const ['100', '80', '60', '40', '0'],
-                  xLabels:          _xLabels(sub, days),
-                  normalizedPoints: _normalise(sub, (x) => x.humidityPct, 100),
+                return MultiLineChartPainter(
+                  yLabels: const ['100', '80', '60', '40', '0'],
+                  xLabels: _xLabels(sub, days),
+                  lines: [
+                    ChartLine(
+                      color:  const Color(0xFF3B82F6),
+                      points: _normalise(sub, (x) => x.humidityPct, 100),
+                    ),
+                  ],
                 );
               },
             ),
@@ -238,7 +246,7 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
-            childAspectRatio: 1.55,
+            childAspectRatio: 2.0,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             children: [
@@ -285,7 +293,7 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
     required TrackerHistory? history,
     required Widget legend,
     required ValueChanged<int> onDaysChanged,
-    required ChartPainter Function(List<TrackerReading>, int) buildPainter,
+    required MultiLineChartPainter Function(List<TrackerReading>, int) buildPainter,
   }) {
     final readings = history?.readings ?? const [];
     final hasData  = readings.isNotEmpty;
@@ -498,13 +506,9 @@ class _MetricTile extends StatelessWidget {
           Row(children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
-            Expanded(
-              child: Text(label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 10, color: Color(0xFF64748B))),
-            ),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 10, color: Color(0xFF64748B))),
           ]),
           const SizedBox(height: 4),
           Text(value,
