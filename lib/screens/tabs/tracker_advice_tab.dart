@@ -68,13 +68,27 @@ class TrackerAdviceTab extends StatelessWidget {
   }
 
   bool _evaluate(Map<String, dynamic> entry, TrackerReading r) {
-    final trigger    = entry['trigger']    as String?;
-    final comparator = entry['comparator'] as String?;
-    final raw        = entry['threshold'];
-    if (trigger == null || comparator == null || raw == null) return false;
-    final value     = _getValue(trigger, r);
+    final trigger  = entry['trigger'] as String?;
+    final raw      = entry['threshold'];
+    if (trigger == null || raw == null) return false;
+    final value = _getValue(trigger, r);
     if (value == null) return false;
     final threshold = (raw as num).toDouble();
+
+    // Range mode: show advice only when lower <= value < upper.
+    // This prevents lower-severity cards stacking when a higher-severity
+    // condition is already active (e.g. CO=40 only shows the 35–70 card,
+    // not the 9–35 card as well).
+    final useRange     = entry['use_range'] == true;
+    final rawMax       = entry['threshold_max'];
+    if (useRange && rawMax != null) {
+      final thresholdMax = (rawMax as num).toDouble();
+      return value >= threshold && value < thresholdMax;
+    }
+
+    // Standard single-threshold comparator mode
+    final comparator = entry['comparator'] as String?;
+    if (comparator == null) return false;
     switch (comparator) {
       case 'gt':  return value >  threshold;
       case 'gte': return value >= threshold;
@@ -500,7 +514,7 @@ class _AdviceCardState extends State<_AdviceCard> {
                       color: Colors.white.withOpacity(0.7),
                       borderRadius: BorderRadius.circular(10)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Advice',
+                    const Text('Recommended Actions',
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,

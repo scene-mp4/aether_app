@@ -43,19 +43,23 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
     required String trigger,
     required String comparator,
     required double threshold,
+    required double? thresholdMax,
+    required bool    useRange,
     required String severity,
     required List<String> actions,
     required bool   active,
   }) async {
     final data = {
-      'title':      title.trim(),
-      'category':   category.trim(),
-      'trigger':    trigger,
-      'comparator': comparator,
-      'threshold':  threshold,
-      'severity':   severity,
-      'actions':    actions.where((a) => a.trim().isNotEmpty).toList(),
-      'active':     active,
+      'title':         title.trim(),
+      'category':      category.trim(),
+      'trigger':       trigger,
+      'comparator':    comparator,
+      'threshold':     threshold,
+      'threshold_max': useRange ? thresholdMax : null,
+      'use_range':     useRange,
+      'severity':      severity,
+      'actions':       actions.where((a) => a.trim().isNotEmpty).toList(),
+      'active':        active,
     };
 
     if (docId == null) {
@@ -120,20 +124,24 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
           required String trigger,
           required String comparator,
           required double threshold,
+          required double? thresholdMax,
+          required bool    useRange,
           required String severity,
           required List<String> actions,
           required bool   active,
         }) async {
           await _saveAdvice(
-            docId:      docId,
-            title:      title,
-            category:   category,
-            trigger:    trigger,
-            comparator: comparator,
-            threshold:  threshold,
-            severity:   severity,
-            actions:    actions,
-            active:     active,
+            docId:        docId,
+            title:        title,
+            category:     category,
+            trigger:      trigger,
+            comparator:   comparator,
+            threshold:    threshold,
+            thresholdMax: thresholdMax,
+            useRange:     useRange,
+            severity:     severity,
+            actions:      actions,
+            active:       active,
           );
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -524,11 +532,16 @@ class _AdviceCard extends StatelessWidget {
             const Icon(Icons.rule, size: 14, color: Color(0xFF64748B)),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(
-                'When $triggerLabel $comparatorLabel $threshold',
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF334155)),
-              ),
+              child: Builder(builder: (context) {
+                final thresholdMax = data['threshold_max'];
+                final useRange     = data['use_range'] == true;
+                final text = useRange && thresholdMax != null
+                    ? 'When $triggerLabel is between $threshold and $thresholdMax'
+                    : 'When $triggerLabel $comparatorLabel $threshold';
+                return Text(text,
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF334155)));
+              }),
             ),
           ]),
         ),
@@ -593,14 +606,16 @@ class _AdviceModal extends StatefulWidget {
   final List<Map<String, String>> comparatorOptions;
   final List<String>             severityOptions;
   final Future<void> Function({
-    required String title,
-    required String category,
-    required String trigger,
-    required String comparator,
-    required double threshold,
-    required String severity,
+    required String  title,
+    required String  category,
+    required String  trigger,
+    required String  comparator,
+    required double  threshold,
+    required double? thresholdMax,
+    required bool    useRange,
+    required String  severity,
     required List<String> actions,
-    required bool   active,
+    required bool    active,
   }) onSave;
 
   const _AdviceModal({
@@ -620,12 +635,14 @@ class _AdviceModalState extends State<_AdviceModal> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _categoryCtrl;
   late final TextEditingController _thresholdCtrl;
+  late final TextEditingController _thresholdMaxCtrl;
   late List<TextEditingController> _actionCtrls;
 
   late String _trigger;
   late String _comparator;
   late String _severity;
   late bool   _active;
+  late bool   _useRange;
 
   bool   _saving = false;
   String? _error;
@@ -634,10 +651,10 @@ class _AdviceModalState extends State<_AdviceModal> {
   void initState() {
     super.initState();
     final e = widget.existing;
-    _titleCtrl     = TextEditingController(text: e?['title']    ?? '');
-    _categoryCtrl  = TextEditingController(text: e?['category'] ?? '');
-    _thresholdCtrl = TextEditingController(
-        text: e?['threshold']?.toString() ?? '0');
+    _titleCtrl        = TextEditingController(text: e?['title']         ?? '');
+    _categoryCtrl     = TextEditingController(text: e?['category']      ?? '');
+    _thresholdCtrl    = TextEditingController(text: e?['threshold']?.toString()    ?? '0');
+    _thresholdMaxCtrl = TextEditingController(text: e?['threshold_max']?.toString() ?? '');
 
     final existingActions = (e?['actions'] as List? ?? [])
         .map((a) => TextEditingController(text: a.toString()))
@@ -650,6 +667,7 @@ class _AdviceModalState extends State<_AdviceModal> {
     _comparator = e?['comparator'] ?? 'gt';
     _severity   = e?['severity']   ?? 'info';
     _active     = e?['active']     ?? true;
+    _useRange   = e?['use_range']  ?? false;
   }
 
   @override
@@ -657,6 +675,7 @@ class _AdviceModalState extends State<_AdviceModal> {
     _titleCtrl.dispose();
     _categoryCtrl.dispose();
     _thresholdCtrl.dispose();
+    _thresholdMaxCtrl.dispose();
     for (final c in _actionCtrls) c.dispose();
     super.dispose();
   }
@@ -668,21 +687,35 @@ class _AdviceModalState extends State<_AdviceModal> {
     }
     final threshold = double.tryParse(_thresholdCtrl.text.trim());
     if (threshold == null) {
-      setState(() => _error = 'Threshold must be a number.');
+      setState(() => _error = 'Lower threshold must be a number.');
       return;
+    }
+    double? thresholdMax;
+    if (_useRange) {
+      thresholdMax = double.tryParse(_thresholdMaxCtrl.text.trim());
+      if (thresholdMax == null) {
+        setState(() => _error = 'Upper threshold must be a number when range mode is on.');
+        return;
+      }
+      if (thresholdMax <= threshold) {
+        setState(() => _error = 'Upper threshold must be greater than lower threshold.');
+        return;
+      }
     }
 
     setState(() { _saving = true; _error = null; });
     try {
       await widget.onSave(
-        title:      _titleCtrl.text,
-        category:   _categoryCtrl.text,
-        trigger:    _trigger,
-        comparator: _comparator,
-        threshold:  threshold,
-        severity:   _severity,
-        actions:    _actionCtrls.map((c) => c.text.trim()).toList(),
-        active:     _active,
+        title:        _titleCtrl.text,
+        category:     _categoryCtrl.text,
+        trigger:      _trigger,
+        comparator:   _comparator,
+        threshold:    threshold,
+        thresholdMax: thresholdMax,
+        useRange:     _useRange,
+        severity:     _severity,
+        actions:      _actionCtrls.map((c) => c.text.trim()).toList(),
+        active:       _active,
       );
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -746,9 +779,138 @@ class _AdviceModalState extends State<_AdviceModal> {
               ),
               const SizedBox(height: 14),
 
-              _field('Threshold Value', _thresholdCtrl, 'e.g. 35',
+              // ── Threshold / Range ───────────────────────────────────────
+              // Range mode shows advice only when value is BETWEEN lower and
+              // upper threshold — prevents lower-severity cards stacking up
+              // when a higher-severity condition is already active.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Threshold',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155))),
+                  Row(children: [
+                    const Text('Range mode',
+                        style: TextStyle(
+                            fontSize: 12, color: Color(0xFF64748B))),
+                    const SizedBox(width: 6),
+                    Switch(
+                      value: _useRange,
+                      activeColor: const Color(0xFF3B62F6),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onChanged: (v) => setState(() => _useRange = v),
+                    ),
+                  ]),
+                ],
+              ),
+              const SizedBox(height: 6),
+              if (!_useRange) ...[
+                // Single threshold — uses comparator (gt, lt, etc.)
+                TextField(
+                  controller: _thresholdCtrl,
                   keyboardType: TextInputType.number,
-                  helper: ''),
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    hintText: 'e.g. 35',
+                    hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                    helperText: 'Show advice when value satisfies the comparator above.',
+                    helperMaxLines: 2,
+                    helperStyle: const TextStyle(
+                        fontSize: 10, color: Color(0xFF94A3B8)),
+                    enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFF3B62F6))),
+                  ),
+                ),
+              ] else ...[
+                // Range mode — show only when lower ≤ value < upper
+                // Comparator is ignored in range mode
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: const Text(
+                    'Range mode: advice shows only when the value is '
+                    'between the lower and upper threshold. '
+                    'The comparator above is ignored.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF1E40AF)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Lower threshold (≥)',
+                            style: TextStyle(
+                                fontSize: 11, color: Color(0xFF64748B))),
+                        const SizedBox(height: 4),
+                        TextField(
+                          controller: _thresholdCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            hintText: 'e.g. 9',
+                            hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Color(0xFF3B62F6))),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                    child: Text('to',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF64748B))),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Upper threshold (<)',
+                            style: TextStyle(
+                                fontSize: 11, color: Color(0xFF64748B))),
+                        const SizedBox(height: 4),
+                        TextField(
+                          controller: _thresholdMaxCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            hintText: 'e.g. 35',
+                            hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Color(0xFF3B62F6))),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ]),
+              ],
               const SizedBox(height: 14),
 
               // Severity chips
