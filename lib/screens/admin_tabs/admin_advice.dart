@@ -545,6 +545,15 @@ class _AdviceCard extends StatelessWidget {
             ),
           ]),
         ),
+        const SizedBox(height: 8),
+
+        // Message preview
+        Text(
+          (data['message'] as String? ?? '').length > 80
+              ? '${(data['message'] as String).substring(0, 80)}…'
+              : (data['message'] as String? ?? ''),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+        ),
         if (actions.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text('${actions.length} advice item${actions.length == 1 ? '' : 's'} defined',
