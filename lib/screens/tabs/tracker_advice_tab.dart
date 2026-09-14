@@ -514,7 +514,7 @@ class _AdviceCardState extends State<_AdviceCard> {
                       color: Colors.white.withOpacity(0.7),
                       borderRadius: BorderRadius.circular(10)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Recommended Actions',
+                    const Text('Advices',
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,

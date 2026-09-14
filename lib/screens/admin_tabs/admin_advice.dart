@@ -40,6 +40,7 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
     String?        docId,
     required String title,
     required String category,
+    required String message,
     required String trigger,
     required String comparator,
     required double threshold,
@@ -52,6 +53,7 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
     final data = {
       'title':         title.trim(),
       'category':      category.trim(),
+      'message':       message.trim(),
       'trigger':       trigger,
       'comparator':    comparator,
       'threshold':     threshold,
@@ -121,6 +123,7 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
         onSave: ({
           required String title,
           required String category,
+          required String message,
           required String trigger,
           required String comparator,
           required double threshold,
@@ -134,6 +137,7 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
             docId:        docId,
             title:        title,
             category:     category,
+            message:      message,
             trigger:      trigger,
             comparator:   comparator,
             threshold:    threshold,
@@ -320,9 +324,11 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
                       final title    = (data['title']   ?? '').toString().toLowerCase();
                       final category = (data['category']?? '').toString().toLowerCase();
                       final trigger  = (data['trigger'] ?? '').toString().toLowerCase();
+                      final message  = (data['message'] ?? '').toString().toLowerCase();
                       return title.contains(_searchQuery) ||
                           category.contains(_searchQuery) ||
-                          trigger.contains(_searchQuery);
+                          trigger.contains(_searchQuery) ||
+                          message.contains(_searchQuery);
                     }).toList();
                   }
 
@@ -617,6 +623,7 @@ class _AdviceModal extends StatefulWidget {
   final Future<void> Function({
     required String  title,
     required String  category,
+    required String  message,
     required String  trigger,
     required String  comparator,
     required double  threshold,
@@ -643,6 +650,7 @@ class _AdviceModal extends StatefulWidget {
 class _AdviceModalState extends State<_AdviceModal> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _categoryCtrl;
+  late final TextEditingController _messageCtrl;
   late final TextEditingController _thresholdCtrl;
   late final TextEditingController _thresholdMaxCtrl;
   late List<TextEditingController> _actionCtrls;
@@ -662,6 +670,7 @@ class _AdviceModalState extends State<_AdviceModal> {
     final e = widget.existing;
     _titleCtrl        = TextEditingController(text: e?['title']         ?? '');
     _categoryCtrl     = TextEditingController(text: e?['category']      ?? '');
+    _messageCtrl      = TextEditingController(text: e?['message']       ?? '');
     _thresholdCtrl    = TextEditingController(text: e?['threshold']?.toString()    ?? '0');
     _thresholdMaxCtrl = TextEditingController(text: e?['threshold_max']?.toString() ?? '');
 
@@ -683,6 +692,7 @@ class _AdviceModalState extends State<_AdviceModal> {
   void dispose() {
     _titleCtrl.dispose();
     _categoryCtrl.dispose();
+    _messageCtrl.dispose();
     _thresholdCtrl.dispose();
     _thresholdMaxCtrl.dispose();
     for (final c in _actionCtrls) c.dispose();
@@ -717,6 +727,7 @@ class _AdviceModalState extends State<_AdviceModal> {
       await widget.onSave(
         title:        _titleCtrl.text,
         category:     _categoryCtrl.text,
+        message:      _messageCtrl.text,
         trigger:      _trigger,
         comparator:   _comparator,
         threshold:    threshold,
@@ -789,9 +800,6 @@ class _AdviceModalState extends State<_AdviceModal> {
               const SizedBox(height: 14),
 
               // ── Threshold / Range ───────────────────────────────────────
-              // Range mode shows advice only when value is BETWEEN lower and
-              // upper threshold — prevents lower-severity cards stacking up
-              // when a higher-severity condition is already active.
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -816,7 +824,6 @@ class _AdviceModalState extends State<_AdviceModal> {
               ),
               const SizedBox(height: 6),
               if (!_useRange) ...[
-                // Single threshold — uses comparator (gt, lt, etc.)
                 TextField(
                   controller: _thresholdCtrl,
                   keyboardType: TextInputType.number,
@@ -838,8 +845,6 @@ class _AdviceModalState extends State<_AdviceModal> {
                   ),
                 ),
               ] else ...[
-                // Range mode — show only when lower ≤ value < upper
-                // Comparator is ignored in range mode
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -965,6 +970,12 @@ class _AdviceModalState extends State<_AdviceModal> {
                   ),
                 );
               }).toList()),
+              const SizedBox(height: 14),
+
+              // Message field placed right above Advice
+              _field('Message', _messageCtrl,
+                  'e.g. CO levels are elevated. Keep the area ventilated.',
+                  maxLines: 3),
               const SizedBox(height: 14),
 
               // Advice list
