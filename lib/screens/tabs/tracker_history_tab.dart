@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -238,7 +239,6 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
                   backgroundColor: Colors.transparent,
                   builder: (_) => DownloadHistoryModal(
                     deviceId: widget.deviceId,
-                    readings: allReadings,
                   ),
                 ),
                 icon: const Icon(Icons.download_rounded,
@@ -672,10 +672,8 @@ class _RecItem extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class DownloadHistoryModal extends StatefulWidget {
-  final String              deviceId;
-  final List<TrackerReading> readings;
-  const DownloadHistoryModal(
-      {super.key, required this.deviceId, required this.readings});
+  final String deviceId;
+  const DownloadHistoryModal({super.key, required this.deviceId});
 
   @override
   State<DownloadHistoryModal> createState() => _DownloadHistoryModalState();
@@ -687,6 +685,7 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
   TimeOfDay  _startTime = const TimeOfDay(hour: 0,  minute: 0);
   TimeOfDay  _endTime   = const TimeOfDay(hour: 23, minute: 59);
   bool       _generating = false;
+  int        _fetchedReadings = 0; // tracks how many are available for the range
 
   final Map<String, bool> _pollutants = {
     'PM1.0': true, 'PM2.5': true, 'PM10': true,
@@ -733,12 +732,13 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
   }
 
   // ── Generate and share CSV ─────────────────────────────────────────────────
+  // FIX 1: Fetches directly from Firestore for the selected date range so
+  // the download is never limited by what the chart has loaded.
   Future<void> _generate() async {
     if (!_canDownload) return;
     setState(() => _generating = true);
 
     try {
-      // Build start/end DateTime from date + time pickers
       final start = DateTime(
         _startDate!.year, _startDate!.month, _startDate!.day,
         _startTime.hour, _startTime.minute,
@@ -748,10 +748,20 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
         _endTime.hour, _endTime.minute,
       );
 
-      // Filter readings to selected date/time window
-      final filtered = widget.readings
+      // FIX 1: Fetch directly from Firestore for the exact date range.
+      // This is independent of what days the chart is currently showing,
+      // so downloading 30 days of data while the chart is on 1d works fine.
+      final snap = await FirebaseFirestore.instance
+          .collection('devices')
+          .doc(widget.deviceId)
+          .collection('readings_computed')
+          .orderBy('timestamp')
+          .get();
+
+      final filtered = snap.docs
+          .map((d) => TrackerReading.fromDocument(d))
           .where((r) =>
-              r.timestamp.isAfter(start) &&
+              r.timestamp.isAfter(start.subtract(const Duration(minutes: 1))) &&
               r.timestamp.isBefore(end.add(const Duration(minutes: 1))))
           .toList()
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -805,23 +815,48 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
         buffer.writeln(row.join(','));
       }
 
-      // Write to temp file and share
-      final dir  = await getTemporaryDirectory();
+      // Build filename
       final name = '${widget.deviceId}_'
           '${start.year}${start.month.toString().padLeft(2,'0')}${start.day.toString().padLeft(2,'0')}'
           '_to_'
           '${end.year}${end.month.toString().padLeft(2,'0')}${end.day.toString().padLeft(2,'0')}'
           '.csv';
-      final file = File('${dir.path}/$name');
-      await file.writeAsString(buffer.toString());
 
-      // Share the file — on Android this opens the share sheet
+      // FIX 2: Save directly to Downloads folder first so the file is
+      // always accessible on the device regardless of share sheet options.
+      // The emulator's share sheet doesn't always include a "Save to Files"
+      // option, but the file in Downloads is always accessible via Files app.
+      File? savedFile;
+      try {
+        final downloadsDir = await getDownloadsDirectory();
+        if (downloadsDir != null) {
+          savedFile = File('${downloadsDir.path}/$name');
+          await savedFile.writeAsString(buffer.toString());
+        }
+      } catch (_) {
+        // Downloads folder not available — fall back to temp directory
+      }
+
+      // Also write to temp dir for the share sheet
+      final tempDir  = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/$name');
+      await tempFile.writeAsString(buffer.toString());
+
+      // Open share sheet — user can additionally send via Gmail, Quick Share etc.
       await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'text/csv')],
+        [XFile(tempFile.path, mimeType: 'text/csv')],
         subject: 'AETHER Readings — ${widget.deviceId}',
       );
 
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final saveMsg = savedFile != null
+            ? ' Also saved to Downloads folder.'
+            : '';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                'Exported ${filtered.length} readings.$saveMsg')));
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -875,9 +910,10 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
               ),
             ]),
             const SizedBox(height: 6),
-            Text(
-              '${widget.readings.length} readings available — select range and format.',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            const Text(
+              'Select a date range and columns to export. '
+              'Readings are fetched directly from the database for the chosen period.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 20),
 
