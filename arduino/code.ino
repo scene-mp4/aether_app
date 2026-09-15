@@ -4,236 +4,130 @@
 #include <time.h>
 #include <Wire.h>
 #include <Adafruit_ADS1X15.h>
-#include <DHT11.h>
+#include <DHT.h>
+#include <Preferences.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>           
 
-HardwareSerial pmsSerial(1);
+#define BLE_SERVICE_UUID  "12345678-1234-1234-1234-123456789abc"
+#define BLE_SSID_UUID     "12345678-1234-1234-1234-123456789001"
+#define BLE_PASS_UUID     "12345678-1234-1234-1234-123456789002"
+#define BLE_STATUS_UUID   "12345678-1234-1234-1234-123456789003"
 
-DHT11 dht11(4);
+Preferences prefs;
 
-Adafruit_ADS1115 ads;
-const uint8_t ADS_ADDR = 0x48;
-const adsGain_t ADS_GAIN = GAIN_TWOTHIRDS;
+String  bleSSID     = "";
+String  blePass     = "";
+bool    bleCredsReady  = false;
+bool    bleClientConn  = false;
 
-const char* WIFI_SSID     = "";
-const char* WIFI_PASSWORD = "";
+BLECharacteristic* pStatusChar = nullptr;
 
-const char* PROJECT_ID = "pollutracker-bf276";
-const char* TRACKER_ID = "tracker_002";
-
-const char* NTP_SERVER      = "pool.ntp.org";
-const long  GMT_OFFSET_SEC  = 28800;
-const int   DAYLIGHT_OFFSET = 0;
-
-const unsigned long SEND_INTERVAL_MS = 5000;
-unsigned long lastSendMillis = 0;
-
-String getTimestamp() {
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) return "unavailable";
-  char buf[30];
-  strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S+08:00", &timeinfo);
-  return String(buf);
-}
-
-String getDateOnly() {
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) return "unavailable";
-  char buf[12];
-  strftime(buf, sizeof(buf), "%Y-%m-%d", &timeinfo);
-  return String(buf);
-}
-
-String getTimeOnly() {
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) return "unavailable";
-  char buf[10];
-  strftime(buf, sizeof(buf), "%H:%M:%S", &timeinfo);
-  return String(buf);
-}
-
-void connectWiFi() {
-  Serial.print("Connecting to WiFi...");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+class AetherServerCB : public BLEServerCallbacks {
+  void onConnect(BLEServer*)    override { bleClientConn = true;  }
+  void onDisconnect(BLEServer* s) override {
+    bleClientConn = false;
+    s->startAdvertising();
   }
-  Serial.println("\nWiFi Connected!");
-  Serial.println(WiFi.localIP());
+};
+
+class SSIDWriteCB : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) override {
+    bleSSID = c->getValue().c_str();
+    Serial.println("BLE SSID received: " + bleSSID);
+  }
+};
+
+class PassWriteCB : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) override {
+    blePass = c->getValue().c_str();
+    Serial.println("BLE Password received.");
+    bleCredsReady = true;
+  }
+};
+
+void startBLEProvisioning() {
+  BLEDevice::init("AETHER_SETUP");
+  BLEServer*  server  = BLEDevice::createServer();
+  BLEService* service = server->createService(BLE_SERVICE_UUID);
+  server->setCallbacks(new AetherServerCB());
+
+  BLECharacteristic* pSSID = service->createCharacteristic(
+    BLE_SSID_UUID, BLECharacteristic::PROPERTY_WRITE);
+  pSSID->setCallbacks(new SSIDWriteCB());
+
+  BLECharacteristic* pPass = service->createCharacteristic(
+    BLE_PASS_UUID, BLECharacteristic::PROPERTY_WRITE);
+  pPass->setCallbacks(new PassWriteCB());
+
+  pStatusChar = service->createCharacteristic(
+    BLE_STATUS_UUID,
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+  pStatusChar->addDescriptor(new BLE2902());
+  pStatusChar->setValue("WAITING");
+
+  service->start();
+  BLEDevice::getAdvertising()->addServiceUUID(BLE_SERVICE_UUID);
+  BLEDevice::getAdvertising()->setScanResponse(true);
+  BLEDevice::startAdvertising();
+  Serial.println("BLE advertising as AETHER_SETUP...");
 }
 
-void syncTime() {
-  Serial.print("Syncing time with NTP...");
-  configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET, NTP_SERVER);
-
-  struct tm timeinfo;
+bool attemptWiFiConnect(const String& ssid, const String& pass) {
+  WiFi.begin(ssid.c_str(), pass.c_str());
   int retries = 0;
-
-  while (!getLocalTime(&timeinfo) && retries < 10) {
-    delay(1000);
-    Serial.print(".");
-    retries++;
+  while (WiFi.status() != WL_CONNECTED && retries < 20) {
+    delay(500); Serial.print("."); retries++;
   }
-
-  if (retries < 10) {
-    Serial.println("\nTime synced: " + getTimestamp());
-  } else {
-    Serial.println("\nNTP sync failed.");
-  }
+  return WiFi.status() == WL_CONNECTED;
 }
 
-const int PMS_PM1_0 = 0;
-const int PMS_PM2_5 = 1;
-const int PMS_PM10  = 2;
+// ── Replaces connectWiFi() ────────────────────────────────────────────────────
+void connectWiFi() {
+  String ssid, pass;
 
-int  pmsValues[3] = { -1, -1, -1 };
-bool pmsValid     = false;
+  // 1. Try NVS first
+  prefs.begin("wifi", true);
+  ssid = prefs.getString("ssid", "");
+  pass = prefs.getString("pass", "");
+  prefs.end();
 
-bool readPMS5003(int values[], bool &valid) {
-  while (pmsSerial.available() >= 32) {
-    if (pmsSerial.peek() == 0x42) {
-      pmsSerial.read();
-
-      if (pmsSerial.peek() == 0x4D) {
-        pmsSerial.read();
-
-        byte buf[30];
-        for (int i = 0; i < 30; i++) {
-          buf[i] = pmsSerial.read();
-        }
-
-        int checksum = 0x42 + 0x4D;
-        for (int i = 0; i < 28; i++) {
-          checksum += buf[i];
-        }
-
-        int receivedChecksum = (buf[28] << 8) | buf[29];
-
-        if (checksum == receivedChecksum) {
-          values[PMS_PM1_0] = (buf[4] << 8) | buf[5];
-          values[PMS_PM2_5] = (buf[6] << 8) | buf[7];
-          values[PMS_PM10]  = (buf[8] << 8) | buf[9];
-          valid = true;
-          return true;
-        }
-      }
-    }
-    pmsSerial.read();
-  }
-  return false;
-}
-
-void sendToFirebase(int mqRaw[], float mqVolt[],
-                    int dhtValues[],
-                    int pmsVals[], bool pmsOk) {
-
-  HTTPClient http;
-  String url = "https://firestore.googleapis.com/v1/projects/" + String(PROJECT_ID) +
-               "/databases/(default)/documents/devices/" + String(TRACKER_ID) +
-               "/readings/";
-
-  http.begin(url);
-  http.addHeader("Content-Type", "application/json");
-
-  StaticJsonDocument<896> doc;
-  JsonObject fields = doc.createNestedObject("fields");
-
-  fields["timestamp"]["stringValue"] = getTimestamp();
-  fields["date"]["stringValue"]      = getDateOnly();
-  fields["time"]["stringValue"]      = getTimeOnly();
-
-  // MQ sensors — index 0..3 maps to MQ2, MQ9, MQ135, MQ131
-  const char* mqRawKeys[]   = { "mq2",   "mq9",   "mq135",   "mq131"   };
-  const char* mqVoltKeys[]  = { "mq2_v", "mq9_v", "mq135_v", "mq131_v" };
-  for (int i = 0; i < 4; i++) {
-    fields[mqRawKeys[i]]["integerValue"]  = String(mqRaw[i]);
-    fields[mqVoltKeys[i]]["doubleValue"]  = mqVolt[i];
-  }
-
-  fields["temperature"]["integerValue"] = String(dhtValues[0]);
-  fields["humidity"]["integerValue"]    = String(dhtValues[1]);
-
-  const char* pmsKeys[] = { "pm1_0", "pm2_5", "pm10" };
-  for (int i = 0; i < 3; i++) {
-    if (pmsOk) {
-      fields[pmsKeys[i]]["integerValue"] = String(pmsVals[i]);
-    } else {
-      fields[pmsKeys[i]]["nullValue"] = nullptr;
-    }
-  }
-
-  String body;
-  serializeJson(doc, body);
-
-  Serial.println("\nSending to Firebase.");
-  Serial.println(body);
-
-  int httpCode = http.POST(body);
-  Serial.print("HTTP Code: ");
-  Serial.println(httpCode);
-
-  if (httpCode > 0) {
-    Serial.println("Response: " + http.getString());
-  } else {
-    Serial.println("No Data Sent");
-  }
-
-  http.end();
-}
-
-void setup() {
-  Serial.begin(115200);
-  pmsSerial.begin(9600, SERIAL_8N1, 16, 17);
-  Serial.println("Preparing PMS5003...");
-  delay(30000);
-
-  Wire.begin();
-  if (!ads.begin(ADS_ADDR)) {
-    Serial.println("ADS Unresponsive");
-  }
-  ads.setGain(ADS_GAIN);
-
-  connectWiFi();
-  syncTime();
-
-}
-
-void loop() {
-  if (readPMS5003(pmsValues, pmsValid)) {
-    Serial.print("PM1.0: "); Serial.println(pmsValues[PMS_PM1_0]);
-    Serial.print("PM2.5: "); Serial.println(pmsValues[PMS_PM2_5]);
-    Serial.print("PM10:  "); Serial.println(pmsValues[PMS_PM10]);
-  }
-
-  unsigned long now = millis();
-  if (now - lastSendMillis >= SEND_INTERVAL_MS) {
-    lastSendMillis = now;
-
-    // MQ Raw Readings
-    int16_t mqRaw[4];
-    mqRaw[0] = ads.readADC_SingleEnded(0);
-    mqRaw[1] = ads.readADC_SingleEnded(1);
-    mqRaw[2] = ads.readADC_SingleEnded(2);
-    mqRaw[3] = ads.readADC_SingleEnded(3);
-
-    float mqVolt[4];
-    for (int i = 0; i < 4; i++) {
-      mqVolt[i] = ads.computeVolts(mqRaw[i]);
-    }
-
-    // DHT11 Readings
-    int dhtValues[2] = { 0, 0 };
-    int dhtResult = dht11.readTemperatureHumidity(dhtValues[0], dhtValues[1]);
-
-    if (dhtResult != 0) {
-      Serial.print("DHT11 Unresponsive: ");
-      Serial.println(DHT11::getErrorString(dhtResult));
+  if (ssid.length() > 0) {
+    Serial.println("Trying saved credentials...");
+    if (attemptWiFiConnect(ssid, pass)) {
+      Serial.println("\nWiFi Connected: " + WiFi.localIP().toString());
+      WiFi.setSleep(true);
       return;
     }
+    Serial.println("\nSaved credentials failed. Starting BLE provisioning.");
+  }
 
-    Serial.println("Timestamp: " + getTimestamp());
-    Serial.println(pmsValid ? "PMS5003 VALID" : "PMS5003 NOT READY");
+  // 2. Start BLE and wait for app
+  startBLEProvisioning();
+  while (!bleCredsReady) { delay(100); }
 
-    sendToFirebase(mqRaw, mqVolt, dhtValues, pmsValues, pmsValid);
+  if (pStatusChar) { pStatusChar->setValue("CONNECTING"); pStatusChar->notify(); }
+
+  bool ok = attemptWiFiConnect(bleSSID, blePass);
+
+  if (ok) {
+    // Save to NVS
+    prefs.begin("wifi", false);
+    prefs.putString("ssid", bleSSID);
+    prefs.putString("pass", blePass);
+    prefs.end();
+
+    if (pStatusChar) { pStatusChar->setValue("SUCCESS"); pStatusChar->notify(); }
+    delay(1000);
+    BLEDevice::deinit(true); // free BLE memory before WiFi-heavy operations
+    Serial.println("\nWiFi Connected: " + WiFi.localIP().toString());
+    WiFi.setSleep(true);
+  } else {
+    if (pStatusChar) { pStatusChar->setValue("FAILED"); pStatusChar->notify(); }
+    Serial.println("Connection failed. Restarting...");
+    delay(2000);
+    ESP.restart();
   }
 }

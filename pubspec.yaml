@@ -49,6 +49,8 @@ dependencies:
   flutter_local_notifications: ^17.0.0
   share_plus: ^10.0.0
   path_provider: ^2.1.0
+  flutter_blue_plus: ^1.31.0
+  permission_handler: ^11.0.0
 
 dev_dependencies:
   flutter_test:
