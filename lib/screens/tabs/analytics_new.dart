@@ -477,8 +477,7 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                       trackers.isEmpty
                           ? '1-hour forecast · No trackers linked'
                           : '1-hour forecast · ${trackers.length} '
-                            'tracker${trackers.length == 1 ? '' : 's'} '
-                            '· WMA + OLS regression',
+                            'tracker${trackers.length == 1 ? '' : 's'} ',
                       style: const TextStyle(
                           color: Color(0xFFBFDBFE), fontSize: 13),
                     ),
@@ -603,7 +602,7 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                 const SizedBox(height: 4),
                 Text(
                   reliable
-                      ? 'Forecast based on recent trends using WMA + OLS regression. '
+                      ? 'Pollutant forecasts based on recent sensor readings. '
                         'Tap any card below to see the full 1-hour chart.'
                       : 'Not enough history data for a reliable forecast yet. '
                         'Showing current readings only. '
