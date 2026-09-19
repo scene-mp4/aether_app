@@ -318,6 +318,21 @@ exports.computeSensorMetrics = onDocumentCreated(
 
     // Call sendAlertIfNeeded — cooldown and all logic handled inside the function
     await sendAlertIfNeeded(deviceId, raw?.device_name ?? deviceId, computedDoc);
+
+    // After the getMessaging().sendEachForMulticast() call succeeds:
+    // Write a notification record to Firestore so the in-app screen can show it
+    await db.collection('users').doc(ownerId).collection('notifications').add({
+      title:      title,
+      message:    body,
+      type:       computed.co_alert ? 'co_alert'
+                  : computed.pm25_alert ? 'pm25_alert'
+                  : 'aqi_alert',
+      tracker_id: deviceId,
+      tracker_name: deviceName,
+      iaqi:       computed.iaqi,
+      is_read:    false,
+      created_at: new Date(),
+    });
   },
 );
 

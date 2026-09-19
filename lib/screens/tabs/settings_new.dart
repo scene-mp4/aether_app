@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'manage_account_page.dart';
 import 'package:pollutracker_app/stores/app_data_store.dart';
+import 'notifications_screen.dart';
 
 class SettingsNewPage extends StatefulWidget {
   const SettingsNewPage({Key? key}) : super(key: key);
@@ -137,35 +138,58 @@ class _SettingsTabState extends State<SettingsNewPage> {
 
     return Scaffold(
       backgroundColor: lightBg,
+      endDrawer: const NotificationsScreen(),
       body: Column(
         children: [
-                      Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(
-                  left: 16, right: 16, top: 24, bottom: 20),
-              color: const Color(0xFF0052FF),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    "App Settings",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.only(
+                left: 16, right: 16, top: 24, bottom: 20),
+            color: const Color(0xFF0052FF),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      "App Settings",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    "Manage your account and user preferences",
-                    style: TextStyle(
-                      color: Color(0xFFBFDBFE),
-                      fontSize: 13,
+                    SizedBox(height: 4),
+                    Text(
+                      "Manage your account and user preferences",
+                      style: TextStyle(
+                        color: Color(0xFFBFDBFE),
+                        fontSize: 13,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+                Builder(
+                  builder: (innerContext) {
+                    return IconButton(
+                      icon: const Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        Scaffold.of(innerContext).openEndDrawer();
+                      },
+                    );
+                  },
+                ),
+              ],
             ),
+          ),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.only(bottom: 30),
