@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '/stores/app_data_store.dart';
 import '/models/tracker_reading.dart';
 import '/models/tracker_info.dart';
+import 'notifications_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PREDICTION ENGINE
@@ -456,30 +457,53 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF1F5F9),
+          endDrawer: const NotificationsScreen(),
           body: Column(
             children: [
               // ── Header ──────────────────────────────────────────────────
-              Container(
+        Container(
                 width: double.infinity,
+                color: const Color(0xFF0052FF),
                 padding: const EdgeInsets.only(
                     left: 16, right: 16, top: 24, bottom: 20),
-                color: const Color(0xFF0052FF),
-                child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Predictive Analytics',
-                        style: TextStyle(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Predictive Analytics',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(
+                          trackers.isEmpty
+                              ? '1-hour forecast · No trackers linked'
+                              : '1-hour forecast · ${trackers.length} '
+                                'tracker${trackers.length == 1 ? '' : 's'}',
+                          style: const TextStyle(
+                              color: Color(0xFFBFDBFE), fontSize: 13),
+                        ),
+                      ],
+                    ),
+                    Builder(
+                      builder: (innerContext) {
+                        return IconButton(
+                          icon: const Icon(
+                            Icons.notifications_outlined,
                             color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(
-                      trackers.isEmpty
-                          ? '1-hour forecast · No trackers linked'
-                          : '1-hour forecast · ${trackers.length} '
-                            'tracker${trackers.length == 1 ? '' : 's'} ',
-                      style: const TextStyle(
-                          color: Color(0xFFBFDBFE), fontSize: 13),
+                            size: 26,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () {
+                            Scaffold.of(innerContext).openEndDrawer();
+                          },
+                        );
+                      },
                     ),
                   ],
                 ),
