@@ -5,6 +5,7 @@ import '/stores/app_data_store.dart';
 import '/models/tracker_reading.dart';
 import '/models/tracker_info.dart';
 import 'tracker_details_page.dart';
+import 'notifications_screen.dart';
 
 class TrackersNewPage extends StatelessWidget {
   const TrackersNewPage({super.key});
@@ -15,35 +16,60 @@ class TrackersNewPage extends StatelessWidget {
       builder: (context, store, _) {
         final trackers = store.trackers;
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFF1F5F9),
-          body: Column(
-            children: [
-              // ── Blue header ───────────────────────────────────────────────
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.only(
-                    left: 16, right: 16, top: 24, bottom: 20),
-                decoration: const BoxDecoration(color: Color(0xFF0052FF)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "My Trackers",
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "${trackers.length} active device${trackers.length == 1 ? '' : 's'}",
-                      style: const TextStyle(
-                          fontSize: 14, color: Colors.white70),
-                    ),
-                  ],
+return Scaffold(
+  backgroundColor: const Color(0xFFF1F5F9),
+  endDrawer: const NotificationsScreen(), // 1. Attach sidebar here
+  body: Column(
+    children: [
+      // ── Blue header ───────────────────────────────────────────────
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.only(
+            left: 16, right: 16, top: 24, bottom: 20),
+        decoration: const BoxDecoration(color: Color(0xFF0052FF)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "My Trackers",
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  "${trackers.length} active device${trackers.length == 1 ? '' : 's'}",
+                  style: const TextStyle(
+                      fontSize: 14, color: Colors.white70),
+                ),
+              ],
+            ),
+
+            // 2. Wrap IconButton in Builder to open endDrawer
+            Builder(
+              builder: (innerContext) {
+                return IconButton(
+                  icon: const Icon(
+                    Icons.notifications_outlined,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    Scaffold.of(innerContext).openEndDrawer(); // Opens side drawer
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
 
               // ── Body ──────────────────────────────────────────────────────
               Expanded(

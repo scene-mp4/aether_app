@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/stores/app_data_store.dart';
 import '/models/tracker_reading.dart';
+import 'notifications_screen.dart';
 
 class SummaryNewPage extends StatefulWidget {
   const SummaryNewPage({super.key});
@@ -237,6 +238,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
+          endDrawer: const NotificationsScreen(),
           body: Column(
             children: [
               _buildHeaderBanner(),
@@ -354,27 +356,49 @@ class _SummaryNewPageState extends State<SummaryNewPage>
   }
 
   // ── HEADER BANNER ──────────────────────────────────────────────────────────
-  Widget _buildHeaderBanner() {
+ Widget _buildHeaderBanner() {
     return Container(
       width: double.infinity,
       color: const Color(0xFF0052FF),
       padding: const EdgeInsets.only(
           left: 16, right: 16, top: 24, bottom: 20),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            "Summary",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                "Summary",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                "All trackers · Overall air quality",
+                style: TextStyle(fontSize: 13, color: Color(0xFFBFDBFE)),
+              ),
+            ],
           ),
-          SizedBox(height: 4),
-          Text(
-            "All trackers · Overall air quality",
-            style: TextStyle(fontSize: 13, color: Color(0xFFBFDBFE)),
+          Builder(
+            builder: (innerContext) {
+              return IconButton(
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: Colors.white,
+                  size: 26,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () {
+                  Scaffold.of(innerContext).openEndDrawer();
+                },
+              );
+            },
           ),
         ],
       ),

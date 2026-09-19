@@ -869,42 +869,49 @@ class _TrackerModalState extends State<_TrackerModal> {
   }
 
   Future<void> _handleSave() async {
-    final name = widget.nameController.text.trim();
+  final name = widget.nameController.text.trim();
 
-    if (name.isEmpty) {
-      setState(() => _error = 'Tracker name is required.');
-      return;
-    }
-
-    // For new trackers: auto-generate ID or validate manual entry
-    if (!widget.isEditing) {
-      if (_useAutoId) {
-        // Fill the controller with a generated ID so the parent can read it
-        widget.idController.text = _generateId();
-      } else {
-        if (widget.idController.text.trim().isEmpty) {
-          setState(() => _error = 'Please enter a Tracker ID or use Auto-generate.');
-          return;
-        }
-        // Sanitise manual ID: replace spaces with underscores, lowercase
-        widget.idController.text = widget.idController.text
-            .trim()
-            .toLowerCase()
-            .replaceAll(' ', '_');
-      }
-    }
-
-    // Validate location
-    final loc = widget.locController.text.trim();
-    if (loc.isEmpty && _selectedLocation == null) {
-      setState(() => _error = 'Please select or enter a location.');
-      return;
-    }
-
-    setState(() { _saving = true; _error = null; });
-    await widget.onSave(_ownerId);
-    if (mounted) setState(() => _saving = false);
+  // Validate device name
+  if (name.isEmpty) {
+    setState(() => _error = 'Tracker name is required.');
+    return;
   }
+
+  // For new trackers: auto-generate ID or validate manual entry
+  if (!widget.isEditing) {
+    if (_useAutoId) {
+      // Fill the controller with a generated ID so the parent can read it
+      widget.idController.text = _generateId();
+    } else {
+      if (widget.idController.text.trim().isEmpty) {
+        setState(() => _error = 'Please enter a Tracker ID or use Auto-generate.');
+        return;
+      }
+      // Sanitise manual ID: replace spaces with underscores, lowercase
+      widget.idController.text = widget.idController.text
+          .trim()
+          .toLowerCase()
+          .replaceAll(' ', '_');
+    }
+  }
+
+  // Validate location
+  final loc = widget.locController.text.trim();
+  if (loc.isEmpty && _selectedLocation == null) {
+    setState(() => _error = 'Please select or enter a location.');
+    return;
+  }
+
+  // Validate owner assignment
+  if (_ownerId.trim().isEmpty) {
+    setState(() => _error = 'An owner must be assigned to this tracker.');
+    return;
+  }
+
+  setState(() { _saving = true; _error = null; });
+  await widget.onSave(_ownerId);
+  if (mounted) setState(() => _saving = false);
+}
 
   @override
   Widget build(BuildContext context) {

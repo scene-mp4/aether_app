@@ -524,44 +524,82 @@ class _AddUserModalState extends State<_AddUserModal> {
     super.dispose();
   }
 
-  Future<void> _handleAdd() async {
-    final username = _usernameCtrl.text.trim();
-    final email    = _emailCtrl.text.trim();
-    final pass     = _passCtrl.text;
-    final confirm  = _confirmCtrl.text;
+Future<void> _handleAdd() async {
+  final username = _usernameCtrl.text.trim();
+  final email    = _emailCtrl.text.trim();
+  final pass     = _passCtrl.text;
+  final confirm  = _confirmCtrl.text;
 
-    if (username.isEmpty) {
-      setState(() => _error = 'Username cannot be empty.'); return;
-    }
-    if (email.isEmpty) {
-      setState(() => _error = 'Email cannot be empty.'); return;
-    }
-    if (pass.length < 6) {
-      setState(() => _error = 'Password must be at least 6 characters.'); return;
-    }
-    if (pass != confirm) {
-      setState(() => _error = 'Passwords do not match.'); return;
-    }
+  // Regex patterns
+  final emailRegex          = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+  final usernameRegex       = RegExp(r'^[a-zA-Z0-9]+$'); // Strict alphanumeric
+  final strongPasswordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
 
-    setState(() { _saving = true; _error = null; });
+  // Username validations
+  if (username.isEmpty) {
+    setState(() => _error = 'Username cannot be empty.'); return;
+  }
+  if (username.length < 3) {
+    setState(() => _error = 'Username must be at least 3 characters.'); return;
+  }
+  if (username.length > 30) {
+    setState(() => _error = 'Username cannot exceed 30 characters.'); return;
+  }
+  if (!usernameRegex.hasMatch(username)) {
+    setState(() => _error = 'Username can only contain letters and numbers.'); return;
+  }
 
-    try {
-      await widget.onAdd(
-        username: username,
-        email:    email,
-        password: pass,
-        role:     _role,
-      );
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _error  = e.toString().replaceFirst('Exception: ', '');
-        });
-      }
+  // Email validations
+  if (email.isEmpty) {
+    setState(() => _error = 'Email cannot be empty.'); return;
+  }
+  if (!emailRegex.hasMatch(email)) {
+    setState(() => _error = 'Please enter a valid email address.'); return;
+  }
+
+  // Password validations
+  if (pass.isEmpty) {
+    setState(() => _error = 'Password cannot be empty.'); return;
+  }
+  if (pass.length < 6) {
+    setState(() => _error = 'Password must be at least 6 characters.'); return;
+  }
+  if (!strongPasswordRegex.hasMatch(pass)) {
+    setState(() => _error = 'Password must include uppercase, lowercase, number, and special character.'); return;
+  }
+
+  // Confirm Password validations
+  if (confirm.isEmpty) {
+    setState(() => _error = 'Please confirm your password.'); return;
+  }
+  if (pass != confirm) {
+    setState(() => _error = 'Passwords do not match.'); return;
+  }
+
+  // Role validation
+  if (_role != 'user' && _role != 'admin') {
+    setState(() => _error = 'Invalid role selected.'); return;
+  }
+
+  setState(() { _saving = true; _error = null; });
+
+  try {
+    await widget.onAdd(
+      username: username,
+      email:    email,
+      password: pass,
+      role:     _role,
+    );
+    if (mounted) Navigator.pop(context);
+  } catch (e) {
+    if (mounted) {
+      setState(() {
+        _saving = false;
+        _error  = e.toString().replaceFirst('Exception: ', '');
+      });
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -1029,25 +1067,67 @@ class _EditUserModalState extends State<_EditUserModal> {
     super.dispose();
   }
 
-  Future<void> _handleSave() async {
-    if (_usernameCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Username cannot be empty.'); return;
-    }
-    if (_emailCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Email cannot be empty.'); return;
-    }
-    setState(() { _saving = true; _error = null; });
-    try {
-      await widget.onSave(
-        username: _usernameCtrl.text,
-        email:    _emailCtrl.text,
-        role:     _role,
-      );
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      if (mounted) setState(() { _saving = false; _error = e.toString(); });
+Future<void> _handleSave() async {
+  final username = _usernameCtrl.text.trim();
+  final email    = _emailCtrl.text.trim();
+
+  // Validation regexes
+  final emailRegex    = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+  final usernameRegex = RegExp(r'^[a-zA-Z0-9]+$'); // Strict alphanumeric
+
+  // Username validation
+  if (username.isEmpty) {
+    setState(() => _error = 'Username cannot be empty.'); return;
+  }
+  if (username.length < 3) {
+    setState(() => _error = 'Username must be at least 3 characters.'); return;
+  }
+  if (username.length > 30) {
+    setState(() => _error = 'Username cannot exceed 30 characters.'); return;
+  }
+  if (!usernameRegex.hasMatch(username)) {
+    setState(() => _error = 'Username can only contain letters and numbers.'); return;
+  }
+
+  // Email validation
+  if (email.isEmpty) {
+    setState(() => _error = 'Email cannot be empty.'); return;
+  }
+  if (!emailRegex.hasMatch(email)) {
+    setState(() => _error = 'Please enter a valid email address.'); return;
+  }
+
+  // Role validation
+  if (_role != 'user' && _role != 'admin') {
+    setState(() => _error = 'Invalid role selected.'); return;
+  }
+
+  // Check if nothing was modified
+  if (username == widget.currentUsername &&
+      email == widget.currentEmail &&
+      _role == widget.currentRole) {
+    Navigator.pop(context);
+    return;
+  }
+
+  setState(() { _saving = true; _error = null; });
+
+  try {
+    await widget.onSave(
+      username: username,
+      email:    email,
+      role:     _role,
+    );
+    if (mounted) Navigator.pop(context);
+  } catch (e) {
+    if (mounted) {
+      setState(() {
+        _saving = false;
+        _error  = e.toString().replaceFirst('Exception: ', '');
+      });
     }
   }
+}
 
   Future<void> _unassignTracker(String deviceId) async {
     await widget.db
