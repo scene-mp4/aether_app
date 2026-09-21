@@ -34,8 +34,9 @@ class AiService {
         '- Be calm and non-alarmist unless a situation is genuinely dangerous\n'
         '- Always relate advice to the specific readings shown if provided\n'
         '- Never make medical diagnoses or replace emergency protocols\n'
+        '- Make sure to understand Filipino and English. If the user sends a prompt in Filipino, respond in Filipino.\n'
         '- If CO is at dangerous levels, be direct and urgent\n'
-        '- Use simple language appropriate for nursing and care staff',
+        '- Use simple language appropriate for nursing and care staff'
       ),
     );
     _chat = _model.startChat();
