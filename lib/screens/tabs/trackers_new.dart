@@ -6,6 +6,7 @@ import '/models/tracker_reading.dart';
 import '/models/tracker_info.dart';
 import 'tracker_details_page.dart';
 import 'notifications_screen.dart';
+import 'wifi_provisioning_page.dart';
 
 class TrackersNewPage extends StatelessWidget {
   const TrackersNewPage({super.key});
@@ -1040,6 +1041,46 @@ class _EditTrackerModalState extends State<_EditTrackerModal> {
                   ]),
                 ),
               ],
+
+              const SizedBox(height: 20),
+
+              // Connect WiFi button — opens BLE provisioning for this device
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: _saving
+                      ? null
+                      : () {
+                          // Grab the root navigator before the dialog closes.
+                          final navigator =
+                              Navigator.of(context, rootNavigator: true);
+                          navigator.pop();
+                          navigator.push(
+                            MaterialPageRoute(
+                              builder: (_) => WifiProvisioningPage(
+                                deviceId:   widget.deviceId,
+                                deviceName: _nameCtrl.text.trim().isEmpty
+                                    ? widget.currentName
+                                    : _nameCtrl.text.trim(),
+                              ),
+                            ),
+                          );
+                        },
+                  icon: const Icon(Icons.wifi, size: 18,
+                      color: Color(0xFF0052FF)),
+                  label: const Text('Connect WiFi',
+                      style: TextStyle(
+                          color: Color(0xFF0052FF),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF0052FF)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
 
               const SizedBox(height: 24),
 
