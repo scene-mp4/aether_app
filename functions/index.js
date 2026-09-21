@@ -313,39 +313,13 @@ exports.computeSensorMetrics = onDocumentCreated(
     console.log(`[Ro calibration] MQ2 Rs=${(getRsRatio(mq2_v, CALIBRATION.RL_MQ2, 1.0) * 1.0).toFixed(3)}`);
     console.log(`[Ro calibration] MQ9 Rs=${(getRsRatio(mq9_v, CALIBRATION.RL_MQ9, 1.0) * 1.0).toFixed(3)}`);
     console.log(`[Ro calibration] MQ135 Rs=${(getRsRatio(mq135_v, CALIBRATION.RL_MQ135, 1.0) * 1.0).toFixed(3)}`);
-    console.log(`[Ro calibration] MQ131 Rs=${(getRsRatio(mq131_v, CALIBRATION.RL_MQ131, 1.0) * 1.0).toFixed(3)}`);
 
-
-    // Call sendAlertIfNeeded — cooldown and all logic handled inside the function
-    await sendAlertIfNeeded(deviceId, raw?.device_name ?? deviceId, computedDoc);
-
-    // After the getMessaging().sendEachForMulticast() call succeeds:
-    // Write a notification record to Firestore so the in-app screen can show it
-    await db.collection('users').doc(ownerId).collection('notifications').add({
-      title:      title,
-      message:    body,
-      type:       computed.co_alert ? 'co_alert'
-                  : computed.pm25_alert ? 'pm25_alert'
-                  : 'aqi_alert',
-      tracker_id: deviceId,
-      tracker_name: deviceName,
-      iaqi:       computed.iaqi,
-      is_read:    false,
-      created_at: new Date(),
-    });
-  },
-);
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// FCM ALERT HELPER
-// Defined at module level so it is not recreated on every function invocation.
-// ═══════════════════════════════════════════════════════════════════════════════
 
 async function sendAlertIfNeeded(deviceId, deviceName, computed) {
   // Only send for serious conditions — skip early to avoid unnecessary reads
   if (!computed.co_alert && computed.iaqi < 150) return;
 
-  // Fetch device document to get owner and cooldown timestamp
+  // FIX: fetch devDoc inside the function so it's in scope
   const devDoc  = await db.collection('devices').doc(deviceId).get();
   const ownerId = devDoc.data()?.owner_id;
   if (!ownerId) {
@@ -405,9 +379,46 @@ async function sendAlertIfNeeded(deviceId, deviceName, computed) {
   console.log(`[FCM] Alert sent to ${tokens.length} device(s) for ${deviceId}`);
   console.log(`[FCM] Success: ${response.successCount} Failed: ${response.failureCount}`);
 
+  // Remove stale tokens (NotRegistered = app uninstalled or token rotated)
+  const tokensToRemove = [];
   response.responses.forEach((resp, i) => {
     if (!resp.success) {
       console.error(`[FCM] Token ${i} failed: ${resp.error?.message}`);
+      if (resp.error?.code === 'messaging/registration-token-not-registered') {
+        tokensToRemove.push(tokens[i]);
+      }
     }
   });
+  if (tokensToRemove.length > 0) {
+    const { FieldValue } = require('firebase-admin/firestore');
+    await db.collection('users').doc(ownerId).update({
+      fcm_tokens: FieldValue.arrayRemove(...tokensToRemove),
+    });
+    console.log(`[FCM] Removed ${tokensToRemove.length} stale token(s)`);
+  }
+
+  // Write notification record to Firestore so in-app screen can show it.
+  // ownerId is defined above in this function — it is in scope here.
+  try {
+    await db.collection('users').doc(ownerId).collection('notifications').add({
+      title:        title,
+      message:      body,
+      type:         computed.co_alert   ? 'co_alert'
+                  : computed.pm25_alert ? 'pm25_alert'
+                  : 'aqi_alert',
+      tracker_id:   deviceId,
+      tracker_name: deviceName,
+      iaqi:         computed.iaqi,
+      is_read:      false,
+      created_at:   new Date(),
+    });
+    console.log(`[Notifications] Record written for user ${ownerId}`);
+  } catch (e) {
+    console.error(`[Notifications] Failed to write record: ${e.message}`);
+  }
 }
+
+    // Call sendAlertIfNeeded — cooldown and all logic handled inside the function
+    await sendAlertIfNeeded(deviceId, raw?.device_name ?? deviceId, computedDoc);
+  },
+);
