@@ -51,9 +51,9 @@ const CALIBRATION = {
 
   // Updated Ro values — derived from Rs at current conditions
   // using MQ datasheet clean-air Rs/Ro ratios
-  Ro_MQ2:   11.64,   // was 8.5  — MQ-2  datasheet clean-air ratio = 2.0
-  Ro_MQ9:   1.34,    // was 7.3  — MQ-9  datasheet clean-air ratio = 9.5
-  Ro_MQ135: 15.03,   // was 78.9 — MQ-135 datasheet clean-air ratio = 3.6
+  Ro_MQ2:   22.892,   // was 8.5  — MQ-2  datasheet clean-air ratio = 2.0
+  Ro_MQ9:   14.227,    // was 7.3  — MQ-9  datasheet clean-air ratio = 9.5
+  Ro_MQ135: 34.557,   // was 78.9 — MQ-135 datasheet clean-air ratio = 3.6
 
   RL_MQ2:   5.0,
   RL_MQ9:   5.0,
