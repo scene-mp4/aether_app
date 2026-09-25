@@ -5,31 +5,32 @@
 #include <time.h>
 #include <Wire.h>
 #include <Adafruit_ADS1X15.h>
-#include <DHT11.h>
+#include <DHT.h>
 
 HardwareSerial pmsSerial(1);
 
-DHT11 dht11(4);
+DHT dht22(4, DHT22);
 
 Adafruit_ADS1115 ads;
-const uint8_t ADS_ADDR = 0x48;
+const uint8_t   ADS_ADDR = 0x48;
 const adsGain_t ADS_GAIN = GAIN_TWOTHIRDS;
 
 const char* PROJECT_ID = "pollutracker-bf276";
 const char* TRACKER_ID = "tracker_002";
 
-const char* POP             = "abcd1234";           // Proof of possession
-const char* SERVICE_KEY     = NULL;
-bool        RESET_PROVISIONED = false;               // true = wipe stored WiFi creds on boot
-String      SERVICE_NAME;                            // built in setup(): "PROV_" + TRACKER_ID
+const char* POP               = "abcd1234";
+const char* SERVICE_KEY       = NULL;
+bool        RESET_PROVISIONED = false;
+String      SERVICE_NAME;
 
-const char* NTP_SERVER      = "pool.ntp.org";
-const long  GMT_OFFSET_SEC  = 28800;
+const char* NTP_SERVER     = "pool.ntp.org";
+const long  GMT_OFFSET_SEC = 28800;
 const int   DAYLIGHT_OFFSET = 0;
 
 const unsigned long SEND_INTERVAL_MS = 5000;
 unsigned long lastSendMillis = 0;
 
+//Timestamp Handler
 String getTimestamp() {
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) return "unavailable";
@@ -54,10 +55,11 @@ String getTimeOnly() {
   return String(buf);
 }
 
+//Provisioning Event Handler
 void SysProvEvent(arduino_event_t *sys_event) {
   switch (sys_event->event_id) {
     case ARDUINO_EVENT_PROV_START:
-      Serial.println("\nProvisioning started — waiting for phone app...");
+      Serial.println("\nSearching for Application");
       Serial.print("Service name: ");
       Serial.println(SERVICE_NAME);
       break;
@@ -95,6 +97,7 @@ void SysProvEvent(arduino_event_t *sys_event) {
   }
 }
 
+//PMS5003
 const int PMS_PM1_0 = 0;
 const int PMS_PM2_5 = 1;
 const int PMS_PM10  = 2;
@@ -106,20 +109,13 @@ bool readPMS5003(int values[], bool &valid) {
   while (pmsSerial.available() >= 32) {
     if (pmsSerial.peek() == 0x42) {
       pmsSerial.read();
-
       if (pmsSerial.peek() == 0x4D) {
         pmsSerial.read();
-
         byte buf[30];
-        for (int i = 0; i < 30; i++) {
-          buf[i] = pmsSerial.read();
-        }
+        for (int i = 0; i < 30; i++) buf[i] = pmsSerial.read();
 
         int checksum = 0x42 + 0x4D;
-        for (int i = 0; i < 28; i++) {
-          checksum += buf[i];
-        }
-
+        for (int i = 0; i < 28; i++) checksum += buf[i];
         int receivedChecksum = (buf[28] << 8) | buf[29];
 
         if (checksum == receivedChecksum) {
@@ -136,34 +132,29 @@ bool readPMS5003(int values[], bool &valid) {
   return false;
 }
 
+//Time Sync
 void syncTime() {
   Serial.print("Syncing time with NTP...");
   configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET, NTP_SERVER);
-
   struct tm timeinfo;
   int retries = 0;
-
   while (!getLocalTime(&timeinfo) && retries < 10) {
-    delay(1000);
-    Serial.print(".");
-    retries++;
+    delay(1000); Serial.print("."); retries++;
   }
-
-  if (retries < 10) {
-    Serial.println("\nTime synced: " + getTimestamp());
-  } else {
-    Serial.println("\nNTP sync failed.");
-  }
+  Serial.println(retries < 10
+    ? "\nTime synced: " + getTimestamp()
+    : "\nNTP sync failed.");
 }
 
-void sendToFirebase(int mqRaw[], float mqVolt[],
+//SendToFirebase
+void sendToFirebase(int16_t mqRaw[], float mqVolt[],
                     int dhtValues[],
                     int pmsVals[], bool pmsOk) {
-
   HTTPClient http;
-  String url = "https://firestore.googleapis.com/v1/projects/" + String(PROJECT_ID) +
-               "/databases/(default)/documents/devices/" + String(TRACKER_ID) +
-               "/readings/";
+  String url = "https://firestore.googleapis.com/v1/projects/" +
+               String(PROJECT_ID) +
+               "/databases/(default)/documents/devices/" +
+               String(TRACKER_ID) + "/readings/";
 
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
@@ -175,9 +166,8 @@ void sendToFirebase(int mqRaw[], float mqVolt[],
   fields["date"]["stringValue"]      = getDateOnly();
   fields["time"]["stringValue"]      = getTimeOnly();
 
-  // MQ sensors — index 0..3 maps to MQ2, MQ9, MQ135, MQ131
-  const char* mqRawKeys[]   = { "mq2",   "mq9",   "mq135",   "mq131"   };
-  const char* mqVoltKeys[]  = { "mq2_v", "mq9_v", "mq135_v", "mq131_v" };
+  const char* mqRawKeys[]  = { "mq2",   "mq9",   "mq135",   "mq131"   };
+  const char* mqVoltKeys[] = { "mq2_v", "mq9_v", "mq135_v", "mq131_v" };
   for (int i = 0; i < 4; i++) {
     fields[mqRawKeys[i]]["integerValue"]  = String(mqRaw[i]);
     fields[mqVoltKeys[i]]["doubleValue"]  = mqVolt[i];
@@ -188,11 +178,8 @@ void sendToFirebase(int mqRaw[], float mqVolt[],
 
   const char* pmsKeys[] = { "pm1_0", "pm2_5", "pm10" };
   for (int i = 0; i < 3; i++) {
-    if (pmsOk) {
-      fields[pmsKeys[i]]["integerValue"] = String(pmsVals[i]);
-    } else {
-      fields[pmsKeys[i]]["nullValue"] = nullptr;
-    }
+    if (pmsOk) fields[pmsKeys[i]]["integerValue"] = String(pmsVals[i]);
+    else       fields[pmsKeys[i]]["nullValue"]     = nullptr;
   }
 
   String body;
@@ -204,12 +191,8 @@ void sendToFirebase(int mqRaw[], float mqVolt[],
   int httpCode = http.POST(body);
   Serial.print("HTTP Code: ");
   Serial.println(httpCode);
-
-  if (httpCode > 0) {
-    Serial.println("Response: " + http.getString());
-  } else {
-    Serial.println("No Data Sent");
-  }
+  if (httpCode > 0) Serial.println("Response: " + http.getString());
+  else              Serial.println("No Data Sent");
 
   http.end();
 }
@@ -217,18 +200,16 @@ void sendToFirebase(int mqRaw[], float mqVolt[],
 void setup() {
   Serial.begin(115200);
   pmsSerial.begin(9600, SERIAL_8N1, 16, 17);
+
+  dht22.begin();                            // ✅ Replaces nothing — DHT11 had no begin()
+
   Serial.println("Preparing PMS5003...");
   delay(30000);
 
   Wire.begin();
-  if (!ads.begin(ADS_ADDR)) {
-    Serial.println("ADS Unresponsive");
-  }
+  if (!ads.begin(ADS_ADDR)) Serial.println("ADS Unresponsive");
   ads.setGain(ADS_GAIN);
 
-  // ── BLE WiFi provisioning ─────────────────────────────────────────────────
-  // SERVICE_NAME must be "PROV_<TRACKER_ID>" so the app's WifiProvisioningPage
-  // can recognize this exact tracker among any other trackers being provisioned.
   SERVICE_NAME = "PROV_" + String(TRACKER_ID);
 
   WiFi.onEvent(SysProvEvent);
@@ -243,9 +224,6 @@ void setup() {
     RESET_PROVISIONED
   );
 
-  // beginProvision() blocks until the device is connected — either by
-  // replaying credentials already stored in NVS from a previous session,
-  // or by receiving new ones over BLE from the app.
   syncTime();
 }
 
@@ -260,7 +238,6 @@ void loop() {
   if (now - lastSendMillis >= SEND_INTERVAL_MS) {
     lastSendMillis = now;
 
-    // MQ Raw Readings
     int16_t mqRaw[4];
     mqRaw[0] = ads.readADC_SingleEnded(0);
     mqRaw[1] = ads.readADC_SingleEnded(1);
@@ -268,19 +245,20 @@ void loop() {
     mqRaw[3] = ads.readADC_SingleEnded(3);
 
     float mqVolt[4];
-    for (int i = 0; i < 4; i++) {
-      mqVolt[i] = ads.computeVolts(mqRaw[i]);
-    }
+    for (int i = 0; i < 4; i++) mqVolt[i] = ads.computeVolts(mqRaw[i]);
 
-    // DHT11 Readings
+    // ✅ DHT22 read — replaces dht11.readTemperatureHumidity()
     int dhtValues[2] = { 0, 0 };
-    int dhtResult = dht11.readTemperatureHumidity(dhtValues[0], dhtValues[1]);
+    float temp = dht22.readTemperature();
+    float hum  = dht22.readHumidity();
 
-    if (dhtResult != 0) {
-      Serial.print("DHT11 Unresponsive: ");
-      Serial.println(DHT11::getErrorString(dhtResult));
+    if (isnan(temp) || isnan(hum)) {      // ✅ Replaces dhtResult != 0 check
+      Serial.println("DHT22 Unresponsive: Failed to read temperature/humidity.");
       return;
     }
+
+    dhtValues[0] = (int)temp;
+    dhtValues[1] = (int)hum;
 
     Serial.println("Timestamp: " + getTimestamp());
     Serial.println(pmsValid ? "PMS5003 VALID" : "PMS5003 NOT READY");
