@@ -313,6 +313,7 @@ exports.computeSensorMetrics = onDocumentCreated(
     console.log(`[Ro calibration] MQ2 Rs=${(getRsRatio(mq2_v, CALIBRATION.RL_MQ2, 1.0) * 1.0).toFixed(3)}`);
     console.log(`[Ro calibration] MQ9 Rs=${(getRsRatio(mq9_v, CALIBRATION.RL_MQ9, 1.0) * 1.0).toFixed(3)}`);
     console.log(`[Ro calibration] MQ135 Rs=${(getRsRatio(mq135_v, CALIBRATION.RL_MQ135, 1.0) * 1.0).toFixed(3)}`);
+    console.log(`[Ro calibration] MQ131 Rs=${(getRsRatio(mq131_v, CALIBRATION.RL_MQ131, 1.0) * 1.0).toFixed(3)}`);
 
 
 async function sendAlertIfNeeded(deviceId, deviceName, computed) {
