@@ -37,6 +37,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
   // ── Selected Status Filter ────────────────────────────────────────────────
 String? _selectedStatusFilter; // null means "All" / no filter
 
+
   // ── AQI Info Card toggle ──────────────────────────────────────────────────
   bool _showAqiInfo = false;
 
@@ -746,7 +747,7 @@ Widget _buildTrackerStatusSection(List readings) {
           ),
         ],
       ),
-      
+
       const SizedBox(height: 14),
       _buildStatusRow(const Color(0xFF22C55E), "Good", "AQI 0–50", '$good'),
       _buildStatusRow(const Color(0xFFEAB308), "Moderate", "AQI 51–100", '$moderate'),
