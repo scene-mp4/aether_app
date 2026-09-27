@@ -20,7 +20,7 @@ const char* TRACKER_ID = "tracker_002";
 
 const char* POP               = "abcd1234";
 const char* SERVICE_KEY       = NULL;
-bool        RESET_PROVISIONED = false;
+bool        RESET_PROVISIONED = true;
 String      SERVICE_NAME;
 
 const char* NTP_SERVER     = "pool.ntp.org";
