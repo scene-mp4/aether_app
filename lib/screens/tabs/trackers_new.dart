@@ -1059,7 +1059,9 @@ class _EditTrackerModalState extends State<_EditTrackerModal> {
                           navigator.push(
                             MaterialPageRoute(
                               builder: (_) => WifiProvisioningPage(
-                                deviceId:   widget.deviceId,
+                                // Must match the ESP BLE provisioning name:
+                                // PROV_<tracker_id>
+                                deviceId:   'tracker_002',
                                 deviceName: _nameCtrl.text.trim().isEmpty
                                     ? widget.currentName
                                     : _nameCtrl.text.trim(),
