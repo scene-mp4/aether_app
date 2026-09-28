@@ -222,6 +222,15 @@ async function backfill() {
         console.error(`  ERROR on ${readingId}: ${err.message}`);
         totalFailed++;
       }
+
+      // update latest reading
+      const latestRef = db.collection('devices').doc(deviceId);
+      const latestSnap = await latestRef.get();
+      const currentLatest = latestSnap.data()?.latest;
+
+      if (!currentLatest || computedDoc.timestamp >= (currentLatest.timestamp ?? '')) {
+        await latestRef.update({ latest: computedDoc });
+      }
     }
 
     console.log(`  Done with ${deviceId}`);
