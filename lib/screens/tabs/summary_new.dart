@@ -34,6 +34,10 @@ class _SummaryNewPageState extends State<SummaryNewPage>
     vsync: this,
   );
 
+  // ── Selected Status Filter ────────────────────────────────────────────────
+String? _selectedStatusFilter; // null means "All" / no filter
+
+
   // ── AQI Info Card toggle ──────────────────────────────────────────────────
   bool _showAqiInfo = false;
 
@@ -695,189 +699,273 @@ class _SummaryNewPageState extends State<SummaryNewPage>
     );
   }
 
-  Widget _buildTrackerStatusSection(List<TrackerReading> readings) {
-    int good = 0, moderate = 0, sensitive = 0, unhealthy = 0, veryUnhealthy = 0, hazardous = 0;
+Widget _buildTrackerStatusSection(List readings) {
+  int good = 0, moderate = 0, sensitive = 0, unhealthy = 0, veryUnhealthy = 0, hazardous = 0;
 
-    for (final r in readings) {
-      if (r.iaqi <= 50) good++;
-      else if (r.iaqi <= 100) moderate++;
-      else if (r.iaqi <= 150) sensitive++;
-      else if (r.iaqi <= 200) unhealthy++;
-      else if (r.iaqi <= 300) veryUnhealthy++;
-      else hazardous++;
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Tracker Status",
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-        ),
-        const SizedBox(height: 14),
-        _buildStatusRow(const Color(0xFF22C55E), "Good", "AQI 0–50", '$good'),
-        _buildStatusRow(const Color(0xFFEAB308), "Moderate", "AQI 51–100", '$moderate'),
-        _buildStatusRow(const Color(0xFFF97316), "Unhealthy for Sensitive Groups", "AQI 101–150", '$sensitive'),
-        _buildStatusRow(const Color(0xFFEF4444), "Unhealthy", "AQI 151–200", '$unhealthy'),
-        _buildStatusRow(const Color(0xFFA855F7), "Very Unhealthy", "AQI 201–300", '$veryUnhealthy'),
-        _buildStatusRow(const Color(0xFF881337), "Hazardous", "AQI 301+", '$hazardous', isLast: true),
-      ],
-    );
+  for (final r in readings) {
+    if (r.iaqi <= 50) good++;
+    else if (r.iaqi <= 100) moderate++;
+    else if (r.iaqi <= 150) sensitive++;
+    else if (r.iaqi <= 200) unhealthy++;
+    else if (r.iaqi <= 300) veryUnhealthy++;
+    else hazardous++;
   }
 
-  Widget _buildStatusRow(Color color, String label, String range, String count, {bool isLast = false}) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 12.0),
-      child: Row(
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
-                Text(range, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-              ],
-            ),
+          const Text(
+            "Tracker Status",
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
           ),
-          Text(count, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+          if (_selectedStatusFilter != null)
+            TextButton(
+              onPressed: () => setState(() => _selectedStatusFilter = null),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(50, 20),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text("Clear Filter", style: TextStyle(fontSize: 11, color: Color(0xFF2563EB))),
+            ),
         ],
       ),
-    );
-  }
 
-  // ── UPDATED: RANKINGS SECTION WITH TRACKER NAMES ─────────────────────────
-Widget _buildRankingsSection(AppDataStore store) {
-    // Collect all trackers along with their latest readings
-    final trackerRankList = store.trackers.map((t) {
-      final reading = store.readingFor(t.id);
+      const SizedBox(height: 2),
+      
+      // ── HINT TEXT ────────────────────────────────────────────────────────
+      Row(
+        children: const [
+          Icon(Icons.touch_app_outlined, size: 12, color: Color(0xFF64748B)),
+          SizedBox(width: 4),
+          Text(
+            "Tap any status below to filter rankings",
+            style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
+          ),
+        ],
+      ),
 
-      // Extract device name using TrackerInfo properties matching trackers_new.dart
-      String trackerName = t.deviceName.trim();
+      const SizedBox(height: 14),
+      _buildStatusRow(const Color(0xFF22C55E), "Good", "AQI 0–50", '$good'),
+      _buildStatusRow(const Color(0xFFEAB308), "Moderate", "AQI 51–100", '$moderate'),
+      _buildStatusRow(const Color(0xFFF97316), "Unhealthy for Sensitive Groups", "AQI 101–150", '$sensitive'),
+      _buildStatusRow(const Color(0xFFEF4444), "Unhealthy", "AQI 151–200", '$unhealthy'),
+      _buildStatusRow(const Color(0xFFA855F7), "Very Unhealthy", "AQI 201–300", '$veryUnhealthy'),
+      _buildStatusRow(const Color(0xFF881337), "Hazardous", "AQI 301+", '$hazardous', isLast: true),
+    ],
+  );
+}
 
-      // Fallback 1: Use location if deviceName is empty
-      if (trackerName.isEmpty && t.location.trim().isNotEmpty) {
-        trackerName = t.location.trim();
-      }
+Widget _buildStatusRow(Color color, String label, String range, String count, {bool isLast = false}) {
+  final isSelected = _selectedStatusFilter == label;
 
-      // Fallback 2: Use Tracker ID if both deviceName and location are empty
-      if (trackerName.isEmpty) {
-        trackerName = 'Tracker ${t.id}';
-      }
-
-      return {
-        'name': trackerName,
-        'reading': reading,
-        'aqi': reading?.iaqi ?? 0,
-      };
-    }).toList();
-
-    // Sort by lowest AQI first (lower is better)
-    trackerRankList.sort((a, b) => (a['aqi'] as int).compareTo(b['aqi'] as int));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Individual Tracker/s AQI Rankings",
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+  return Padding(
+    padding: EdgeInsets.only(bottom: isLast ? 0 : 8.0),
+    child: InkWell(
+      onTap: () {
+        setState(() {
+          // Toggle selection: if already selected, clear filter; otherwise set filter.
+          _selectedStatusFilter = isSelected ? null : label;
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected ? Border.all(color: color, width: 1.5) : null,
         ),
-        const SizedBox(height: 2),
-        const Text(
-          "AQI values per tracker — lower is better",
-          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-        ),
-        const SizedBox(height: 16),
-        if (trackerRankList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text("No rankings available", style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
-          )
-        else
-          ...trackerRankList.asMap().entries.map((entry) {
-            final idx = entry.key + 1;
-            final item = entry.value;
-            final trackerName = item['name'] as String;
-            final val = item['aqi'] as int;
-            final color = _aqiColor(val);
-            final factor = (val / 500).clamp(0.05, 1.0);
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 14.0),
+        child: Row(
+          children: [
+            Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 24,
-                        child: Text(
-                          'R $idx',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF64748B),
-                          ),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                  Text(range, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                ],
+              ),
+            ),
+            Text(
+              count,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? color : const Color(0xFF0F172A),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+  // ── UPDATED: RANKINGS SECTION WITH TRACKER NAMES ─────────────────────────
+Widget _buildRankingsSection(AppDataStore store) {
+  final trackerRankList = store.trackers.map((t) {
+    final reading = store.readingFor(t.id);
+
+    String trackerName = t.deviceName.trim();
+    if (trackerName.isEmpty && t.location.trim().isNotEmpty) {
+      trackerName = t.location.trim();
+    }
+    if (trackerName.isEmpty) {
+      trackerName = 'Tracker ${t.id}';
+    }
+
+    return {
+      'name': trackerName,
+      'reading': reading,
+      'aqi': reading?.iaqi ?? 0,
+    };
+  }).where((item) {
+    // Filter list based on selected filter
+    if (_selectedStatusFilter == null) return true;
+    final aqi = item['aqi'] as int;
+    final statusLabel = _aqiLabel(aqi);
+    return statusLabel == _selectedStatusFilter;
+  }).toList();
+
+  trackerRankList.sort((a, b) => (a['aqi'] as int).compareTo(b['aqi'] as int));
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            "Individual Tracker/s AQI Rankings",
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+          if (_selectedStatusFilter != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                "Filter: $_selectedStatusFilter",
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+              ),
+            ),
+        ],
+      ),
+      const SizedBox(height: 2),
+      const Text(
+        "AQI values per tracker — lower is better",
+        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+      ),
+      const SizedBox(height: 16),
+      if (trackerRankList.isEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            _selectedStatusFilter == null
+                ? "No rankings available"
+                : "No trackers found with status \"$_selectedStatusFilter\"",
+            style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+          ),
+        )
+      else
+        ...trackerRankList.asMap().entries.map((entry) {
+          final idx = entry.key + 1;
+          final item = entry.value;
+          final trackerName = item['name'] as String;
+          final val = item['aqi'] as int;
+          final color = _aqiColor(val);
+          final factor = (val / 500).clamp(0.05, 1.0);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 14.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      child: Text(
+                        'R $idx',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF64748B),
                         ),
                       ),
-                      Expanded(
-                        child: Stack(
-                          children: [
-                            Container(
+                    ),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Container(
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          FractionallySizedBox(
+                            widthFactor: factor,
+                            child: Container(
                               height: 20,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
+                                color: color,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
-                            FractionallySizedBox(
-                              widthFactor: factor,
-                              child: Container(
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 32,
-                        child: Text(
-                          '$val',
-                          textAlign: TextAlign.end,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 24.0),
-                    child: Text(
-                      trackerName,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF475569),
+                        ],
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 32,
+                      child: Text(
+                        '$val',
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Padding(
+                  padding: const EdgeInsets.only(left: 24.0),
+                  child: Text(
+                    trackerName,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569),
+                    ),
                   ),
-                ],
-              ),
-            );
-          }),
-      ],
-    );
-  }
+                ),
+              ],
+            ),
+          );
+        }),
+    ],
+  );
+}
 
   // ── TAB 2: POLLUTANT AVERAGES ─────────────────────────────────────────────
   Widget _buildReadingsTab(List<TrackerReading> readings) {

@@ -83,40 +83,40 @@ return Scaffold(
                           child: Column(
                             children: [
                               // Add new tracker button
-                              GestureDetector(
-                                onTap: () =>
-                                    _showAddTrackerDialog(context, store),
-                                child: Container(
-                                  width: double.infinity,
-                                  height: 52,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                        color: const Color(0xFF0052FF),
-                                        width: 1.2),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                    children: const [
-                                      Icon(Icons.add,
-                                          color: Color(0xFF0052FF),
-                                          size: 20),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        "Add New Tracker",
-                                        style: TextStyle(
-                                          color: Color(0xFF0052FF),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
+                              // GestureDetector(
+                              //   onTap: () =>
+                              //       _showAddTrackerDialog(context, store),
+                              //   child: Container(
+                              //     width: double.infinity,
+                              //     height: 52,
+                              //     decoration: BoxDecoration(
+                              //       color: Colors.white,
+                              //       borderRadius: BorderRadius.circular(12),
+                              //       border: Border.all(
+                              //           color: const Color(0xFF0052FF),
+                              //           width: 1.2),
+                              //     ),
+                              //     child: Row(
+                              //       mainAxisAlignment:
+                              //           MainAxisAlignment.center,
+                              //       children: const [
+                              //         Icon(Icons.add,
+                              //             color: Color(0xFF0052FF),
+                              //             size: 20),
+                              //         SizedBox(width: 6),
+                              //         Text(
+                              //           "Add New Tracker",
+                              //           style: TextStyle(
+                              //             color: Color(0xFF0052FF),
+                              //             fontWeight: FontWeight.bold,
+                              //             fontSize: 14,
+                              //           ),
+                              //         ),
+                              //       ],
+                              //     ),
+                              //   ),
+                              // ),
+                              // const SizedBox(height: 16),
 
                               // Tracker cards
                               if (trackers.isEmpty)
@@ -171,14 +171,14 @@ return Scaffold(
 
   // ── Add tracker dialog ───────────────────────────────────────────────────
 
-  void _showAddTrackerDialog(BuildContext context, AppDataStore store) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return _AddTrackerDialog(store: store);
-      },
-    );
-  }
+  // void _showAddTrackerDialog(BuildContext context, AppDataStore store) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (dialogContext) {
+  //       return _AddTrackerDialog(store: store);
+  //     },
+  //   );
+  // }
 
   // ── Edit modal ───────────────────────────────────────────────────────────
 
@@ -228,100 +228,100 @@ return Scaffold(
 // Shows devices from Firestore where owner_id is empty.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _AddTrackerDialog extends StatelessWidget {
-  final AppDataStore store;
-  const _AddTrackerDialog({required this.store});
+// class _AddTrackerDialog extends StatelessWidget {
+//   final AppDataStore store;
+//   const _AddTrackerDialog({required this.store});
 
-  @override
-  Widget build(BuildContext context) {
-    // Available trackers come from the store's unowned device list
-    final available = store.availableTrackers;
+//   @override
+//   Widget build(BuildContext context) {
+//     // Available trackers come from the store's unowned device list
+//     final available = store.availableTrackers;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "Available Trackers",
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B)),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close,
-                      size: 20, color: Color(0xFF64748B)),
-                  onPressed: () => Navigator.of(context).pop(),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            available.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Center(
-                      child: Text(
-                        "No nearby trackers found.",
-                        style: TextStyle(
-                            color: Color(0xFF64748B), fontSize: 13),
-                      ),
-                    ),
-                  )
-                : Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: available.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                      itemBuilder: (ctx, index) {
-                        final tracker = available[index];
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            tracker.deviceName,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: Color(0xFF334155)),
-                          ),
-                          subtitle: Text(
-                            tracker.id,
-                            style: const TextStyle(
-                                fontSize: 12, color: Color(0xFF64748B)),
-                          ),
-                          trailing: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0052FF),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
-                            ),
-                            onPressed: () {
-                              store.linkTracker(tracker.id);
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text("Add"),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+//     return Dialog(
+//       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+//       child: Padding(
+//         padding: const EdgeInsets.all(20.0),
+//         child: Column(
+//           mainAxisSize: MainAxisSize.min,
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             Row(
+//               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//               children: [
+//                 const Text(
+//                   "Available Trackers",
+//                   style: TextStyle(
+//                       fontSize: 18,
+//                       fontWeight: FontWeight.bold,
+//                       color: Color(0xFF1E293B)),
+//                 ),
+//                 IconButton(
+//                   icon: const Icon(Icons.close,
+//                       size: 20, color: Color(0xFF64748B)),
+//                   onPressed: () => Navigator.of(context).pop(),
+//                   padding: EdgeInsets.zero,
+//                   constraints: const BoxConstraints(),
+//                 ),
+//               ],
+//             ),
+//             const SizedBox(height: 12),
+//             available.isEmpty
+//                 ? const Padding(
+//                     padding: EdgeInsets.symmetric(vertical: 16),
+//                     child: Center(
+//                       child: Text(
+//                         "No nearby trackers found.",
+//                         style: TextStyle(
+//                             color: Color(0xFF64748B), fontSize: 13),
+//                       ),
+//                     ),
+//                   )
+//                 : Flexible(
+//                     child: ListView.separated(
+//                       shrinkWrap: true,
+//                       itemCount: available.length,
+//                       separatorBuilder: (_, __) =>
+//                           const Divider(height: 1, color: Color(0xFFE2E8F0)),
+//                       itemBuilder: (ctx, index) {
+//                         final tracker = available[index];
+//                         return ListTile(
+//                           contentPadding: EdgeInsets.zero,
+//                           title: Text(
+//                             tracker.deviceName,
+//                             style: const TextStyle(
+//                                 fontWeight: FontWeight.bold,
+//                                 fontSize: 14,
+//                                 color: Color(0xFF334155)),
+//                           ),
+//                           subtitle: Text(
+//                             tracker.id,
+//                             style: const TextStyle(
+//                                 fontSize: 12, color: Color(0xFF64748B)),
+//                           ),
+//                           trailing: ElevatedButton(
+//                             style: ElevatedButton.styleFrom(
+//                               backgroundColor: const Color(0xFF0052FF),
+//                               foregroundColor: Colors.white,
+//                               elevation: 0,
+//                               shape: RoundedRectangleBorder(
+//                                   borderRadius: BorderRadius.circular(8)),
+//                             ),
+//                             onPressed: () {
+//                               store.linkTracker(tracker.id);
+//                               Navigator.of(context).pop();
+//                             },
+//                             child: const Text("Add"),
+//                           ),
+//                         );
+//                       },
+//                     ),
+//                   ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Tracker Card
