@@ -37,6 +37,19 @@ class _SummaryNewPageState extends State<SummaryNewPage>
   // ── Selected Status Filter ────────────────────────────────────────────────
 String? _selectedStatusFilter; // null means "All" / no filter
 
+  // ── ADD THE CODE FROM STEP 1 RIGHT HERE ───────────────────────────────────
+  final List _allPollutantKeys = [
+    'PM2.5',
+    'CO₂',
+    'PM1.0',
+    'PM10',
+    'CO',
+    'O₃',
+    'Temp',
+    'Humidity',
+  ];
+
+  late Set _selectedPollutants = Set.from(_allPollutantKeys);
 
   // ── AQI Info Card toggle ──────────────────────────────────────────────────
   bool _showAqiInfo = false;
@@ -968,165 +981,220 @@ Widget _buildRankingsSection(AppDataStore store) {
 }
 
   // ── TAB 2: POLLUTANT AVERAGES ─────────────────────────────────────────────
-  Widget _buildReadingsTab(List<TrackerReading> readings) {
-    return SingleChildScrollView(
+Widget _buildReadingsTab(List<TrackerReading> readings) {
+  return SingleChildScrollView(
+    padding: const EdgeInsets.all(16),
+    child: Container(
       padding: const EdgeInsets.all(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: _cardDecoration,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: const [
-                Icon(Icons.sensors, size: 18, color: Color(0xFF2563EB)),
-                SizedBox(width: 6),
-                Text(
-                  "Average Readings (All Trackers)",
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+      decoration: _cardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Row(
+                children: [
+                  Icon(Icons.sensors, size: 18, color: Color(0xFF2563EB)),
+                  SizedBox(width: 6),
+                  Text(
+                    "Average Readings",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+              // REMOVED: Deselect All / Select All TextButton 
+            ],
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            "Display preferred air pollutant readings by clicking on the tags below.",
+            style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+          ),
+          const SizedBox(height: 12),
+
+          // ── FILTER CHIPS ──────────────────────────────────────────────────
+          Wrap(
+            spacing: 6.0,
+            runSpacing: 4.0,
+            children: _allPollutantKeys.map((key) {
+              final isSelected = _selectedPollutants.contains(key);
+              return FilterChip(
+                label: Text(
+                  key,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                  ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            const Text(
-              "PM2.5 and CO₂ are the most safety-critical, shown larger.",
-              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-            ),
-            const SizedBox(height: 16),
-            _buildPollutantGrid(readings),
-          ],
+                selected: isSelected,
+                onSelected: (bool selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedPollutants.add(key);
+                    } else {
+                      // Prevent deselecting if it's the last remaining pollutant
+                      if (_selectedPollutants.length > 1) {
+                        _selectedPollutants.remove(key);
+                      }
+                    }
+                  });
+                },
+                selectedColor: const Color(0xFFEFF6FF),
+                backgroundColor: const Color(0xFFF1F5F9),
+                checkmarkColor: const Color(0xFF2563EB),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: isSelected ? const Color(0xFFBFDBFE) : Colors.transparent,
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 16),
+          _buildPollutantGrid(readings),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _buildPollutantGrid(List<TrackerReading> readings) {
+  final pm1 = _avg(readings.map((r) => r.pm1Ugm3).toList());
+  final pm25 = _avg(readings.map((r) => r.pm25Ugm3).toList());
+  final pm10 = _avg(readings.map((r) => r.pm10Ugm3).toList());
+  final co = _avg(readings.map((r) => r.coPpm).toList());
+  final co2 = _avg(readings.map((r) => r.co2Ppm).toList());
+  final o3 = _avg(readings.map((r) => r.o3Ppm * 1000).toList());
+  final temp = _avg(readings.map((r) => r.temperatureC).toList());
+  final hum = _avg(readings.map((r) => r.humidityPct).toList());
+
+  final hasData = readings.isNotEmpty;
+  String fmt(double v, int d) => hasData ? v.toStringAsFixed(d) : '0.0';
+
+  // Map each pollutant key to its widget builder
+  final Map<String, Widget> cardMap = {
+    'PM2.5': _buildPollutantCard(
+      "PM2.5", fmt(pm25, 1), "µg/m³",
+      hasData ? _pm25Status(pm25) : 'Good',
+      hasData ? _pm25StatusBg(pm25) : const Color(0xFFDCFCE7),
+      hasData ? _pm25StatusText(pm25) : const Color(0xFF166534),
+      true,
+      isLarge: true,
+      infoText: "PM2.5 are fine dust particles that come from smoke, cooking, or outdoor pollution.\n\nSafe below 12 µg/m³ (WHO guideline).",
+    ),
+    'CO₂': _buildPollutantCard(
+      "CO₂", fmt(co2, 0), "ppm",
+      hasData ? _co2Status(co2) : 'Excellent',
+      hasData ? _co2StatusBg(co2) : const Color(0xFFDCFCE7),
+      hasData ? _co2StatusText(co2) : const Color(0xFF166534),
+      true,
+      isLarge: true,
+      infoText: "CO₂ builds up in rooms with many people and poor air circulation.\n\nGood below 800 ppm · Stuffy above 1000 ppm.",
+    ),
+    'PM1.0': _buildPollutantCard(
+      "PM1.0", fmt(pm1, 1), "µg/m³",
+      hasData ? _pm25Status(pm1) : 'Good',
+      hasData ? _pm25StatusBg(pm1) : const Color(0xFFDCFCE7),
+      hasData ? _pm25StatusText(pm1) : const Color(0xFF166534),
+      true,
+      infoText: "PM1.0 are ultra-fine particles smaller than 1 micron that penetrate deep into airways.",
+    ),
+    'PM10': _buildPollutantCard(
+      "PM10", fmt(pm10, 1), "µg/m³",
+      hasData ? _pm25Status(pm10) : 'Good',
+      hasData ? _pm25StatusBg(pm10) : const Color(0xFFDCFCE7),
+      hasData ? _pm25StatusText(pm10) : const Color(0xFF166534),
+      true,
+      infoText: "PM10 includes inhalable dust, pollen, and mold particles.",
+    ),
+    'CO': _buildPollutantCard(
+      "CO", fmt(co, 1), "ppm",
+      hasData ? _coStatus(co) : 'Normal',
+      hasData ? _coStatusBg(co) : const Color(0xFFDCFCE7),
+      hasData ? _coStatusText(co) : const Color(0xFF166534),
+      true,
+      infoText: "Carbon Monoxide is an odorless gas produced by incomplete combustion.",
+    ),
+    'O₃': _buildPollutantCard(
+      "O₃", fmt(o3, 1), "ppb",
+      hasData ? (o3 <= 70 ? 'Good' : 'Elevated') : 'Good',
+      hasData ? (o3 <= 70 ? const Color(0xFFDCFCE7) : const Color(0xFFFEF9C3)) : const Color(0xFFDCFCE7),
+      hasData ? (o3 <= 70 ? const Color(0xFF166534) : const Color(0xFFA16207)) : const Color(0xFF166534),
+      false,
+      infoText: "Ground-level Ozone can irritate the respiratory system, especially for sensitive groups.",
+    ),
+    'Temp': _buildPollutantCard(
+      "Temp", fmt(temp, 1), "°C",
+      hasData ? _tempStatus(temp) : 'Comfortable',
+      hasData ? _tempStatusBg(temp) : const Color(0xFFDCFCE7),
+      hasData ? _tempStatusText(temp) : const Color(0xFF166534),
+      true,
+      infoText: "Indoor temperature affects overall thermal comfort and room circulation.",
+    ),
+    'Humidity': _buildPollutantCard(
+      "Humidity", fmt(hum, 1), "%",
+      hasData ? _humStatus(hum) : 'Ideal',
+      hasData ? _humStatusBg(hum) : const Color(0xFFDCFCE7),
+      hasData ? _humStatusText(hum) : const Color(0xFF166534),
+      true,
+      infoText: "Optimal humidity is between 30% and 60% to limit mold and dust mite growth.",
+    ),
+  };
+
+  // Extract selected cards based on user selection order
+  final activeCards = _allPollutantKeys
+      .where((k) => _selectedPollutants.contains(k))
+      .map((k) => cardMap[k]!)
+      .toList();
+
+  if (activeCards.isEmpty) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 24.0),
+      child: Center(
+        child: Text(
+          "No pollutants selected",
+          style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
         ),
       ),
     );
   }
 
-  Widget _buildPollutantGrid(List<TrackerReading> readings) {
-    final pm1 = _avg(readings.map((r) => r.pm1Ugm3).toList());
-    final pm25 = _avg(readings.map((r) => r.pm25Ugm3).toList());
-    final pm10 = _avg(readings.map((r) => r.pm10Ugm3).toList());
-    final co = _avg(readings.map((r) => r.coPpm).toList());
-    final co2 = _avg(readings.map((r) => r.co2Ppm).toList());
-    final o3 = _avg(readings.map((r) => r.o3Ppm * 1000).toList());
-    final temp = _avg(readings.map((r) => r.temperatureC).toList());
-    final hum = _avg(readings.map((r) => r.humidityPct).toList());
+  // Pair active cards into 2-column rows
+  final List<Widget> rows = [];
+  for (int i = 0; i < activeCards.length; i += 2) {
+    final first = activeCards[i];
+    final second = (i + 1 < activeCards.length) ? activeCards[i + 1] : null;
 
-    final hasData = readings.isNotEmpty;
-    String fmt(double v, int d) => hasData ? v.toStringAsFixed(d) : '0.0';
-
-    return Column(
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _buildPollutantCard(
-                "PM2.5", fmt(pm25, 1), "µg/m³",
-                hasData ? _pm25Status(pm25) : 'Good',
-                hasData ? _pm25StatusBg(pm25) : const Color(0xFFDCFCE7),
-                hasData ? _pm25StatusText(pm25) : const Color(0xFF166534),
-                true,
-                isLarge: true,
-                infoText: "PM2.5 are fine dust particles that come from smoke, cooking, or outdoor pollution.\n\nSafe below 12 µg/m³ (WHO guideline).",
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildPollutantCard(
-                "CO₂", fmt(co2, 0), "ppm",
-                hasData ? _co2Status(co2) : 'Excellent',
-                hasData ? _co2StatusBg(co2) : const Color(0xFFDCFCE7),
-                hasData ? _co2StatusText(co2) : const Color(0xFF166534),
-                true,
-                isLarge: true,
-                infoText: "CO₂ builds up in rooms with many people and poor air circulation.\n\nGood below 800 ppm · Stuffy above 1000 ppm.",
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _buildPollutantCard(
-                "PM1.0", fmt(pm1, 1), "µg/m³",
-                hasData ? _pm25Status(pm1) : 'Good',
-                hasData ? _pm25StatusBg(pm1) : const Color(0xFFDCFCE7),
-                hasData ? _pm25StatusText(pm1) : const Color(0xFF166534),
-                true,
-                infoText: "PM1.0 are ultra-fine particles smaller than 1 micron that penetrate deep into airways.",
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildPollutantCard(
-                "PM10", fmt(pm10, 1), "µg/m³",
-                hasData ? _pm25Status(pm10) : 'Good',
-                hasData ? _pm25StatusBg(pm10) : const Color(0xFFDCFCE7),
-                hasData ? _pm25StatusText(pm10) : const Color(0xFF166534),
-                true,
-                infoText: "PM10 includes inhalable dust, pollen, and mold particles.",
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _buildPollutantCard(
-                "CO", fmt(co, 1), "ppm",
-                hasData ? _coStatus(co) : 'Normal',
-                hasData ? _coStatusBg(co) : const Color(0xFFDCFCE7),
-                hasData ? _coStatusText(co) : const Color(0xFF166534),
-                true,
-                infoText: "Carbon Monoxide is an odorless gas produced by incomplete combustion.",
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildPollutantCard(
-                "O₃", fmt(o3, 1), "ppb",
-                hasData ? (o3 <= 70 ? 'Good' : 'Elevated') : 'Good',
-                hasData ? (o3 <= 70 ? const Color(0xFFDCFCE7) : const Color(0xFFFEF9C3)) : const Color(0xFFDCFCE7),
-                hasData ? (o3 <= 70 ? const Color(0xFF166534) : const Color(0xFFA16207)) : const Color(0xFF166534),
-                false,
-                infoText: "Ground-level Ozone can irritate the respiratory system, especially for sensitive groups.",
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _buildPollutantCard(
-                "Temp", fmt(temp, 1), "°C",
-                hasData ? _tempStatus(temp) : 'Comfortable',
-                hasData ? _tempStatusBg(temp) : const Color(0xFFDCFCE7),
-                hasData ? _tempStatusText(temp) : const Color(0xFF166534),
-                true,
-                infoText: "Indoor temperature affects overall thermal comfort and room circulation.",
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildPollutantCard(
-                "Humidity", fmt(hum, 1), "%",
-                hasData ? _humStatus(hum) : 'Ideal',
-                hasData ? _humStatusBg(hum) : const Color(0xFFDCFCE7),
-                hasData ? _humStatusText(hum) : const Color(0xFF166534),
-                true,
-                infoText: "Optimal humidity is between 30% and 60% to limit mold and dust mite growth.",
-              ),
-            ),
-          ],
-        ),
-      ],
+    rows.add(
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: first),
+          const SizedBox(width: 12),
+          Expanded(
+            child: second ?? const SizedBox.shrink(),
+          ),
+        ],
+      ),
     );
+
+    if (i + 2 < activeCards.length) {
+      rows.add(const SizedBox(height: 12));
+    }
   }
+
+  return Column(children: rows);
+}
 
   Widget _buildPollutantCard(
     String keyName,
