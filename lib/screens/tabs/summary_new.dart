@@ -982,6 +982,8 @@ Widget _buildRankingsSection(AppDataStore store) {
 
   // ── TAB 2: POLLUTANT AVERAGES ─────────────────────────────────────────────
 Widget _buildReadingsTab(List<TrackerReading> readings) {
+  final isAllSelected = _selectedPollutants.length == _allPollutantKeys.length;
+
   return SingleChildScrollView(
     padding: const EdgeInsets.all(16),
     child: Container(
@@ -992,9 +994,9 @@ Widget _buildReadingsTab(List<TrackerReading> readings) {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children: [
               Row(
-                children: [
+                children: const [
                   Icon(Icons.sensors, size: 18, color: Color(0xFF2563EB)),
                   SizedBox(width: 6),
                   Text(
@@ -1007,7 +1009,24 @@ Widget _buildReadingsTab(List<TrackerReading> readings) {
                   ),
                 ],
               ),
-              // REMOVED: Deselect All / Select All TextButton 
+              // Show "Select All" button only when not all items are selected
+              if (!isAllSelected)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedPollutants = Set.from(_allPollutantKeys);
+                    });
+                  },
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(50, 20),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    "Select All",
+                    style: TextStyle(fontSize: 11, color: Color(0xFF2563EB)),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 2),
