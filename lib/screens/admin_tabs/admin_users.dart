@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
+import 'package:pollutracker_app/screens/tabs/notifications_screen.dart';
 
 class AdminUsersTab extends StatefulWidget {
   const AdminUsersTab({super.key});
@@ -11,6 +12,7 @@ class AdminUsersTab extends StatefulWidget {
 }
 
 class _AdminUsersTabState extends State<AdminUsersTab> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _db               = FirebaseFirestore.instance;
   final _searchController = TextEditingController();
   String _searchQuery     = '';
@@ -219,9 +221,10 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+  return Scaffold(
+      key: _scaffoldKey, // Attach key here
       backgroundColor: const Color(0xFFF8FAFC),
-      endDrawer: const _NotificationsEndDrawer(),
+      endDrawer: const NotificationsScreen(), // Use real-time notifications drawer
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -461,13 +464,10 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                   ],
                 ),
               ]),
-              Builder(builder: (innerCtx) {
-                return GestureDetector(
-                  onTap: () => Scaffold.of(innerCtx).openEndDrawer(),
-                  child: const Icon(Icons.notifications,
-                      color: Colors.white, size: 26),
-                );
-              }),
+            GestureDetector(
+              onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
+              child: const Icon(Icons.notifications, color: Colors.white, size: 26),
+            ),
             ],
           ),
           const SizedBox(height: 8),
@@ -1390,58 +1390,6 @@ Future<void> _handleSave() async {
                     color: selected ? color : const Color(0xFF475569))),
           ]),
         ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Notifications end drawer
-// ═══════════════════════════════════════════════════════════════════════════════
-
-class _NotificationsEndDrawer extends StatelessWidget {
-  const _NotificationsEndDrawer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      width: MediaQuery.of(context).size.width * 0.85,
-      backgroundColor: Colors.white,
-      elevation: 16,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          bottomLeft: Radius.circular(24),
-        ),
-      ),
-      child: SafeArea(
-        child: Column(children: [
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Notifications',
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A))),
-                IconButton(
-                  icon: const Icon(Icons.close,
-                      color: Color(0xFF64748B), size: 22),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const Expanded(
-            child: Center(
-              child: Text('No notifications',
-                  style: TextStyle(color: Color(0xFF94A3B8))),
-            ),
-          ),
-        ]),
       ),
     );
   }

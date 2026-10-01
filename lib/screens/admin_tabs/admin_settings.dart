@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pollutracker_app/stores/app_data_store.dart';
+import 'package:pollutracker_app/screens/tabs/notifications_screen.dart';
 
 class AdminSettingsTab extends StatefulWidget {
   const AdminSettingsTab({super.key});
@@ -11,6 +12,8 @@ class AdminSettingsTab extends StatefulWidget {
 }
 
 class _AdminSettingsTabState extends State<AdminSettingsTab> {
+  // ✅ Explicitly type the GlobalKey with 
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   // General Settings Controllers
   final TextEditingController _systemNameController =
       TextEditingController(text: 'AETHER Admin Portal');
@@ -77,13 +80,13 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
   }
 
   @override
-  Widget build(BuildContext context) {
+Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey, // 2. Assign Scaffold Key
       backgroundColor: const Color(0xFFF8FAFC),
-      endDrawer: const _NotificationsEndDrawer(),
+      endDrawer: const NotificationsScreen(), // 3. Use real-time NotificationsScreen drawer
       body: Column(
         children: [
-          // Persistent Header copied from AdminUsersTab
           _buildHeader(context),
 
           // Scrollable Settings Body
@@ -351,33 +354,13 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                   ),
                 ],
               ),
-              Builder(
-                builder: (innerContext) {
-                  return GestureDetector(
-                    onTap: () => Scaffold.of(innerContext).openEndDrawer(),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        const Icon(Icons.notifications, color: Colors.white, size: 26),
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            width: 9,
-                            height: 9,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: const Color(0xFF2B52F3), width: 1.5),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+              GestureDetector(
+              onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
+              child: const Icon(Icons.notifications, color: Colors.white, size: 26),
               ),
             ],
           ),
+          const SizedBox(height: 8),
           const Text(
             'Settings',
             style: TextStyle(
@@ -596,209 +579,3 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
   }
 }
 
-class _NotificationsEndDrawer extends StatelessWidget {
-  const _NotificationsEndDrawer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      width: MediaQuery.of(context).size.width * 0.85,
-      backgroundColor: Colors.white,
-      elevation: 16,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          bottomLeft: Radius.circular(24),
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: const [
-                      Text(
-                        'Notifications',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      CircleAvatar(
-                        radius: 10,
-                        backgroundColor: Color(0xFFEFF6FF),
-                        child: Text(
-                          '3',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF3B82F6),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.close,
-                      color: Color(0xFF64748B),
-                      size: 22,
-                    ),
-                    tooltip: 'Close',
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: const [
-                  _NotificationTile(
-                    icon: Icons.warning_amber_rounded,
-                    iconBgColor: Color(0xFFFEF3C7),
-                    iconColor: Color(0xFFD97706),
-                    title: 'High PM2.5 Level Alert',
-                    subtitle: 'Common Area AQI reached 125 (Unhealthy).',
-                    time: '10 min ago',
-                    isUnread: true,
-                  ),
-                  _NotificationTile(
-                    icon: Icons.air,
-                    iconBgColor: Color(0xFFFEE2E2),
-                    iconColor: Color(0xFFDC2626),
-                    title: 'Critical CO2 Elevation',
-                    subtitle: 'Senior Care Unit B CO2 level exceeded 850 ppm.',
-                    time: '25 min ago',
-                    isUnread: true,
-                  ),
-                  _NotificationTile(
-                    icon: Icons.check_circle_outline,
-                    iconBgColor: Color(0xFFDCFCE7),
-                    iconColor: Color(0xFF16A34A),
-                    title: 'Alert Resolved',
-                    subtitle: 'Therapy Wing O3 levels returned to normal limits.',
-                    time: '1 hour ago',
-                    isUnread: true,
-                  ),
-                  _NotificationTile(
-                    icon: Icons.person_add_alt_1,
-                    iconBgColor: Color(0xFFDBEAFE),
-                    iconColor: Color(0xFF2563EB),
-                    title: 'New Tracker Assigned',
-                    subtitle: 'Device #AETH-07 registered to Nursing Station.',
-                    time: '3 hours ago',
-                    isUnread: false,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationTile extends StatelessWidget {
-  final IconData icon;
-  final Color iconBgColor;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  final String time;
-  final bool isUnread;
-
-  const _NotificationTile({
-    required this.icon,
-    required this.iconBgColor,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    required this.time,
-    required this.isUnread,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: isUnread ? const Color(0xFFF8FAFC) : Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconBgColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
-                          color: const Color(0xFF0F172A),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      time,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
-                    height: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (isUnread) ...[
-            const SizedBox(width: 8),
-            Container(
-              margin: const EdgeInsets.only(top: 6),
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: Color(0xFF3B82F6),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}

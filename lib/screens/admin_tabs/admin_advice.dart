@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pollutracker_app/screens/tabs/notifications_screen.dart';
 
 class AdminAdviceTab extends StatefulWidget {
   const AdminAdviceTab({super.key});
@@ -9,6 +10,7 @@ class AdminAdviceTab extends StatefulWidget {
 }
 
 class _AdminAdviceTabState extends State<AdminAdviceTab> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _db = FirebaseFirestore.instance;
   String _searchQuery = '';
   String _filterSeverity = 'All';
@@ -189,12 +191,14 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
       )['label'] ?? value;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SingleChildScrollView(
-        child: Column(children: [
-          _buildHeader(context),
+Widget build(BuildContext context) {
+  return Scaffold(
+    key: _scaffoldKey, // Add key
+    endDrawer: const NotificationsScreen(), // Add endDrawer
+    backgroundColor: const Color(0xFFF8FAFC),
+    body: SingleChildScrollView(
+      child: Column(children: [
+        _buildHeader(context),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(children: [
@@ -410,7 +414,10 @@ class _AdminAdviceTabState extends State<AdminAdviceTab> {
                     style: TextStyle(color: Color(0xFFC7D2FE), fontSize: 11)),
               ]),
             ]),
-            const Icon(Icons.notifications, color: Colors.white, size: 26),
+            GestureDetector(
+            onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
+            child: const Icon(Icons.notifications, color: Colors.white, size: 26),
+            ),
           ],
         ),
         const SizedBox(height: 8),

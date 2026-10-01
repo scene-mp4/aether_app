@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '/stores/app_data_store.dart';
 import '/models/tracker_reading.dart';
 import '/models/tracker_info.dart';
+import 'package:pollutracker_app/screens/tabs/notifications_screen.dart';
 
 class AdminDashboardTab extends StatefulWidget {
   const AdminDashboardTab({super.key});
@@ -42,7 +43,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
-          endDrawer: _NotificationsEndDrawer(readings: readings),
+          endDrawer: const NotificationsScreen(), //[cite: 1, 3]
           body: SingleChildScrollView(
             child: Column(
               children: [
@@ -76,7 +77,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
   // ── Header ─────────────────────────────────────────────────────────────────
   Widget _buildHeader(BuildContext context, List<TrackerReading> readings) {
     final topPadding = MediaQuery.of(context).padding.top;
-    final hasAlert   = readings.any((r) => r.coAlert || r.pm25Alert || r.lpgAlert);
+    
 
     return Container(
       width: double.infinity,
@@ -127,35 +128,16 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
               // Notification bell — badge count derived from live alerts
               Builder(
                 builder: (innerContext) {
-                  return GestureDetector(
-                    onTap: () =>
-                        Scaffold.of(innerContext).openEndDrawer(),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        const Icon(Icons.notifications,
-                            color: Colors.white, size: 26),
-                        if (hasAlert)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              width: 9,
-                              height: 9,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: const Color(0xFF2B52F3),
-                                    width: 1.5),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                    return GestureDetector(
+                      onTap: () => Scaffold.of(innerContext).openEndDrawer(),
+                      child: const Icon(
+                        Icons.notifications,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -629,220 +611,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Notifications end drawer — shows active alerts from live data
-// ═══════════════════════════════════════════════════════════════════════════════
-
-class _NotificationsEndDrawer extends StatelessWidget {
-  final List<TrackerReading> readings;
-  const _NotificationsEndDrawer({required this.readings});
-
-  @override
-  Widget build(BuildContext context) {
-    // Build notification items from live alert flags
-    final notifications = <Map<String, dynamic>>[];
-    for (final r in readings) {
-      if (r.coAlert) notifications.add({
-        'icon':    Icons.warning_amber_rounded,
-        'iconBg':  const Color(0xFFFEE2E2),
-        'iconColor': const Color(0xFFDC2626),
-        'title':   'CO Alert — ${r.locationName}',
-        'subtitle':'Carbon monoxide at ${r.coPpm.toStringAsFixed(1)} ppm. Ventilate immediately.',
-        'unread':  true,
-      });
-      if (r.pm25Alert) notifications.add({
-        'icon':    Icons.grain,
-        'iconBg':  const Color(0xFFFEF3C7),
-        'iconColor': const Color(0xFFD97706),
-        'title':   'High PM2.5 — ${r.locationName}',
-        'subtitle':'PM2.5 at ${r.pm25Ugm3.toStringAsFixed(1)} µg/m³ (AQI ${r.pm25Aqi}).',
-        'unread':  true,
-      });
-      if (r.lpgAlert) notifications.add({
-        'icon':    Icons.local_fire_department_outlined,
-        'iconBg':  const Color(0xFFFFF7ED),
-        'iconColor': const Color(0xFFC2410C),
-        'title':   'Gas/Smoke Alert — ${r.locationName}',
-        'subtitle':'LPG/Smoke at ${r.lpgPpm.toStringAsFixed(0)} ppm. Check sources.',
-        'unread':  true,
-      });
-    }
-
-    final count = notifications.length;
-
-    return Drawer(
-      width: MediaQuery.of(context).size.width * 0.85,
-      backgroundColor: Colors.white,
-      elevation: 16,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          bottomLeft: Radius.circular(24),
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(children: [
-                    const Text('Notifications',
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A))),
-                    const SizedBox(width: 8),
-                    if (count > 0)
-                      CircleAvatar(
-                        radius: 10,
-                        backgroundColor: const Color(0xFFFEE2E2),
-                        child: Text('$count',
-                            style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFDC2626))),
-                      ),
-                  ]),
-                  IconButton(
-                    icon: const Icon(Icons.close,
-                        color: Color(0xFF64748B), size: 22),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
-            Expanded(
-              child: notifications.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check_circle_outline,
-                              size: 40, color: Color(0xFF22C55E)),
-                          SizedBox(height: 12),
-                          Text('No active alerts',
-                              style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontWeight: FontWeight.bold)),
-                          SizedBox(height: 4),
-                          Text('All trackers are within safe ranges.',
-                              style: TextStyle(
-                                  color: Color(0xFF94A3B8),
-                                  fontSize: 12)),
-                        ],
-                      ),
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      children: notifications
-                          .map((n) => _NotificationTile(
-                                icon:        n['icon'],
-                                iconBgColor: n['iconBg'],
-                                iconColor:   n['iconColor'],
-                                title:       n['title'],
-                                subtitle:    n['subtitle'],
-                                time:        'Just now',
-                                isUnread:    n['unread'],
-                              ))
-                          .toList(),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Reusable item widgets
-// ═══════════════════════════════════════════════════════════════════════════════
-
-class _NotificationTile extends StatelessWidget {
-  final IconData icon;
-  final Color    iconBgColor;
-  final Color    iconColor;
-  final String   title;
-  final String   subtitle;
-  final String   time;
-  final bool     isUnread;
-
-  const _NotificationTile({
-    required this.icon,
-    required this.iconBgColor,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    required this.time,
-    required this.isUnread,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: isUnread ? const Color(0xFFF8FAFC) : Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration:
-                BoxDecoration(color: iconBgColor, shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(title,
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: isUnread
-                                  ? FontWeight.bold
-                                  : FontWeight.w600,
-                              color: const Color(0xFF0F172A)),
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    Text(time,
-                        style: const TextStyle(
-                            fontSize: 10, color: Color(0xFF94A3B8))),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF64748B),
-                        height: 1.2)),
-              ],
-            ),
-          ),
-          if (isUnread) ...[
-            const SizedBox(width: 8),
-            Container(
-              margin: const EdgeInsets.only(top: 6),
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                  color: Color(0xFF3B82F6), shape: BoxShape.circle),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
 
 class _ChartLegendItem extends StatelessWidget {
   final Color  color;
