@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../models/tracker_reading.dart';
 import '../models/tracker_history.dart';
@@ -31,6 +30,7 @@ class AppDataStore extends ChangeNotifier {
   String? _error;
 
   // ── Admin state ────────────────────────────────────────────────────────────
+  bool                         _isAdmin            = false;
   List<TrackerInfo>            _allTrackers        = [];
   Map<String, TrackerReading>  _allLatestReadings  = {};
 
@@ -53,6 +53,7 @@ class AppDataStore extends ChangeNotifier {
   List<TrackerInfo> get trackers          => List.unmodifiable(_trackers);
   List<TrackerInfo> get availableTrackers => List.unmodifiable(_availableTrackers);
   List<TrackerInfo> get allTrackers       => List.unmodifiable(_allTrackers);
+  bool              get isAdmin           => _isAdmin;
 
   Map<String, TrackerReading> get latestReadings    => Map.unmodifiable(_latestReadings);
   Map<String, TrackerReading> get allLatestReadings => Map.unmodifiable(_allLatestReadings);
@@ -123,6 +124,7 @@ class AppDataStore extends ChangeNotifier {
 
     _loading      = false;
     _initializing = false;
+    _isAdmin      = false;
     _error        = null;
     _clearing     = false;
 
@@ -208,23 +210,7 @@ class AppDataStore extends ChangeNotifier {
 
     // Listen to active advice entries — shared across all users
     _openAdviceStream();
-
-    await _saveFcmToken();
-
   }
-
-      // In AppDataStore.initialize(), after opening streams:
-      Future<void> _saveFcmToken() async {
-        // FCM tokens are not used on web in this project
-        if (kIsWeb) return;
-
-        final uid   = _auth.currentUser?.uid;
-        final token = await FirebaseMessaging.instance.getToken();
-        if (uid == null || token == null) return;
-        await _db.collection('users').doc(uid).update({
-          'fcm_tokens': FieldValue.arrayUnion([token]),
-        });
-      }
 
   // ── Advice stream ──────────────────────────────────────────────────────────
   // Opens a live stream on the advice collection filtered to active entries.
@@ -264,6 +250,7 @@ class AppDataStore extends ChangeNotifier {
   // Called in addition to initialize() for admin users.
   // ═══════════════════════════════════════════════════════════════════════════
   Future<void> initializeAdmin() async {
+    _isAdmin = true;
     _allDevicesSub = _db
         .collection('devices')
         .snapshots()
