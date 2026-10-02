@@ -175,16 +175,30 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
     );
   }
 
-  // ── AQI line chart (24h history) ──────────────────────────────────────────
+  // ── AQI line chart ─────────────────────────────────────────────────────────
+  // FIX: Uses live allReadingFor readings instead of history which may not
+  // have loaded yet. Shows current snapshot of all trackers as a bar-style
+  // comparison rather than a time series, so it always has data to display.
   Widget _buildAirQualityChartCard(
       AppDataStore store, List<TrackerInfo> trackers) {
-    // Gather history from all trackers that have it
-    final allReadings = trackers
+    final liveReadings = trackers
+        .map((t) => store.allReadingFor(t.id))
+        .where((r) => r != null)
+        .map((r) => r!)
+        .toList();
+
+    // Try history if available for time-series view
+    final historyReadings = trackers
         .map((t) => store.historyFor(t.id))
         .where((h) => h != null && h.readings.isNotEmpty)
         .expand((h) => h!.readings)
         .toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    // Use history if loaded, otherwise fall back to live snapshot
+    final chartReadings = historyReadings.isNotEmpty
+        ? historyReadings
+        : liveReadings;
 
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -192,19 +206,47 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Air Quality Index (24h)',
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B))),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 200,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: _AqiChartPainter(readings: allReadings),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Air Quality Index',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B))),
+              Text(
+                historyReadings.isNotEmpty ? '24h history' : 'Live snapshot',
+                style: const TextStyle(
+                    fontSize: 11, color: Color(0xFF94A3B8)),
+              ),
+            ],
           ),
+          const SizedBox(height: 16),
+          if (chartReadings.isEmpty)
+            const SizedBox(
+              height: 200,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.bar_chart_outlined,
+                        size: 40, color: Color(0xFFCBD5E1)),
+                    SizedBox(height: 8),
+                    Text('Waiting for readings…',
+                        style: TextStyle(
+                            fontSize: 12, color: Color(0xFF94A3B8))),
+                  ],
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 200,
+              width: double.infinity,
+              child: CustomPaint(
+                painter: _AqiChartPainter(readings: chartReadings),
+              ),
+            ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -247,6 +289,26 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
       'O₃ ${(slices[4]    * 100).toStringAsFixed(0)}%',
     ];
 
+    // Raw values for legend (non-normalised averages)
+    final rawValues = readings.isEmpty
+        ? <double>[0, 0, 0, 0, 0]
+        : [
+            readings.map((r) => r.pm25Ugm3).reduce((a, b) => a + b) / readings.length,
+            readings.map((r) => r.pm10Ugm3).reduce((a, b) => a + b) / readings.length,
+            readings.map((r) => r.co2Ppm).reduce((a, b) => a + b) / readings.length,
+            readings.map((r) => r.coPpm).reduce((a, b) => a + b) / readings.length,
+            readings.map((r) => r.o3Ppm * 1000).reduce((a, b) => a + b) / readings.length,
+          ];
+    const legendColors = [
+      Color(0xFFEAB308),
+      Color(0xFF22C55E),
+      Color(0xFF3B82F6),
+      Color(0xFFEF4444),
+      Color(0xFFA855F7),
+    ];
+    const legendNames = ['PM2.5', 'PM10', 'CO₂', 'CO', 'O₃'];
+    const legendUnits = ['µg/m³', 'µg/m³', 'ppm', 'ppm', 'ppb'];
+
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: _cardDecoration(),
@@ -266,14 +328,73 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
             style: const TextStyle(
                 fontSize: 11, color: Color(0xFF94A3B8)),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 200,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: _PieChartPainter(
-                  slices: slices, labels: labels),
-            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              // Donut chart — no labels on canvas
+              SizedBox(
+                height: 160,
+                width: 160,
+                child: CustomPaint(
+                  painter: _PieChartPainter(slices: slices),
+                ),
+              ),
+              const SizedBox(width: 20),
+              // FIX: Flutter legend replaces misaligned canvas labels
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: List.generate(legendNames.length, (i) {
+                    final pct = (slices[i] * 100).toStringAsFixed(1);
+                    final val = rawValues[i].toStringAsFixed(1);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(children: [
+                        Container(
+                          width: 12, height: 12,
+                          decoration: BoxDecoration(
+                            color: legendColors[i],
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(legendNames[i],
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF334155))),
+                                  Text('$pct%',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: legendColors[i])),
+                                ],
+                              ),
+                              Text(
+                                readings.isEmpty
+                                    ? '—'
+                                    : '$val ${legendUnits[i]}',
+                                style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xFF94A3B8)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ]),
+                    );
+                  }),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -886,16 +1007,17 @@ class _AqiChartPainter extends CustomPainter {
 
 class _PieChartPainter extends CustomPainter {
   final List<double> slices;
-  final List<String> labels;
 
-  const _PieChartPainter({required this.slices, required this.labels});
+  // FIX: labels removed from painter — now rendered as a Flutter legend
+  // widget alongside the chart, which positions correctly on all screen sizes.
+  const _PieChartPainter({required this.slices});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.height / 2.5;
+    final radius = min(size.width, size.height) / 2 - 4;
 
-    final colors = const [
+    const colors = [
       Color(0xFFEAB308),
       Color(0xFF22C55E),
       Color(0xFF3B82F6),
@@ -903,46 +1025,34 @@ class _PieChartPainter extends CustomPainter {
       Color(0xFFA855F7),
     ];
 
-    double startAngle = -pi / 2; // start at top
+    double startAngle = -pi / 2;
 
     for (int i = 0; i < slices.length; i++) {
+      if (slices[i] <= 0) continue;
       final sweep = slices[i] * 2 * pi;
+      // Slice
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        sweep,
-        true,
+        startAngle, sweep, true,
         Paint()..color = colors[i]..style = PaintingStyle.fill,
+      );
+      // White gap between slices
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle, sweep, true,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
       );
       startAngle += sweep;
     }
 
-    // White ring in the middle (donut look)
-    canvas.drawCircle(center, radius * 0.55,
-        Paint()..color = Colors.white..style = PaintingStyle.fill);
-
-    // Label positions around the pie
-    final labelOffsets = [
-      Offset(center.dx + 25,      center.dy - radius - 20),
-      Offset(center.dx - radius - 70, center.dy - 30),
-      Offset(center.dx - 40,      center.dy + radius + 10),
-      Offset(center.dx + radius - 5,  center.dy + 35),
-      Offset(center.dx + radius + 5,  center.dy - 20),
-    ];
-
-    final tp = TextPainter(textDirection: TextDirection.ltr);
-    for (int i = 0; i < labels.length; i++) {
-      tp.text = TextSpan(
-          text: labels[i],
-          style: TextStyle(
-              color: colors[i],
-              fontSize: 10,
-              fontWeight: FontWeight.bold));
-      tp.layout();
-      if (i < labelOffsets.length) {
-        tp.paint(canvas, labelOffsets[i]);
-      }
-    }
+    // White donut hole
+    canvas.drawCircle(
+      center, radius * 0.52,
+      Paint()..color = Colors.white..style = PaintingStyle.fill,
+    );
   }
 
   @override
