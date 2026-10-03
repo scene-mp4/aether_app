@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -47,6 +48,141 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
     'Europe/London (GMT+0)',
   ];
 
+  bool _saving  = false;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  // ── Load settings from Firestore ──────────────────────────────────────────
+  Future<void> _loadSettings() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('settings')
+          .doc('admin')
+          .get();
+      if (!mounted) return;
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        setState(() {
+          _systemNameController.text =
+              data['system_name']  as String? ?? _systemNameController.text;
+          _orgController.text =
+              data['organization'] as String? ?? _orgController.text;
+          _selectedTimezone =
+              data['timezone']     as String? ?? _selectedTimezone;
+          _pushNotifications =
+              data['push_notifications'] as bool? ?? _pushNotifications;
+          _criticalAlerts =
+              data['critical_alerts']    as bool? ?? _criticalAlerts;
+
+          final t = data['thresholds'] as Map<String, dynamic>?;
+          if (t != null) {
+            _pm25Controller.text     = (t['pm25']     ?? 35).toString();
+            _pm10Controller.text     = (t['pm10']     ?? 50).toString();
+            _co2Controller.text      = (t['co2']      ?? 800).toString();
+            _coController.text       = (t['co']       ?? 9).toString();
+            _o3Controller.text       = (t['o3']       ?? 70).toString();
+            _tempController.text     = (t['temp']     ?? 32).toString();
+            _humidityController.text = (t['humidity'] ?? 70).toString();
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('[AdminSettings] load error: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // ── Save settings to Firestore ────────────────────────────────────────────
+  Future<void> _saveSettings() async {
+    setState(() => _saving = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('settings')
+          .doc('admin')
+          .set({
+        'system_name':        _systemNameController.text.trim(),
+        'organization':       _orgController.text.trim(),
+        'timezone':           _selectedTimezone,
+        'push_notifications': _pushNotifications,
+        'critical_alerts':    _criticalAlerts,
+        'thresholds': {
+          'pm25':     double.tryParse(_pm25Controller.text)     ?? 35,
+          'pm10':     double.tryParse(_pm10Controller.text)     ?? 50,
+          'co2':      double.tryParse(_co2Controller.text)      ?? 800,
+          'co':       double.tryParse(_coController.text)       ?? 9,
+          'o3':       double.tryParse(_o3Controller.text)       ?? 70,
+          'temp':     double.tryParse(_tempController.text)     ?? 32,
+          'humidity': double.tryParse(_humidityController.text) ?? 70,
+        },
+        'updated_at': FieldValue.serverTimestamp(),
+        'updated_by': FirebaseAuth.instance.currentUser?.uid ?? '',
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Settings saved successfully'),
+            backgroundColor: Color(0xFF22C55E),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save settings: $e')),
+        );
+      }
+    }
+    if (mounted) setState(() => _saving = false);
+  }
+
+  // ── Reset to defaults ─────────────────────────────────────────────────────
+  Future<void> _resetDefaults() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reset to Defaults'),
+        content: const Text(
+            'This will reset all settings to their default values. '
+            'This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2B52F3)),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reset',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() {
+      _systemNameController.text = 'AETHER Admin Portal';
+      _orgController.text        = 'Home Medix Physical Therapy, Caregiving';
+      _selectedTimezone          = 'Asia/Manila (GMT+8)';
+      _pushNotifications         = true;
+      _criticalAlerts            = true;
+      _pm25Controller.text       = '35';
+      _pm10Controller.text       = '50';
+      _co2Controller.text        = '800';
+      _coController.text         = '9';
+      _o3Controller.text         = '70';
+      _tempController.text       = '32';
+      _humidityController.text   = '70';
+    });
+    await _saveSettings();
+  }
+
   Future<void> _handleLogout() async {
     // FIX 1: await clear() so all Firestore streams are fully cancelled
     // before signOut() fires. clear() is now async — not awaiting it causes
@@ -91,7 +227,9 @@ Widget build(BuildContext context) {
 
           // Scrollable Settings Body
           Expanded(
-            child: SingleChildScrollView(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
@@ -224,7 +362,7 @@ Widget build(BuildContext context) {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: _saving ? null : _saveSettings,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2B52F3),
                         elevation: 0,
@@ -232,14 +370,18 @@ Widget build(BuildContext context) {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Save Changes',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 20, height: 20,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : const Text(
+                              'Save Changes',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -247,7 +389,7 @@ Widget build(BuildContext context) {
                     width: double.infinity,
                     height: 50,
                     child: OutlinedButton(
-                      onPressed: () {},
+                      onPressed: _saving ? null : _resetDefaults,
                       style: OutlinedButton.styleFrom(
                         backgroundColor: Colors.white,
                         side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -295,7 +437,7 @@ Widget build(BuildContext context) {
                 ],
               ),
             ),
-          ),
+          ), // closes _loading ternary
         ],
       ),
     );
@@ -578,4 +720,3 @@ Widget build(BuildContext context) {
     );
   }
 }
-

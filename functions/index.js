@@ -222,11 +222,33 @@ exports.computeSensorMetrics = onDocumentCreated(
     const iaqi       = calculateCompositeIAQI(co_ppm, co2_ppm, nh3_ppm, pm25_aqi);
     const iaqi_label = getAQILabel(iaqi);
 
+    // ── Read admin settings for dynamic thresholds ─────────────────────────
+    // Falls back to safe defaults if the settings document doesn't exist yet.
+    let settingsThresholds = {};
+    let pushNotificationsEnabled = true;
+    let criticalAlertsEnabled    = true;
+    try {
+      const settingsDoc = await db.collection('settings').doc('admin').get();
+      if (settingsDoc.exists) {
+        const s = settingsDoc.data();
+        settingsThresholds       = s.thresholds            ?? {};
+        pushNotificationsEnabled = s.push_notifications    ?? true;
+        criticalAlertsEnabled    = s.critical_alerts       ?? true;
+      }
+    } catch (e) {
+      console.warn('[Settings] Could not read admin settings — using defaults:', e.message);
+    }
+
+    const threshold_co   = settingsThresholds.co       ?? 35;
+    const threshold_lpg  = settingsThresholds.lpg      ?? 200;
+    const threshold_pm25 = settingsThresholds.pm25     ?? 55;   // µg/m³ not AQI
+    const threshold_co2  = settingsThresholds.co2      ?? 1500;
+
     // ── Alert flags ──────────────────────────────────────────────────────────
-    const co_alert   = co_ppm  > 35;
-    const lpg_alert  = lpg_ppm > 200;
-    const pm25_alert = pm25_aqi > 100;
-    const co2_alert  = co2_ppm > 1500;
+    const co_alert   = co_ppm  > threshold_co;
+    const lpg_alert  = lpg_ppm > threshold_lpg;
+    const pm25_alert = pm25_aqi > 100;           // keep AQI-based for PM2.5
+    const co2_alert  = co2_ppm > threshold_co2;
 
     // ── Assemble the computed document ───────────────────────────────────────
     // Includes a reference back to the raw document ID so they can always
@@ -309,9 +331,21 @@ exports.computeSensorMetrics = onDocumentCreated(
     console.log(`[Ro calibration] MQ131 Rs=${(getRsRatio(mq131_v, CALIBRATION.RL_MQ131, 1.0) * 1.0).toFixed(3)}`);
 
 
-async function sendAlertIfNeeded(deviceId, deviceName, computed) {
+async function sendAlertIfNeeded(deviceId, deviceName, computed, pushEnabled, criticalEnabled) {
+  // Check admin notification toggles first
+  if (!pushEnabled) {
+    console.log(`[FCM] Push notifications disabled in admin settings — skipping`);
+    return;
+  }
+
   // Only send for serious conditions — skip early to avoid unnecessary reads
   if (!computed.co_alert && computed.iaqi < 150) return;
+
+  // If critical alerts are off, skip CO emergencies
+  if (!criticalEnabled && computed.co_alert) {
+    console.log(`[FCM] Critical alerts disabled in admin settings — skipping CO alert`);
+    return;
+  }
 
   // FIX: fetch devDoc inside the function so it's in scope
   const devDoc  = await db.collection('devices').doc(deviceId).get();
@@ -413,6 +447,12 @@ async function sendAlertIfNeeded(deviceId, deviceName, computed) {
 }
 
     // Call sendAlertIfNeeded — cooldown and all logic handled inside the function
-    await sendAlertIfNeeded(deviceId, raw?.device_name ?? deviceId, computedDoc);
+    await sendAlertIfNeeded(
+      deviceId,
+      raw?.device_name ?? deviceId,
+      computedDoc,
+      pushNotificationsEnabled,
+      criticalAlertsEnabled
+    );
   },
 );
