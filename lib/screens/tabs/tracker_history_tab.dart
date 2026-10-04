@@ -1,9 +1,14 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:archive/archive.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../../stores/app_data_store.dart';
 import '../../models/tracker_reading.dart';
 import '../../models/tracker_history.dart';
@@ -18,8 +23,8 @@ class TrackerHistoryTab extends StatefulWidget {
 
 class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
   // Each chart has its own independent day selection
-  int _pmDays  = 1;
-  int _coDays  = 1;
+  int _pmDays = 1;
+  int _coDays = 1;
   int _co2Days = 1;
 
   bool _fetchTriggered = false;
@@ -40,18 +45,20 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
   // ── Each chart fetches independently only if more days are needed ─────────
   // FIX: Instead of calling a shared _refetch that replaces the whole history,
   // we keep the maximum days fetched and filter per-chart in _filterReadings.
-  int get _maxDays => [_pmDays, _coDays, _co2Days].reduce((a, b) => a > b ? a : b);
+  int get _maxDays =>
+      [_pmDays, _coDays, _co2Days].reduce((a, b) => a > b ? a : b);
 
   void _onDaysChanged(String chart, int days) {
     setState(() {
-      if (chart == 'pm')  _pmDays  = days;
-      if (chart == 'co')  _coDays  = days;
+      if (chart == 'pm') _pmDays = days;
+      if (chart == 'co') _coDays = days;
       if (chart == 'co2') _co2Days = days;
     });
     // Only refetch if the new selection requires more data than we have
     final store = context.read<AppDataStore>();
     final history = store.historyFor(widget.deviceId);
-    final needsMore = history == null ||
+    final needsMore =
+        history == null ||
         history.from == null ||
         DateTime.now().difference(history.from!).inDays < days - 1;
     if (needsMore) {
@@ -62,24 +69,28 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
   // ── Filter readings to the requested day window ────────────────────────────
   // FIX: Each chart calls this independently so changing one chart's time
   // period only affects that chart's data, not the others.
-  List<TrackerReading> _filterReadings(
-      List<TrackerReading> all, int days) {
+  List<TrackerReading> _filterReadings(List<TrackerReading> all, int days) {
     final from = DateTime.now().subtract(Duration(days: days));
     return all.where((r) => r.timestamp.isAfter(from)).toList();
   }
 
   // ── Chart helpers ─────────────────────────────────────────────────────────
-  List<TrackerReading> _subsample(List<TrackerReading> readings,
-      {int max = 40}) {
+  List<TrackerReading> _subsample(
+    List<TrackerReading> readings, {
+    int max = 40,
+  }) {
     if (readings.length <= max) return readings;
     final step = (readings.length / max).ceil();
-    final out  = <TrackerReading>[];
+    final out = <TrackerReading>[];
     for (int i = 0; i < readings.length; i += step) out.add(readings[i]);
     return out;
   }
 
-  List<double> _normalise(List<TrackerReading> readings,
-      double Function(TrackerReading) pick, double maxVal) {
+  List<double> _normalise(
+    List<TrackerReading> readings,
+    double Function(TrackerReading) pick,
+    double maxVal,
+  ) {
     if (readings.isEmpty) return const [0.0];
     return readings.map((r) {
       final v = pick(r).clamp(0.0, maxVal);
@@ -90,14 +101,18 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
   List<String> _xLabels(List<TrackerReading> readings, int days) {
     if (readings.isEmpty) return const ['--'];
     const wantedLabels = 5;
-    final step =
-        (readings.length / wantedLabels).ceil().clamp(1, readings.length);
+    final step = (readings.length / wantedLabels).ceil().clamp(
+      1,
+      readings.length,
+    );
     final labels = <String>[];
     for (int i = 0; i < readings.length; i += step) {
       final dt = readings[i].timestamp;
-      labels.add(days == 1
-          ? '${dt.hour.toString().padLeft(2, '0')}:00'
-          : '${dt.month}/${dt.day}');
+      labels.add(
+        days == 1
+            ? '${dt.hour.toString().padLeft(2, '0')}:00'
+            : '${dt.month}/${dt.day}',
+      );
     }
     return labels;
   }
@@ -113,8 +128,8 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
         // FIX: Each chart gets its own independently filtered list of readings.
         // Changing _pmDays only triggers a rebuild of the PM card's data,
         // not the CO or CO₂ cards, because they use different filtered lists.
-        final pmReadings  = _filterReadings(allReadings, _pmDays);
-        final coReadings  = _filterReadings(allReadings, _coDays);
+        final pmReadings = _filterReadings(allReadings, _pmDays);
+        final coReadings = _filterReadings(allReadings, _coDays);
         final co2Readings = _filterReadings(allReadings, _co2Days);
 
         return Column(
@@ -127,18 +142,20 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
             // FIX: buildPainter now receives pmReadings (independently filtered)
             // so it only re-renders when PM's own day selection changes.
             _ChartCard(
-              title:   'Particulate Matter History',
-              days:    _pmDays,
+              title: 'Particulate Matter History',
+              days: _pmDays,
               loading: loading && pmReadings.isEmpty,
               hasData: pmReadings.isNotEmpty,
               onDaysChanged: (d) => _onDaysChanged('pm', d),
-              legend: Row(children: const [
-                _DotLegend(color: Color(0xFF8B4513), label: 'PM1.0'),
-                SizedBox(width: 8),
-                _DotLegend(color: Color(0xFFEAB308), label: 'PM2.5'),
-                SizedBox(width: 8),
-                _DotLegend(color: Color(0xFFEA580C), label: 'PM10'),
-              ]),
+              legend: Row(
+                children: const [
+                  _DotLegend(color: Color(0xFF8B4513), label: 'PM1.0'),
+                  SizedBox(width: 8),
+                  _DotLegend(color: Color(0xFFEAB308), label: 'PM2.5'),
+                  SizedBox(width: 8),
+                  _DotLegend(color: Color(0xFFEA580C), label: 'PM10'),
+                ],
+              ),
               buildPainter: () {
                 final sub = _subsample(pmReadings);
                 // FIX: Multi-line painter — draws PM1, PM2.5, PM10 separately
@@ -166,17 +183,19 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
 
             // ── CO & O₃ chart ───────────────────────────────────────────────
             _ChartCard(
-              title:    'CO & O₃ History',
+              title: 'CO & O₃ History',
               subtitle: 'CO in ppm · O₃ in ppb',
-              days:     _coDays,
-              loading:  loading && coReadings.isEmpty,
-              hasData:  coReadings.isNotEmpty,
+              days: _coDays,
+              loading: loading && coReadings.isEmpty,
+              hasData: coReadings.isNotEmpty,
               onDaysChanged: (d) => _onDaysChanged('co', d),
-              legend: Row(children: const [
-                _DotLegend(color: Color(0xFFEF4444), label: 'CO (ppm)'),
-                SizedBox(width: 12),
-                _DotLegend(color: Color(0xFF0D9488), label: 'O₃ (ppb ÷10)'),
-              ]),
+              legend: Row(
+                children: const [
+                  _DotLegend(color: Color(0xFFEF4444), label: 'CO (ppm)'),
+                  SizedBox(width: 12),
+                  _DotLegend(color: Color(0xFF0D9488), label: 'O₃ (ppb ÷10)'),
+                ],
+              ),
               buildPainter: () {
                 final sub = _subsample(coReadings);
                 return MultiLineChartPainter(
@@ -189,8 +208,7 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
                     ChartLine(
                       color: const Color(0xFF0D9488),
                       // O₃ stored as ppm → *1000 = ppb, normalise to 100 ppb max
-                      points: _normalise(
-                          sub, (r) => r.o3Ppm * 1000, 100),
+                      points: _normalise(sub, (r) => r.o3Ppm * 1000, 100),
                     ),
                   ],
                   yLabels: const ['20', '15', '10', '5', '0'],
@@ -201,14 +219,16 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
 
             // ── CO₂ chart ───────────────────────────────────────────────────
             _ChartCard(
-              title:    'CO₂ History',
+              title: 'CO₂ History',
               subtitle: 'Carbon Dioxide in ppm',
-              days:     _co2Days,
-              loading:  loading && co2Readings.isEmpty,
-              hasData:  co2Readings.isNotEmpty,
+              days: _co2Days,
+              loading: loading && co2Readings.isEmpty,
+              hasData: co2Readings.isNotEmpty,
               onDaysChanged: (d) => _onDaysChanged('co2', d),
               legend: const _DotLegend(
-                  color: Color(0xFF3B82F6), label: 'CO₂ (ppm)'),
+                color: Color(0xFF3B82F6),
+                label: 'CO₂ (ppm)',
+              ),
               buildPainter: () {
                 final sub = _subsample(co2Readings);
                 return MultiLineChartPainter(
@@ -237,21 +257,27 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
                   context: context,
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
-                  builder: (_) => DownloadHistoryModal(
-                    deviceId: widget.deviceId,
+                  builder: (_) =>
+                      DownloadHistoryModal(deviceId: widget.deviceId),
+                ),
+                icon: const Icon(
+                  Icons.download_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                label: const Text(
+                  'Download History Data',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
-                icon: const Icon(Icons.download_rounded,
-                    color: Colors.white, size: 20),
-                label: const Text('Download History Data',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
               ),
@@ -270,7 +296,7 @@ class _TrackerHistoryTabState extends State<TrackerHistoryTab> {
 
 class _HistorySummaryCard extends StatelessWidget {
   final TrackerHistory? history;
-  final bool            loading;
+  final bool loading;
   const _HistorySummaryCard({required this.history, required this.loading});
 
   @override
@@ -279,40 +305,51 @@ class _HistorySummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: const [
-            Icon(Icons.info_outline, size: 20, color: Color(0xFF2563EB)),
-            SizedBox(width: 8),
-            Text('History Summary',
+          Row(
+            children: const [
+              Icon(Icons.info_outline, size: 20, color: Color(0xFF2563EB)),
+              SizedBox(width: 8),
+              Text(
+                'History Summary',
                 style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A))),
-          ]),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           if (loading && history == null)
             const Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
-                child: Column(children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 12),
-                  Text('Fetching history…',
-                      style: TextStyle(
-                          color: Color(0xFF64748B), fontSize: 13)),
-                ]),
+                child: Column(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text(
+                      'Fetching history…',
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                    ),
+                  ],
+                ),
               ),
             )
           else if (history == null || history!.readings.isEmpty)
             const Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text('No history data available yet.',
-                    style: TextStyle(
-                        color: Color(0xFF94A3B8), fontSize: 13)),
+                child: Text(
+                  'No history data available yet.',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                ),
               ),
             )
           else
@@ -324,22 +361,25 @@ class _HistorySummaryCard extends StatelessWidget {
 
   Widget _buildContent(TrackerHistory history) {
     final readings = history.readings;
-    final pm25     = readings.map((r) => r.pm25Ugm3).toList();
-    final co2      = readings.map((r) => r.co2Ppm).toList();
+    final pm25 = readings.map((r) => r.pm25Ugm3).toList();
+    final co2 = readings.map((r) => r.co2Ppm).toList();
 
     final minPm25 = pm25.reduce((a, b) => a < b ? a : b);
     final maxPm25 = pm25.reduce((a, b) => a > b ? a : b);
-    final minCo2  = co2.reduce((a, b) => a < b ? a : b);
-    final maxCo2  = co2.reduce((a, b) => a > b ? a : b);
+    final minCo2 = co2.reduce((a, b) => a < b ? a : b);
+    final maxCo2 = co2.reduce((a, b) => a > b ? a : b);
 
     String ov = '--', md = '--', ev = '--';
     final third = readings.length ~/ 3;
     if (third > 0) {
       double avg(List<TrackerReading> rs) =>
           rs.map((r) => r.pm25Ugm3).reduce((a, b) => a + b) / rs.length;
-      ov = 'Avg PM2.5: ${avg(readings.sublist(0, third)).toStringAsFixed(1)} µg/m³';
-      md = 'Avg PM2.5: ${avg(readings.sublist(third, third * 2)).toStringAsFixed(1)} µg/m³';
-      ev = 'Avg PM2.5: ${avg(readings.sublist(third * 2)).toStringAsFixed(1)} µg/m³';
+      ov =
+          'Avg PM2.5: ${avg(readings.sublist(0, third)).toStringAsFixed(1)} µg/m³';
+      md =
+          'Avg PM2.5: ${avg(readings.sublist(third, third * 2)).toStringAsFixed(1)} µg/m³';
+      ev =
+          'Avg PM2.5: ${avg(readings.sublist(third * 2)).toStringAsFixed(1)} µg/m³';
     }
 
     return Column(
@@ -351,20 +391,35 @@ class _HistorySummaryCard extends StatelessWidget {
           'CO₂ ranged from ${minCo2.toStringAsFixed(0)} to '
           '${maxCo2.toStringAsFixed(0)} ppm.',
           style: const TextStyle(
-              fontSize: 13, color: Color(0xFF475569), height: 1.4),
+            fontSize: 13,
+            color: Color(0xFF475569),
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: 16),
-        _SummaryBlock('Overnight Baseline', ov,
-            const Color(0xFF3B82F6), const Color(0xFFEFF6FF),
-            const Color(0xFFBFDBFE)),
+        _SummaryBlock(
+          'Overnight Baseline',
+          ov,
+          const Color(0xFF3B82F6),
+          const Color(0xFFEFF6FF),
+          const Color(0xFFBFDBFE),
+        ),
         const SizedBox(height: 10),
-        _SummaryBlock('Midday Period', md,
-            const Color(0xFFF97316), const Color(0xFFFFF7ED),
-            const Color(0xFFFFEDD5)),
+        _SummaryBlock(
+          'Midday Period',
+          md,
+          const Color(0xFFF97316),
+          const Color(0xFFFFF7ED),
+          const Color(0xFFFFEDD5),
+        ),
         const SizedBox(height: 10),
-        _SummaryBlock('Evening Period', ev,
-            const Color(0xFF22C55E), const Color(0xFFF0FDF4),
-            const Color(0xFFDCFCE7)),
+        _SummaryBlock(
+          'Evening Period',
+          ev,
+          const Color(0xFF22C55E),
+          const Color(0xFFF0FDF4),
+          const Color(0xFFDCFCE7),
+        ),
       ],
     );
   }
@@ -372,7 +427,7 @@ class _HistorySummaryCard extends StatelessWidget {
 
 class _SummaryBlock extends StatelessWidget {
   final String title, desc;
-  final Color  dot, bg, border;
+  final Color dot, bg, border;
   const _SummaryBlock(this.title, this.desc, this.dot, this.bg, this.border);
 
   @override
@@ -380,24 +435,42 @@ class _SummaryBlock extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: border)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-              width: 8, height: 8,
-              decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
-          const SizedBox(width: 8),
-          Text(title,
-              style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.bold, color: dot)),
-        ]),
-        const SizedBox(height: 6),
-        Text(desc,
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: dot,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            desc,
             style: const TextStyle(
-                fontSize: 12, color: Color(0xFF334155), height: 1.4)),
-      ]),
+              fontSize: 12,
+              color: Color(0xFF334155),
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -409,13 +482,13 @@ class _SummaryBlock extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _ChartCard extends StatelessWidget {
-  final String           title;
-  final String?          subtitle;
-  final int              days;
-  final bool             loading;
-  final bool             hasData;
+  final String title;
+  final String? subtitle;
+  final int days;
+  final bool loading;
+  final bool hasData;
   final ValueChanged<int> onDaysChanged;
-  final Widget           legend;
+  final Widget legend;
   final MultiLineChartPainter Function() buildPainter;
 
   const _ChartCard({
@@ -434,7 +507,9 @@ class _ChartCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -446,17 +521,24 @@ class _ChartCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
-                            height: 1.2)),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                        height: 1.2,
+                      ),
+                    ),
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),
-                      Text(subtitle!,
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF94A3B8))),
+                      Text(
+                        subtitle!,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -466,11 +548,26 @@ class _ChartCard extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _TFButton(label: '1D', days: 1,  selected: days == 1,  onTap: () => onDaysChanged(1)),
+                  _TFButton(
+                    label: '1D',
+                    days: 1,
+                    selected: days == 1,
+                    onTap: () => onDaysChanged(1),
+                  ),
                   const SizedBox(width: 4),
-                  _TFButton(label: '7D', days: 7,  selected: days == 7,  onTap: () => onDaysChanged(7)),
+                  _TFButton(
+                    label: '7D',
+                    days: 7,
+                    selected: days == 7,
+                    onTap: () => onDaysChanged(7),
+                  ),
                   const SizedBox(width: 4),
-                  _TFButton(label: '30D', days: 30, selected: days == 30, onTap: () => onDaysChanged(30)),
+                  _TFButton(
+                    label: '30D',
+                    days: 30,
+                    selected: days == 30,
+                    onTap: () => onDaysChanged(30),
+                  ),
                 ],
               ),
             ],
@@ -485,15 +582,13 @@ class _ChartCard extends StatelessWidget {
             child: loading
                 ? const Center(child: CircularProgressIndicator())
                 : !hasData
-                    ? const Center(
-                        child: Text('No data available.',
-                            style: TextStyle(
-                                color: Color(0xFF94A3B8),
-                                fontSize: 13)))
-                    : CustomPaint(
-                        size: Size.infinite,
-                        painter: buildPainter(),
-                      ),
+                ? const Center(
+                    child: Text(
+                      'No data available.',
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                    ),
+                  )
+                : CustomPaint(size: Size.infinite, painter: buildPainter()),
           ),
         ],
       ),
@@ -503,12 +598,15 @@ class _ChartCard extends StatelessWidget {
 
 class _TFButton extends StatelessWidget {
   final String label;
-  final int    days;
-  final bool   selected;
+  final int days;
+  final bool selected;
   final VoidCallback onTap;
-  const _TFButton(
-      {required this.label, required this.days,
-       required this.selected, required this.onTap});
+  const _TFButton({
+    required this.label,
+    required this.days,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -517,16 +615,17 @@ class _TFButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFF2563EB)
-              : const Color(0xFFF1F5F9),
+          color: selected ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : const Color(0xFF475569))),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : const Color(0xFF475569),
+          ),
+        ),
       ),
     );
   }
@@ -543,12 +642,12 @@ class _RecommendationsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String rec1Title = 'PM2.5 Trend';
-    String rec1Desc  = 'Not enough data yet for trend analysis.';
+    String rec1Desc = 'Not enough data yet for trend analysis.';
     String rec2Title = 'CO₂ Ventilation';
-    String rec2Desc  = 'Not enough data yet for trend analysis.';
+    String rec2Desc = 'Not enough data yet for trend analysis.';
 
     if (history != null && history!.readings.length >= 4) {
-      final r    = history!.readings;
+      final r = history!.readings;
       final half = r.length ~/ 2;
 
       double avgPm(List<TrackerReading> rs) =>
@@ -556,45 +655,53 @@ class _RecommendationsCard extends StatelessWidget {
       double avgCo2(List<TrackerReading> rs) =>
           rs.map((x) => x.co2Ppm).reduce((a, b) => a + b) / rs.length;
 
-      final firstPm   = avgPm(r.sublist(0, half));
-      final secondPm  = avgPm(r.sublist(half));
+      final firstPm = avgPm(r.sublist(0, half));
+      final secondPm = avgPm(r.sublist(half));
       final secondCo2 = avgCo2(r.sublist(half));
 
       if (secondPm > firstPm * 1.1) {
         rec1Title = 'PM2.5 Rising';
-        rec1Desc  = 'PM2.5 is trending upward. Consider improving ventilation.';
+        rec1Desc = 'PM2.5 is trending upward. Consider improving ventilation.';
       } else if (secondPm < firstPm * 0.9) {
         rec1Title = 'PM2.5 Improving';
-        rec1Desc  = 'PM2.5 is trending downward. Current ventilation is working well.';
+        rec1Desc =
+            'PM2.5 is trending downward. Current ventilation is working well.';
       } else {
         rec1Title = 'PM2.5 Stable';
-        rec1Desc  = 'PM2.5 levels are stable. Maintain current ventilation practices.';
+        rec1Desc =
+            'PM2.5 levels are stable. Maintain current ventilation practices.';
       }
 
       if (secondCo2 > 1500) {
         rec2Title = 'CO₂ Elevated';
-        rec2Desc  = 'CO₂ is high — open windows or increase air circulation.';
+        rec2Desc = 'CO₂ is high — open windows or increase air circulation.';
       } else if (secondCo2 > 1000) {
         rec2Title = 'CO₂ Building Up';
-        rec2Desc  = 'CO₂ is gradually increasing. Ensure ventilation is adequate.';
+        rec2Desc =
+            'CO₂ is gradually increasing. Ensure ventilation is adequate.';
       } else {
         rec2Title = 'CO₂ Well Controlled';
-        rec2Desc  = 'CO₂ levels are within a healthy range.';
+        rec2Desc = 'CO₂ levels are within a healthy range.';
       }
     }
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Recommendations Based on History',
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A))),
+          const Text(
+            'Recommendations Based on History',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
+          ),
           const SizedBox(height: 12),
           _RecItem(
             icon: Icons.thermostat_outlined,
@@ -621,13 +728,16 @@ class _RecommendationsCard extends StatelessWidget {
 
 class _RecItem extends StatelessWidget {
   final IconData icon;
-  final Color    iconColor;
-  final String   title, description;
-  final Color    bgColor, borderColor;
+  final Color iconColor;
+  final String title, description;
+  final Color bgColor, borderColor;
   const _RecItem({
-    required this.icon, required this.iconColor,
-    required this.title, required this.description,
-    required this.bgColor, required this.borderColor,
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.description,
+    required this.bgColor,
+    required this.borderColor,
   });
 
   @override
@@ -635,9 +745,10 @@ class _RecItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor)),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -647,17 +758,23 @@ class _RecItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A))),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(description,
-                    style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF475569),
-                        height: 1.3)),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF475569),
+                    height: 1.3,
+                  ),
+                ),
               ],
             ),
           ),
@@ -679,19 +796,50 @@ class DownloadHistoryModal extends StatefulWidget {
   State<DownloadHistoryModal> createState() => _DownloadHistoryModalState();
 }
 
+enum _ExportFormat { csv, pdf, docx }
+
+extension on _ExportFormat {
+  String get label => switch (this) {
+    _ExportFormat.csv => 'CSV',
+    _ExportFormat.pdf => 'PDF',
+    _ExportFormat.docx => 'DOCX',
+  };
+
+  String get extension => switch (this) {
+    _ExportFormat.csv => 'csv',
+    _ExportFormat.pdf => 'pdf',
+    _ExportFormat.docx => 'docx',
+  };
+
+  String get mimeType => switch (this) {
+    _ExportFormat.csv => 'text/csv',
+    _ExportFormat.pdf => 'application/pdf',
+    _ExportFormat.docx =>
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  };
+}
+
 class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
-  DateTime?  _startDate;
-  DateTime?  _endDate;
-  TimeOfDay  _startTime = const TimeOfDay(hour: 0,  minute: 0);
-  TimeOfDay  _endTime   = const TimeOfDay(hour: 23, minute: 59);
-  bool       _generating = false;
-  int        _fetchedReadings = 0; // tracks how many are available for the range
+  DateTime? _startDate;
+  DateTime? _endDate;
+  TimeOfDay _startTime = const TimeOfDay(hour: 0, minute: 0);
+  TimeOfDay _endTime = const TimeOfDay(hour: 23, minute: 59);
+  bool _generating = false;
+  _ExportFormat _format = _ExportFormat.csv;
+  int _fetchedReadings = 0; // tracks how many are available for the range
 
   final Map<String, bool> _pollutants = {
-    'PM1.0': true, 'PM2.5': true, 'PM10': true,
-    'CO': true, 'CO₂': true, 'O₃': true,
-    'Temperature': true, 'Humidity': true,
-    'LPG': false, 'NH3': false, 'Smoke': false,
+    'PM1.0': true,
+    'PM2.5': true,
+    'PM10': true,
+    'CO': true,
+    'CO₂': true,
+    'O₃': true,
+    'Temperature': true,
+    'Humidity': true,
+    'LPG': false,
+    'NH3': false,
+    'Smoke': false,
     'IAQI': true,
   };
 
@@ -723,7 +871,7 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
   String _fmtDate(DateTime? d) => d == null
       ? 'dd/mm/yyyy'
       : '${d.day.toString().padLeft(2, '0')}/'
-          '${d.month.toString().padLeft(2, '0')}/${d.year}';
+            '${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   String _fmtTime(TimeOfDay t) {
     final h = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
@@ -731,7 +879,7 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
     return '$h:${t.minute.toString().padLeft(2, '0')} $p';
   }
 
-  // ── Generate and share CSV ─────────────────────────────────────────────────
+  // ── Generate and share the selected report format ──────────────────────────
   // FIX 1: Fetches directly from Firestore for the selected date range so
   // the download is never limited by what the chart has loaded.
   Future<void> _generate() async {
@@ -740,12 +888,18 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
 
     try {
       final start = DateTime(
-        _startDate!.year, _startDate!.month, _startDate!.day,
-        _startTime.hour, _startTime.minute,
+        _startDate!.year,
+        _startDate!.month,
+        _startDate!.day,
+        _startTime.hour,
+        _startTime.minute,
       );
       final end = DateTime(
-        _endDate!.year, _endDate!.month, _endDate!.day,
-        _endTime.hour, _endTime.minute,
+        _endDate!.year,
+        _endDate!.month,
+        _endDate!.day,
+        _endTime.hour,
+        _endTime.minute,
       );
 
       // FIX 1: Fetch directly from Firestore for the exact date range.
@@ -758,69 +912,98 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
           .orderBy('timestamp')
           .get();
 
-      final filtered = snap.docs
-          .map((d) => TrackerReading.fromDocument(d))
-          .where((r) =>
-              r.timestamp.isAfter(start.subtract(const Duration(minutes: 1))) &&
-              r.timestamp.isBefore(end.add(const Duration(minutes: 1))))
-          .toList()
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      final filtered =
+          snap.docs
+              .map((d) => TrackerReading.fromDocument(d))
+              .where(
+                (r) =>
+                    r.timestamp.isAfter(
+                      start.subtract(const Duration(minutes: 1)),
+                    ) &&
+                    r.timestamp.isBefore(end.add(const Duration(minutes: 1))),
+              )
+              .toList()
+            ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
       if (filtered.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('No readings found in the selected date range.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No readings found in the selected date range.'),
+            ),
+          );
         }
         setState(() => _generating = false);
         return;
       }
 
-      // Build CSV header
       final cols = <String>['Timestamp', 'Date', 'Time'];
-      if (_pollutants['PM1.0']!)      cols.add('PM1.0 (µg/m³)');
-      if (_pollutants['PM2.5']!)      cols.add('PM2.5 (µg/m³)');
-      if (_pollutants['PM10']!)       cols.add('PM10 (µg/m³)');
-      if (_pollutants['CO']!)         cols.add('CO (ppm)');
-      if (_pollutants['CO₂']!)        cols.add('CO2 (ppm)');
-      if (_pollutants['O₃']!)         cols.add('O3 (ppb)');
+      if (_pollutants['PM1.0']!) cols.add('PM1.0 (µg/m³)');
+      if (_pollutants['PM2.5']!) cols.add('PM2.5 (µg/m³)');
+      if (_pollutants['PM10']!) cols.add('PM10 (µg/m³)');
+      if (_pollutants['CO']!) cols.add('CO (ppm)');
+      if (_pollutants['CO₂']!) cols.add('CO2 (ppm)');
+      if (_pollutants['O₃']!) cols.add('O3 (ppb)');
       if (_pollutants['Temperature']!) cols.add('Temperature (°C)');
-      if (_pollutants['Humidity']!)   cols.add('Humidity (%)');
-      if (_pollutants['LPG']!)        cols.add('LPG (ppm)');
-      if (_pollutants['NH3']!)        cols.add('NH3 (ppm)');
-      if (_pollutants['Smoke']!)      cols.add('Smoke (ppm)');
-      if (_pollutants['IAQI']!)       cols.add('IAQI');
+      if (_pollutants['Humidity']!) cols.add('Humidity (%)');
+      if (_pollutants['LPG']!) cols.add('LPG (ppm)');
+      if (_pollutants['NH3']!) cols.add('NH3 (ppm)');
+      if (_pollutants['Smoke']!) cols.add('Smoke (ppm)');
+      if (_pollutants['IAQI']!) cols.add('IAQI');
 
-      final buffer = StringBuffer();
-      buffer.writeln(cols.join(','));
-
-      // Build CSV rows
+      final rows = <List<String>>[];
       for (final r in filtered) {
         final row = <String>[
           r.timestamp.toIso8601String(),
-          '${r.timestamp.year}-${r.timestamp.month.toString().padLeft(2,'0')}-${r.timestamp.day.toString().padLeft(2,'0')}',
-          '${r.timestamp.hour.toString().padLeft(2,'0')}:${r.timestamp.minute.toString().padLeft(2,'0')}',
+          '${r.timestamp.year}-${r.timestamp.month.toString().padLeft(2, '0')}-${r.timestamp.day.toString().padLeft(2, '0')}',
+          '${r.timestamp.hour.toString().padLeft(2, '0')}:${r.timestamp.minute.toString().padLeft(2, '0')}',
         ];
-        if (_pollutants['PM1.0']!)      row.add(r.pm1Ugm3.toStringAsFixed(2));
-        if (_pollutants['PM2.5']!)      row.add(r.pm25Ugm3.toStringAsFixed(2));
-        if (_pollutants['PM10']!)       row.add(r.pm10Ugm3.toStringAsFixed(2));
-        if (_pollutants['CO']!)         row.add(r.coPpm.toStringAsFixed(2));
-        if (_pollutants['CO₂']!)        row.add(r.co2Ppm.toStringAsFixed(1));
-        if (_pollutants['O₃']!)         row.add((r.o3Ppm * 1000).toStringAsFixed(2));
-        if (_pollutants['Temperature']!) row.add(r.temperatureC.toStringAsFixed(1));
-        if (_pollutants['Humidity']!)   row.add(r.humidityPct.toStringAsFixed(0));
-        if (_pollutants['LPG']!)        row.add(r.lpgPpm.toStringAsFixed(2));
-        if (_pollutants['NH3']!)        row.add(r.nh3Ppm.toStringAsFixed(2));
-        if (_pollutants['Smoke']!)      row.add(r.smokePpm.toStringAsFixed(2));
-        if (_pollutants['IAQI']!)       row.add(r.iaqi.toString());
-        buffer.writeln(row.join(','));
+        if (_pollutants['PM1.0']!) row.add(r.pm1Ugm3.toStringAsFixed(2));
+        if (_pollutants['PM2.5']!) row.add(r.pm25Ugm3.toStringAsFixed(2));
+        if (_pollutants['PM10']!) row.add(r.pm10Ugm3.toStringAsFixed(2));
+        if (_pollutants['CO']!) row.add(r.coPpm.toStringAsFixed(2));
+        if (_pollutants['CO₂']!) row.add(r.co2Ppm.toStringAsFixed(1));
+        if (_pollutants['O₃']!) row.add((r.o3Ppm * 1000).toStringAsFixed(2));
+        if (_pollutants['Temperature']!)
+          row.add(r.temperatureC.toStringAsFixed(1));
+        if (_pollutants['Humidity']!) row.add(r.humidityPct.toStringAsFixed(0));
+        if (_pollutants['LPG']!) row.add(r.lpgPpm.toStringAsFixed(2));
+        if (_pollutants['NH3']!) row.add(r.nh3Ppm.toStringAsFixed(2));
+        if (_pollutants['Smoke']!) row.add(r.smokePpm.toStringAsFixed(2));
+        if (_pollutants['IAQI']!) row.add(r.iaqi.toString());
+        rows.add(row);
       }
 
+      final generatedAt = DateTime.now();
+      final reportTitle = 'AETHER Air Quality History Report';
+      final period = '${start.toLocal()} to ${end.toLocal()}';
+      final bytes = switch (_format) {
+        _ExportFormat.csv => Uint8List.fromList(
+          utf8.encode(_buildCsv(reportTitle, period, generatedAt, cols, rows)),
+        ),
+        _ExportFormat.pdf => await _buildPdf(
+          reportTitle,
+          period,
+          generatedAt,
+          cols,
+          rows,
+        ),
+        _ExportFormat.docx => _buildDocx(
+          reportTitle,
+          period,
+          generatedAt,
+          cols,
+          rows,
+        ),
+      };
+
       // Build filename
-      final name = '${widget.deviceId}_'
-          '${start.year}${start.month.toString().padLeft(2,'0')}${start.day.toString().padLeft(2,'0')}'
+      final name =
+          '${widget.deviceId}_'
+          '${start.year}${start.month.toString().padLeft(2, '0')}${start.day.toString().padLeft(2, '0')}'
           '_to_'
-          '${end.year}${end.month.toString().padLeft(2,'0')}${end.day.toString().padLeft(2,'0')}'
-          '.csv';
+          '${end.year}${end.month.toString().padLeft(2, '0')}${end.day.toString().padLeft(2, '0')}'
+          '.${_format.extension}';
 
       // FIX 2: Save directly to Downloads folder first so the file is
       // always accessible on the device regardless of share sheet options.
@@ -831,40 +1014,227 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
         final downloadsDir = await getDownloadsDirectory();
         if (downloadsDir != null) {
           savedFile = File('${downloadsDir.path}/$name');
-          await savedFile.writeAsString(buffer.toString());
+          await savedFile.writeAsBytes(bytes);
         }
       } catch (_) {
         // Downloads folder not available — fall back to temp directory
       }
 
       // Also write to temp dir for the share sheet
-      final tempDir  = await getTemporaryDirectory();
+      final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/$name');
-      await tempFile.writeAsString(buffer.toString());
+      await tempFile.writeAsBytes(bytes);
 
       // Open share sheet — user can additionally send via Gmail, Quick Share etc.
-      await Share.shareXFiles(
-        [XFile(tempFile.path, mimeType: 'text/csv')],
-        subject: 'AETHER Readings — ${widget.deviceId}',
-      );
+      await Share.shareXFiles([
+        XFile(tempFile.path, mimeType: _format.mimeType),
+      ], subject: 'AETHER Readings — ${widget.deviceId}');
 
       if (mounted) {
         final saveMsg = savedFile != null
             ? ' Also saved to Downloads folder.'
             : '';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(
-                'Exported ${filtered.length} readings.$saveMsg')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Exported ${filtered.length} readings.$saveMsg'),
+          ),
+        );
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Export failed: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
 
     if (mounted) setState(() => _generating = false);
+  }
+
+  String _buildCsv(
+    String title,
+    String period,
+    DateTime generatedAt,
+    List<String> columns,
+    List<List<String>> rows,
+  ) {
+    String csvField(String value) => '"${value.replaceAll('"', '""')}"';
+    String csvRow(List<String> values) => values.map(csvField).join(',');
+
+    final output = StringBuffer()
+      ..writeln(csvRow([title]))
+      ..writeln(csvRow(['Tracker', widget.deviceId]))
+      ..writeln(csvRow(['Date and time range', period]))
+      ..writeln(csvRow(['Readings', '${rows.length}']))
+      ..writeln(csvRow(['Generated', generatedAt.toLocal().toString()]))
+      ..writeln()
+      ..writeln(csvRow(columns));
+    for (final row in rows) {
+      output.writeln(csvRow(row));
+    }
+    output
+      ..writeln()
+      ..writeln(csvRow(['Generated by AETHER Air Quality Monitoring']));
+    return output.toString();
+  }
+
+  Future<Uint8List> _buildPdf(
+    String title,
+    String period,
+    DateTime generatedAt,
+    List<String> columns,
+    List<List<String>> rows,
+  ) async {
+    final document = pw.Document();
+    document.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(28),
+        header: (_) => pw.Container(
+          padding: const pw.EdgeInsets.only(bottom: 8),
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(bottom: pw.BorderSide(color: PdfColors.blue700)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                title,
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.blue900,
+                ),
+              ),
+              pw.Text(
+                'Tracker: ${widget.deviceId}',
+                style: const pw.TextStyle(fontSize: 9),
+              ),
+            ],
+          ),
+        ),
+        footer: (context) => pw.Container(
+          padding: const pw.EdgeInsets.only(top: 8),
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(top: pw.BorderSide(color: PdfColors.grey400)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Generated ${generatedAt.toLocal()}',
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+              pw.Text(
+                'Page ${context.pageNumber} of ${context.pagesCount}',
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+            ],
+          ),
+        ),
+        build: (_) => [
+          pw.Text(
+            'History Event Log',
+            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 5),
+          pw.Text('Period: $period', style: const pw.TextStyle(fontSize: 9)),
+          pw.Text(
+            'Readings: ${rows.length}',
+            style: const pw.TextStyle(fontSize: 9),
+          ),
+          pw.SizedBox(height: 12),
+          pw.TableHelper.fromTextArray(
+            headers: columns,
+            data: rows,
+            headerStyle: pw.TextStyle(
+              fontSize: 7,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white,
+            ),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blue700),
+            cellStyle: const pw.TextStyle(fontSize: 6.5),
+            cellPadding: const pw.EdgeInsets.symmetric(
+              horizontal: 3,
+              vertical: 4,
+            ),
+            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.4),
+          ),
+        ],
+      ),
+    );
+    return Uint8List.fromList(await document.save());
+  }
+
+  Uint8List _buildDocx(
+    String title,
+    String period,
+    DateTime generatedAt,
+    List<String> columns,
+    List<List<String>> rows,
+  ) {
+    String xml(String value) => value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;');
+
+    String paragraph(String value, {bool bold = false}) =>
+        '<w:p><w:r>${bold ? '<w:rPr><w:b/></w:rPr>' : ''}'
+        '<w:t xml:space="preserve">${xml(value)}</w:t></w:r></w:p>';
+
+    String tableCell(String value, {bool heading = false}) =>
+        '<w:tc><w:tcPr>${heading ? '<w:shd w:fill="2563EB"/>' : ''}'
+        '</w:tcPr><w:p><w:r>${heading ? '<w:rPr><w:b/><w:color w:val="FFFFFF"/></w:rPr>' : ''}'
+        '<w:t xml:space="preserve">${xml(value)}</w:t></w:r></w:p></w:tc>';
+
+    final tableRows = <String>[
+      '<w:tr>${columns.map((value) => tableCell(value, heading: true)).join()}</w:tr>',
+      ...rows.map(
+        (row) => '<w:tr>${row.map((value) => tableCell(value)).join()}</w:tr>',
+      ),
+    ].join();
+    final documentXml =
+        '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>
+${paragraph('History Event Log', bold: true)}
+${paragraph('Tracker: ${widget.deviceId}')}
+${paragraph('Period: $period')}
+${paragraph('Readings: ${rows.length}')}
+<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblBorders><w:top w:val="single" w:sz="4"/><w:left w:val="single" w:sz="4"/><w:bottom w:val="single" w:sz="4"/><w:right w:val="single" w:sz="4"/><w:insideH w:val="single" w:sz="4"/><w:insideV w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>$tableRows</w:tbl>
+<w:sectPr><w:headerReference w:type="default" r:id="rId1"/><w:footerReference w:type="default" r:id="rId2"/><w:pgSz w:w="15840" w:h="12240" w:orient="landscape"/><w:pgMar w:top="900" w:right="720" w:bottom="900" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr>
+</w:body></w:document>''';
+    final headerXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${paragraph(title, bold: true)}${paragraph('Tracker: ${widget.deviceId} | $period')}</w:hdr>''';
+    final footerXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${paragraph('Generated ${generatedAt.toLocal()} | AETHER Air Quality Monitoring')}</w:ftr>''';
+    final archive = Archive();
+    void addPart(String path, String contents) {
+      final bytes = utf8.encode(contents);
+      archive.addFile(ArchiveFile(path, bytes.length, bytes));
+    }
+
+    addPart(
+      '[Content_Types].xml',
+      '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/></Types>''',
+    );
+    addPart(
+      '_rels/.rels',
+      '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>''',
+    );
+    addPart('word/document.xml', documentXml);
+    addPart(
+      'word/_rels/document.xml.rels',
+      '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>''',
+    );
+    addPart('word/header1.xml', headerXml);
+    addPart('word/footer1.xml', footerXml);
+    return Uint8List.fromList(ZipEncoder().encode(archive));
   }
 
   @override
@@ -875,7 +1245,9 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.only(
-        top: 20, left: 20, right: 20,
+        top: 20,
+        left: 20,
+        right: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: SingleChildScrollView(
@@ -884,31 +1256,43 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
                     color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.file_download_outlined,
-                    color: Color(0xFF2563EB), size: 22),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text('Download History Data',
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.file_download_outlined,
+                    color: Color(0xFF2563EB),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Download History Data',
                     style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A))),
-              ),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.close,
-                    color: Color(0xFF64748B), size: 22),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ]),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Color(0xFF64748B),
+                    size: 22,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
             const SizedBox(height: 6),
             const Text(
               'Select a date range and columns to export. '
@@ -918,70 +1302,123 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
             const SizedBox(height: 20),
 
             // Date range
-            const Text('Date Range',
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A))),
+            const Text(
+              'Date Range',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
+            ),
             const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: _PickerField(
-                  label: 'Start Date',
-                  value: _fmtDate(_startDate),
-                  icon: Icons.calendar_today_outlined,
-                  isPlaceholder: _startDate == null,
-                  onTap: () => _pickDate(true))),
-              const SizedBox(width: 12),
-              Expanded(child: _PickerField(
-                  label: 'End Date',
-                  value: _fmtDate(_endDate),
-                  icon: Icons.calendar_today_outlined,
-                  isPlaceholder: _endDate == null,
-                  onTap: () => _pickDate(false))),
-            ]),
+            Row(
+              children: [
+                Expanded(
+                  child: _PickerField(
+                    label: 'Start Date',
+                    value: _fmtDate(_startDate),
+                    icon: Icons.calendar_today_outlined,
+                    isPlaceholder: _startDate == null,
+                    onTap: () => _pickDate(true),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _PickerField(
+                    label: 'End Date',
+                    value: _fmtDate(_endDate),
+                    icon: Icons.calendar_today_outlined,
+                    isPlaceholder: _endDate == null,
+                    onTap: () => _pickDate(false),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
 
             // Time range
-            const Text('Time Range',
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A))),
+            const Text(
+              'Time Range',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
+            ),
             const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: _PickerField(
-                  label: 'Start Time',
-                  value: _fmtTime(_startTime),
-                  icon: Icons.access_time_rounded,
-                  isPlaceholder: false,
-                  onTap: () => _pickTime(true))),
-              const SizedBox(width: 12),
-              Expanded(child: _PickerField(
-                  label: 'End Time',
-                  value: _fmtTime(_endTime),
-                  icon: Icons.access_time_rounded,
-                  isPlaceholder: false,
-                  onTap: () => _pickTime(false))),
-            ]),
+            Row(
+              children: [
+                Expanded(
+                  child: _PickerField(
+                    label: 'Start Time',
+                    value: _fmtTime(_startTime),
+                    icon: Icons.access_time_rounded,
+                    isPlaceholder: false,
+                    onTap: () => _pickTime(true),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _PickerField(
+                    label: 'End Time',
+                    value: _fmtTime(_endTime),
+                    icon: Icons.access_time_rounded,
+                    isPlaceholder: false,
+                    onTap: () => _pickTime(false),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            const Text(
+              'File Format',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<_ExportFormat>(
+                segments: const [
+                  ButtonSegment(value: _ExportFormat.csv, label: Text('CSV')),
+                  ButtonSegment(value: _ExportFormat.pdf, label: Text('PDF')),
+                  ButtonSegment(value: _ExportFormat.docx, label: Text('DOCX')),
+                ],
+                selected: {_format},
+                onSelectionChanged: (selection) =>
+                    setState(() => _format = selection.first),
+              ),
+            ),
             const SizedBox(height: 20),
 
             // Pollutant selector
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Columns to Include',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A))),
+                const Text(
+                  'Columns to Include',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
                 GestureDetector(
                   onTap: () => setState(
-                      () => _pollutants.updateAll((_, __) => !_allSelected)),
-                  child: Text(_allSelected ? 'Deselect All' : 'Select All',
-                      style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF2563EB),
-                          fontWeight: FontWeight.w600)),
+                    () => _pollutants.updateAll((_, __) => !_allSelected),
+                  ),
+                  child: Text(
+                    _allSelected ? 'Deselect All' : 'Select All',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF2563EB),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -998,12 +1435,9 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
                 return GestureDetector(
                   onTap: () => setState(() => _pollutants[p] = !sel),
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
-                      color: sel
-                          ? const Color(0xFFEFF6FF)
-                          : Colors.white,
+                      color: sel ? const Color(0xFFEFF6FF) : Colors.white,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: sel
@@ -1012,34 +1446,43 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
                         width: 1.2,
                       ),
                     ),
-                    child: Row(children: [
-                      Container(
-                        width: 18, height: 18,
-                        decoration: BoxDecoration(
-                          color: sel
-                              ? const Color(0xFF2563EB)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
                             color: sel
                                 ? const Color(0xFF2563EB)
-                                : const Color(0xFF94A3B8),
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: sel
+                                  ? const Color(0xFF2563EB)
+                                  : const Color(0xFF94A3B8),
+                            ),
+                          ),
+                          child: sel
+                              ? const Icon(
+                                  Icons.check,
+                                  size: 14,
+                                  color: Colors.white,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          p,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: sel
+                                ? const Color(0xFF1E40AF)
+                                : const Color(0xFF475569),
                           ),
                         ),
-                        child: sel
-                            ? const Icon(Icons.check,
-                                size: 14, color: Colors.white)
-                            : null,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(p,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: sel
-                                  ? const Color(0xFF1E40AF)
-                                  : const Color(0xFF475569))),
-                    ]),
+                      ],
+                    ),
                   ),
                 );
               }).toList(),
@@ -1047,67 +1490,88 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
             const SizedBox(height: 20),
 
             if (!_canDownload) ...[
-              Row(children: const [
-                Icon(Icons.info_outline_rounded,
-                    color: Color(0xFFD97706), size: 18),
-                SizedBox(width: 6),
-                Expanded(
-                  child: Text('Please select both a start and end date.',
+              Row(
+                children: const [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: Color(0xFFD97706),
+                    size: 18,
+                  ),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Please select both a start and end date.',
                       style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFFD97706),
-                          fontWeight: FontWeight.w500)),
-                ),
-              ]),
+                        fontSize: 12,
+                        color: Color(0xFFD97706),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
             ],
 
             // Action buttons
-            Row(children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Cancel',
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cancel',
                       style: TextStyle(
-                          color: Color(0xFF334155),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _canDownload && !_generating
-                      ? _generate
-                      : null,
-                  icon: _generating
-                      ? const SizedBox(
-                          width: 16, height: 16,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.download, size: 18),
-                  label: Text(_generating ? 'Generating…' : 'Download CSV',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14)),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    backgroundColor: const Color(0xFF2563EB),
-                    disabledBackgroundColor: const Color(0xFFBFDBFE),
-                    disabledForegroundColor: Colors.white,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                        color: Color(0xFF334155),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _canDownload && !_generating ? _generate : null,
+                    icon: _generating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.download, size: 18),
+                    label: Text(
+                      _generating ? 'Generating…' : 'Download ${_format.label}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      backgroundColor: const Color(0xFF2563EB),
+                      disabledBackgroundColor: const Color(0xFFBFDBFE),
+                      disabledForegroundColor: Colors.white,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1116,13 +1580,16 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
 }
 
 class _PickerField extends StatelessWidget {
-  final String     label, value;
-  final IconData   icon;
-  final bool       isPlaceholder;
+  final String label, value;
+  final IconData icon;
+  final bool isPlaceholder;
   final VoidCallback onTap;
   const _PickerField({
-    required this.label, required this.value, required this.icon,
-    required this.isPlaceholder, required this.onTap,
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.isPlaceholder,
+    required this.onTap,
   });
 
   @override
@@ -1130,8 +1597,10 @@ class _PickerField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+        ),
         const SizedBox(height: 4),
         InkWell(
           onTap: onTap,
@@ -1146,12 +1615,15 @@ class _PickerField extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(value,
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: isPlaceholder
-                            ? const Color(0xFF94A3B8)
-                            : const Color(0xFF0F172A))),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isPlaceholder
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF0F172A),
+                  ),
+                ),
                 Icon(icon, size: 16, color: const Color(0xFF64748B)),
               ],
             ),
@@ -1163,20 +1635,27 @@ class _PickerField extends StatelessWidget {
 }
 
 class _DotLegend extends StatelessWidget {
-  final Color  color;
+  final Color color;
   final String label;
   const _DotLegend({required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-          width: 10, height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-      const SizedBox(width: 4),
-      Text(label,
-          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
-    ]);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+        ),
+      ],
+    );
   }
 }
 
@@ -1188,14 +1667,14 @@ class _DotLegend extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class ChartLine {
-  final Color        color;
+  final Color color;
   final List<double> points; // normalised 0.0–1.0
   const ChartLine({required this.color, required this.points});
 }
 
 class MultiLineChartPainter extends CustomPainter {
-  final List<String>    yLabels;
-  final List<String>    xLabels;
+  final List<String> yLabels;
+  final List<String> xLabels;
   final List<ChartLine> lines;
 
   MultiLineChartPainter({
@@ -1206,13 +1685,13 @@ class MultiLineChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const double leftPad   = 34.0;
+    const double leftPad = 34.0;
     const double bottomPad = 20.0;
-    final double chartW    = size.width  - leftPad;
-    final double chartH    = size.height - bottomPad;
+    final double chartW = size.width - leftPad;
+    final double chartH = size.height - bottomPad;
 
     final gridPaint = Paint()
-      ..color       = const Color(0xFFE2E8F0)
+      ..color = const Color(0xFFE2E8F0)
       ..strokeWidth = 1.0;
 
     final tp = TextPainter(textDirection: TextDirection.ltr);
@@ -1222,19 +1701,22 @@ class MultiLineChartPainter extends CustomPainter {
       final y = chartH * (i / (yLabels.length - 1));
       canvas.drawLine(Offset(leftPad, y), Offset(size.width, y), gridPaint);
       tp.text = TextSpan(
-          text: yLabels[i],
-          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9));
+        text: yLabels[i],
+        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9),
+      );
       tp.layout();
       tp.paint(canvas, Offset(leftPad - tp.width - 4, y - tp.height / 2));
     }
 
     // X-axis labels
     for (int i = 0; i < xLabels.length; i++) {
-      final x = leftPad +
+      final x =
+          leftPad +
           chartW * (i / (xLabels.length - 1).clamp(1, xLabels.length));
       tp.text = TextSpan(
-          text: xLabels[i],
-          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9));
+        text: xLabels[i],
+        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9),
+      );
       tp.layout();
       tp.paint(canvas, Offset(x - tp.width / 2, chartH + 4));
     }
@@ -1257,14 +1739,21 @@ class MultiLineChartPainter extends CustomPainter {
         ..lineTo(offsets.first.dx, offsets.first.dy);
       for (int i = 0; i < offsets.length - 1; i++) {
         final cp1 = Offset(
-            offsets[i].dx + (offsets[i + 1].dx - offsets[i].dx) / 2,
-            offsets[i].dy);
+          offsets[i].dx + (offsets[i + 1].dx - offsets[i].dx) / 2,
+          offsets[i].dy,
+        );
         final cp2 = Offset(
-            offsets[i].dx + (offsets[i + 1].dx - offsets[i].dx) / 2,
-            offsets[i + 1].dy);
+          offsets[i].dx + (offsets[i + 1].dx - offsets[i].dx) / 2,
+          offsets[i + 1].dy,
+        );
         fillPath.cubicTo(
-            cp1.dx, cp1.dy, cp2.dx, cp2.dy,
-            offsets[i + 1].dx, offsets[i + 1].dy);
+          cp1.dx,
+          cp1.dy,
+          cp2.dx,
+          cp2.dy,
+          offsets[i + 1].dx,
+          offsets[i + 1].dy,
+        );
       }
       fillPath.lineTo(offsets.last.dx, chartH);
       fillPath.close();
@@ -1274,11 +1763,8 @@ class MultiLineChartPainter extends CustomPainter {
         Paint()
           ..shader = LinearGradient(
             begin: Alignment.topCenter,
-            end:   Alignment.bottomCenter,
-            colors: [
-              line.color.withOpacity(0.12),
-              line.color.withOpacity(0.0),
-            ],
+            end: Alignment.bottomCenter,
+            colors: [line.color.withOpacity(0.12), line.color.withOpacity(0.0)],
           ).createShader(Rect.fromLTWH(0, 0, size.width, chartH))
           ..style = PaintingStyle.fill,
       );
@@ -1287,28 +1773,34 @@ class MultiLineChartPainter extends CustomPainter {
       final linePath = Path()..moveTo(offsets[0].dx, offsets[0].dy);
       for (int i = 0; i < offsets.length - 1; i++) {
         final cp1 = Offset(
-            offsets[i].dx + (offsets[i + 1].dx - offsets[i].dx) / 2,
-            offsets[i].dy);
+          offsets[i].dx + (offsets[i + 1].dx - offsets[i].dx) / 2,
+          offsets[i].dy,
+        );
         final cp2 = Offset(
-            offsets[i].dx + (offsets[i + 1].dx - offsets[i].dx) / 2,
-            offsets[i + 1].dy);
+          offsets[i].dx + (offsets[i + 1].dx - offsets[i].dx) / 2,
+          offsets[i + 1].dy,
+        );
         linePath.cubicTo(
-            cp1.dx, cp1.dy, cp2.dx, cp2.dy,
-            offsets[i + 1].dx, offsets[i + 1].dy);
+          cp1.dx,
+          cp1.dy,
+          cp2.dx,
+          cp2.dy,
+          offsets[i + 1].dx,
+          offsets[i + 1].dy,
+        );
       }
       canvas.drawPath(
         linePath,
         Paint()
-          ..color       = line.color
+          ..color = line.color
           ..strokeWidth = 2.0
-          ..style       = PaintingStyle.stroke
-          ..strokeCap   = StrokeCap.round,
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round,
       );
     }
   }
 
   @override
   bool shouldRepaint(covariant MultiLineChartPainter old) =>
-      old.lines.length != lines.length ||
-      old.xLabels.length != xLabels.length;
+      old.lines.length != lines.length || old.xLabels.length != xLabels.length;
 }
