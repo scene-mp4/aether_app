@@ -219,7 +219,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
 Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey, // 2. Assign Scaffold Key
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       endDrawer: const NotificationsScreen(), // 3. Use real-time NotificationsScreen drawer
       body: Column(
         children: [

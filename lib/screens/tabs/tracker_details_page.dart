@@ -263,7 +263,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         final updatedAt = _timeAgo(reading?.timestamp);
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF1F5F9),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
@@ -828,14 +828,21 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
             ),
           ),
           const SizedBox(height: 2),
-          Row(children: [
-            const SizedBox(width: 4),
-            Container(
-                width: 5,
-                height: 5,
-                decoration: BoxDecoration(
-                    color: statusColor, shape: BoxShape.circle)),
-          ]),
+          Row(
+            children: List.generate(miniBarColors.length, (index) =>
+                Expanded(
+                  child: Center(
+                    child: index == (item["currentRangeIndex"] ?? 0)
+                        ? Container(
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                                color: statusColor, shape: BoxShape.circle),
+                          )
+                        : const SizedBox(height: 5),
+                  ),
+                )),
+          ),
           Text(item["status"],
               style: TextStyle(
                   fontSize: 9,

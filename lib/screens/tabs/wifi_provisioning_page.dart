@@ -169,7 +169,7 @@ class _WifiProvisioningViewState extends State<_WifiProvisioningView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: const Color(0xFF0052FF),
         foregroundColor: Colors.white,

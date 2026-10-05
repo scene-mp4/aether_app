@@ -365,8 +365,13 @@ async function sendAlertIfNeeded(deviceId, deviceName, computed, pushEnabled, cr
   }
 
   // Get owner's FCM tokens from Firestore
-  const userDoc = await db.collection('users').doc(ownerId).get();
-  const tokens  = userDoc.data()?.fcm_tokens ?? [];
+  const userDoc  = await db.collection('users').doc(ownerId).get();
+  const userData = userDoc.data() ?? {};
+  if (userData.push_notifications === false) {
+    console.log(`[FCM] Push notifications disabled for user ${ownerId} — skipping`);
+    return;
+  }
+  const tokens = userData.fcm_tokens ?? [];
   if (tokens.length === 0) {
     console.log(`[FCM] No FCM tokens for user ${ownerId} — skipping`);
     return;

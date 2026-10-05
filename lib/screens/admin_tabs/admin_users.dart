@@ -223,7 +223,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
   Widget build(BuildContext context) {
   return Scaffold(
       key: _scaffoldKey, // Attach key here
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       endDrawer: const NotificationsScreen(), // Use real-time notifications drawer
       body: SingleChildScrollView(
         child: Column(
