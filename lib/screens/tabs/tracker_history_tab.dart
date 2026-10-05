@@ -1,17 +1,20 @@
-import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:archive/archive.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../stores/app_data_store.dart';
 import '../../models/tracker_reading.dart';
 import '../../models/tracker_history.dart';
+
+// Conditional imports — dart:io on mobile, dart:html on web
+import 'tracker_history_download_stub.dart'
+    if (dart.library.io)   'tracker_history_download_io.dart'
+    if (dart.library.html) 'tracker_history_download_web.dart';
 
 class TrackerHistoryTab extends StatefulWidget {
   final String deviceId;
@@ -1005,38 +1008,21 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
           '${end.year}${end.month.toString().padLeft(2, '0')}${end.day.toString().padLeft(2, '0')}'
           '.${_format.extension}';
 
-      // FIX 2: Save directly to Downloads folder first so the file is
-      // always accessible on the device regardless of share sheet options.
-      // The emulator's share sheet doesn't always include a "Save to Files"
-      // option, but the file in Downloads is always accessible via Files app.
-      File? savedFile;
-      try {
-        final downloadsDir = await getDownloadsDirectory();
-        if (downloadsDir != null) {
-          savedFile = File('${downloadsDir.path}/$name');
-          await savedFile.writeAsBytes(bytes);
-        }
-      } catch (_) {
-        // Downloads folder not available — fall back to temp directory
-      }
-
-      // Also write to temp dir for the share sheet
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/$name');
-      await tempFile.writeAsBytes(bytes);
-
-      // Open share sheet — user can additionally send via Gmail, Quick Share etc.
-      await Share.shareXFiles([
-        XFile(tempFile.path, mimeType: _format.mimeType),
-      ], subject: 'AETHER Readings — ${widget.deviceId}');
+      // Save and share — uses web download on browser, share sheet on mobile
+      final savedToDownloads = await saveAndShareFile(
+        bytes:    bytes,
+        filename: name,
+        mimeType: _format.mimeType,
+        subject:  'AETHER Readings — \${widget.deviceId}',
+      );
 
       if (mounted) {
-        final saveMsg = savedFile != null
+        final saveMsg = (!kIsWeb && savedToDownloads)
             ? ' Also saved to Downloads folder.'
             : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Exported ${filtered.length} readings.$saveMsg'),
+            content: Text('Exported \${filtered.length} readings.\$saveMsg'),
           ),
         );
         Navigator.pop(context);
