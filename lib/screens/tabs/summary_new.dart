@@ -1,4 +1,3 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/stores/app_data_store.dart';
@@ -14,28 +13,13 @@ class SummaryNewPage extends StatefulWidget {
 
 class _SummaryNewPageState extends State<SummaryNewPage>
     with SingleTickerProviderStateMixin {
-
-        // get FCM token for notifications
-      @override
-      void initState() {
-        super.initState();
-        _printFcmToken();
-      }
-
-      Future<void> _printFcmToken() async {
-        final token = await FirebaseMessaging.instance.getToken();
-        debugPrint('==============================');
-        debugPrint('[FCM Token] $token');
-        debugPrint('==============================');
-      }
-
   late final TabController _tabController = TabController(
     length: 3,
     vsync: this,
   );
 
   // ── Selected Status Filter ────────────────────────────────────────────────
-String? _selectedStatusFilter; // null means "All" / no filter
+  String? _selectedStatusFilter; // null means "All" / no filter
 
   // ── ADD THE CODE FROM STEP 1 RIGHT HERE ───────────────────────────────────
   final List _allPollutantKeys = [
@@ -254,7 +238,7 @@ String? _selectedStatusFilter; // null means "All" / no filter
             .toList();
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8FAFC),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           endDrawer: const NotificationsScreen(),
           body: Column(
             children: [
@@ -267,7 +251,10 @@ String? _selectedStatusFilter; // null means "All" / no filter
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
                           children: [
-                            _buildHeaderDashboardGrid(readings, trackers.length),
+                            _buildHeaderDashboardGrid(
+                              readings,
+                              trackers.length,
+                            ),
                             if (_showAqiInfo) ...[
                               const SizedBox(height: 12),
                               _buildAqiExplanationCard(),
@@ -323,18 +310,53 @@ String? _selectedStatusFilter; // null means "All" / no filter
             ),
           ),
           const SizedBox(height: 12),
-          _buildAqiLegendRow(const Color(0xFF22C55E), "0–50", "Good", const Color(0xFF166534)),
-          _buildAqiLegendRow(const Color(0xFFEAB308), "51–100", "Moderate", const Color(0xFFA16207)),
-          _buildAqiLegendRow(const Color(0xFFF97316), "101–150", "Unhealthy for Sensitive Groups", const Color(0xFFC2410C)),
-          _buildAqiLegendRow(const Color(0xFFEF4444), "151–200", "Unhealthy", const Color(0xFF991B1B)),
-          _buildAqiLegendRow(const Color(0xFFA855F7), "201–300", "Very Unhealthy", const Color(0xFF6B21A8)),
-          _buildAqiLegendRow(const Color(0xFF881337), "301+", "Hazardous", const Color(0xFF881337)),
+          _buildAqiLegendRow(
+            const Color(0xFF22C55E),
+            "0–50",
+            "Good",
+            const Color(0xFF166534),
+          ),
+          _buildAqiLegendRow(
+            const Color(0xFFEAB308),
+            "51–100",
+            "Moderate",
+            const Color(0xFFA16207),
+          ),
+          _buildAqiLegendRow(
+            const Color(0xFFF97316),
+            "101–150",
+            "Unhealthy for Sensitive Groups",
+            const Color(0xFFC2410C),
+          ),
+          _buildAqiLegendRow(
+            const Color(0xFFEF4444),
+            "151–200",
+            "Unhealthy",
+            const Color(0xFF991B1B),
+          ),
+          _buildAqiLegendRow(
+            const Color(0xFFA855F7),
+            "201–300",
+            "Very Unhealthy",
+            const Color(0xFF6B21A8),
+          ),
+          _buildAqiLegendRow(
+            const Color(0xFF881337),
+            "301+",
+            "Hazardous",
+            const Color(0xFF881337),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildAqiLegendRow(Color dotColor, String range, String label, Color textColor) {
+  Widget _buildAqiLegendRow(
+    Color dotColor,
+    String range,
+    String label,
+    Color textColor,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3.0),
       child: Row(
@@ -342,10 +364,7 @@ String? _selectedStatusFilter; // null means "All" / no filter
           Container(
             width: 10,
             height: 10,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
           SizedBox(
@@ -373,12 +392,11 @@ String? _selectedStatusFilter; // null means "All" / no filter
   }
 
   // ── HEADER BANNER ──────────────────────────────────────────────────────────
- Widget _buildHeaderBanner() {
+  Widget _buildHeaderBanner() {
     return Container(
       width: double.infinity,
       color: const Color(0xFF0052FF),
-      padding: const EdgeInsets.only(
-          left: 16, right: 16, top: 24, bottom: 20),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,12 +441,17 @@ String? _selectedStatusFilter; // null means "All" / no filter
   }
 
   // ── HEADER DASHBOARD GRID ──────────────────────────────────────────────────
-  Widget _buildHeaderDashboardGrid(List<TrackerReading> readings, int totalTrackers) {
+  Widget _buildHeaderDashboardGrid(
+    List<TrackerReading> readings,
+    int totalTrackers,
+  ) {
     final avgAqi = readings.isEmpty
         ? 0
         : (_avg(readings.map((r) => r.iaqi.toDouble()).toList())).round();
     final alertCount = readings.where((r) => r.coAlert == true).length;
-    final aqiColor = readings.isEmpty ? const Color(0xFF94A3B8) : _aqiColor(avgAqi);
+    final aqiColor = readings.isEmpty
+        ? const Color(0xFF94A3B8)
+        : _aqiColor(avgAqi);
     final aqiLabel = readings.isEmpty ? '--' : _aqiLabel(avgAqi);
     final lastDt = _latestTimestamp(readings);
 
@@ -457,11 +480,16 @@ String? _selectedStatusFilter; // null means "All" / no filter
                     ),
                     Flexible(
                       child: Text(
-                        lastDt != null ? 'Updated ${_timeAgo(lastDt)}' : 'Updated --',
+                        lastDt != null
+                            ? 'Updated ${_timeAgo(lastDt)}'
+                            : 'Updated --',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.right,
-                        style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ),
                     ),
                   ],
@@ -478,7 +506,10 @@ String? _selectedStatusFilter; // null means "All" / no filter
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: readings.isEmpty
                         ? const Color(0xFFF1F5F9)
@@ -513,8 +544,14 @@ String? _selectedStatusFilter; // null means "All" / no filter
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: const [
-                    Text("Good", style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
-                    Text("Hazardous", style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                    Text(
+                      "Good",
+                      style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+                    ),
+                    Text(
+                      "Hazardous",
+                      style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -523,7 +560,10 @@ String? _selectedStatusFilter; // null means "All" / no filter
                   onTap: () => setState(() => _showAqiInfo = !_showAqiInfo),
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(16),
@@ -532,7 +572,11 @@ String? _selectedStatusFilter; // null means "All" / no filter
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: const [
-                        Icon(Icons.info_outline, size: 13, color: Color(0xFF2563EB)),
+                        Icon(
+                          Icons.info_outline,
+                          size: 13,
+                          color: Color(0xFF2563EB),
+                        ),
                         SizedBox(width: 4),
                         Text(
                           "What is AQI?",
@@ -558,7 +602,10 @@ String? _selectedStatusFilter; // null means "All" / no filter
               // TRACKERS CARD
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 12,
+                ),
                 decoration: _cardDecoration,
                 child: Column(
                   children: [
@@ -572,7 +619,11 @@ String? _selectedStatusFilter; // null means "All" / no filter
                             "Trackers",
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -594,7 +645,10 @@ String? _selectedStatusFilter; // null means "All" / no filter
               // ACTIVE ALERTS CARD
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 12,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(16),
@@ -605,7 +659,11 @@ String? _selectedStatusFilter; // null means "All" / no filter
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: const [
-                        Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 18),
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Color(0xFFDC2626),
+                          size: 18,
+                        ),
                         SizedBox(width: 6),
                         Flexible(
                           child: Text(
@@ -660,10 +718,7 @@ String? _selectedStatusFilter; // null means "All" / no filter
         controller: _tabController,
         labelColor: Colors.white,
         unselectedLabelColor: const Color(0xFF64748B),
-        labelStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
+        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
         unselectedLabelStyle: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
@@ -676,8 +731,14 @@ String? _selectedStatusFilter; // null means "All" / no filter
         dividerColor: Colors.transparent,
         splashBorderRadius: BorderRadius.circular(10),
         tabs: const [
-          Tab(icon: Icon(Icons.eco_outlined, size: 16), text: "Tracker Overview"),
-          Tab(icon: Icon(Icons.query_stats_outlined, size: 16), text: "Pollutants"),
+          Tab(
+            icon: Icon(Icons.eco_outlined, size: 16),
+            text: "Tracker Overview",
+          ),
+          Tab(
+            icon: Icon(Icons.query_stats_outlined, size: 16),
+            text: "Pollutants",
+          ),
           Tab(icon: Icon(Icons.menu_book_outlined, size: 16), text: "Manual"),
         ],
       ),
@@ -712,508 +773,622 @@ String? _selectedStatusFilter; // null means "All" / no filter
     );
   }
 
-Widget _buildTrackerStatusSection(List readings) {
-  int good = 0, moderate = 0, sensitive = 0, unhealthy = 0, veryUnhealthy = 0, hazardous = 0;
+  Widget _buildTrackerStatusSection(List readings) {
+    int good = 0,
+        moderate = 0,
+        sensitive = 0,
+        unhealthy = 0,
+        veryUnhealthy = 0,
+        hazardous = 0;
 
-  for (final r in readings) {
-    if (r.iaqi <= 50) good++;
-    else if (r.iaqi <= 100) moderate++;
-    else if (r.iaqi <= 150) sensitive++;
-    else if (r.iaqi <= 200) unhealthy++;
-    else if (r.iaqi <= 300) veryUnhealthy++;
-    else hazardous++;
-  }
+    for (final r in readings) {
+      if (r.iaqi <= 50)
+        good++;
+      else if (r.iaqi <= 100)
+        moderate++;
+      else if (r.iaqi <= 150)
+        sensitive++;
+      else if (r.iaqi <= 200)
+        unhealthy++;
+      else if (r.iaqi <= 300)
+        veryUnhealthy++;
+      else
+        hazardous++;
+    }
 
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            "Tracker Status",
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-          ),
-          if (_selectedStatusFilter != null)
-            TextButton(
-              onPressed: () => setState(() => _selectedStatusFilter = null),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(50, 20),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text("Clear Filter", style: TextStyle(fontSize: 11, color: Color(0xFF2563EB))),
-            ),
-        ],
-      ),
-
-      const SizedBox(height: 2),
-      
-      // ── HINT TEXT ────────────────────────────────────────────────────────
-      Row(
-        children: const [
-          Icon(Icons.touch_app_outlined, size: 12, color: Color(0xFF64748B)),
-          SizedBox(width: 4),
-          Text(
-            "Tap any status below to filter rankings",
-            style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
-          ),
-        ],
-      ),
-
-      const SizedBox(height: 14),
-      _buildStatusRow(const Color(0xFF22C55E), "Good", "AQI 0–50", '$good'),
-      _buildStatusRow(const Color(0xFFEAB308), "Moderate", "AQI 51–100", '$moderate'),
-      _buildStatusRow(const Color(0xFFF97316), "Unhealthy for Sensitive Groups", "AQI 101–150", '$sensitive'),
-      _buildStatusRow(const Color(0xFFEF4444), "Unhealthy", "AQI 151–200", '$unhealthy'),
-      _buildStatusRow(const Color(0xFFA855F7), "Very Unhealthy", "AQI 201–300", '$veryUnhealthy'),
-      _buildStatusRow(const Color(0xFF881337), "Hazardous", "AQI 301+", '$hazardous', isLast: true),
-    ],
-  );
-}
-
-Widget _buildStatusRow(Color color, String label, String range, String count, {bool isLast = false}) {
-  final isSelected = _selectedStatusFilter == label;
-
-  return Padding(
-    padding: EdgeInsets.only(bottom: isLast ? 0 : 8.0),
-    child: InkWell(
-      onTap: () {
-        setState(() {
-          // Toggle selection: if already selected, clear filter; otherwise set filter.
-          _selectedStatusFilter = isSelected ? null : label;
-        });
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: isSelected ? Border.all(color: color, width: 1.5) : null,
-        ),
-        child: Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                  Text(range, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                ],
+            const Text(
+              "Tracker Status",
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
               ),
             ),
+            if (_selectedStatusFilter != null)
+              TextButton(
+                onPressed: () => setState(() => _selectedStatusFilter = null),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(50, 20),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  "Clear Filter",
+                  style: TextStyle(fontSize: 11, color: Color(0xFF2563EB)),
+                ),
+              ),
+          ],
+        ),
+
+        const SizedBox(height: 2),
+
+        // ── HINT TEXT ────────────────────────────────────────────────────────
+        Row(
+          children: const [
+            Icon(Icons.touch_app_outlined, size: 12, color: Color(0xFF64748B)),
+            SizedBox(width: 4),
             Text(
-              count,
+              "Tap any status below to filter rankings",
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? color : const Color(0xFF0F172A),
+                fontSize: 11,
+                color: Color(0xFF64748B),
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
         ),
-      ),
-    ),
-  );
-}
 
-  // ── UPDATED: RANKINGS SECTION WITH TRACKER NAMES ─────────────────────────
-Widget _buildRankingsSection(AppDataStore store) {
-  final trackerRankList = store.trackers.map((t) {
-    final reading = store.readingFor(t.id);
+        const SizedBox(height: 14),
+        _buildStatusRow(const Color(0xFF22C55E), "Good", "AQI 0–50", '$good'),
+        _buildStatusRow(
+          const Color(0xFFEAB308),
+          "Moderate",
+          "AQI 51–100",
+          '$moderate',
+        ),
+        _buildStatusRow(
+          const Color(0xFFF97316),
+          "Unhealthy for Sensitive Groups",
+          "AQI 101–150",
+          '$sensitive',
+        ),
+        _buildStatusRow(
+          const Color(0xFFEF4444),
+          "Unhealthy",
+          "AQI 151–200",
+          '$unhealthy',
+        ),
+        _buildStatusRow(
+          const Color(0xFFA855F7),
+          "Very Unhealthy",
+          "AQI 201–300",
+          '$veryUnhealthy',
+        ),
+        _buildStatusRow(
+          const Color(0xFF881337),
+          "Hazardous",
+          "AQI 301+",
+          '$hazardous',
+          isLast: true,
+        ),
+      ],
+    );
+  }
 
-    String trackerName = t.deviceName.trim();
-    if (trackerName.isEmpty && t.location.trim().isNotEmpty) {
-      trackerName = t.location.trim();
-    }
-    if (trackerName.isEmpty) {
-      trackerName = 'Tracker ${t.id}';
-    }
+  Widget _buildStatusRow(
+    Color color,
+    String label,
+    String range,
+    String count, {
+    bool isLast = false,
+  }) {
+    final isSelected = _selectedStatusFilter == label;
 
-    return {
-      'name': trackerName,
-      'reading': reading,
-      'aqi': reading?.iaqi ?? 0,
-    };
-  }).where((item) {
-    // Filter list based on selected filter
-    if (_selectedStatusFilter == null) return true;
-    final aqi = item['aqi'] as int;
-    final statusLabel = _aqiLabel(aqi);
-    return statusLabel == _selectedStatusFilter;
-  }).toList();
-
-  trackerRankList.sort((a, b) => (a['aqi'] as int).compareTo(b['aqi'] as int));
-
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            "Individual Tracker/s AQI Rankings",
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 8.0),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            // Toggle selection: if already selected, clear filter; otherwise set filter.
+            _selectedStatusFilter = isSelected ? null : label;
+          });
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: isSelected ? Border.all(color: color, width: 1.5) : null,
           ),
-          if (_selectedStatusFilter != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(12),
+          child: Row(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
-              child: Text(
-                "Filter: $_selectedStatusFilter",
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
-              ),
-            ),
-        ],
-      ),
-      const SizedBox(height: 2),
-      const Text(
-        "AQI values per tracker — lower is better",
-        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-      ),
-      const SizedBox(height: 16),
-      if (trackerRankList.isEmpty)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(
-            _selectedStatusFilter == null
-                ? "No rankings available"
-                : "No trackers found with status \"$_selectedStatusFilter\"",
-            style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-          ),
-        )
-      else
-        ...trackerRankList.asMap().entries.map((entry) {
-          final idx = entry.key + 1;
-          final item = entry.value;
-          final trackerName = item['name'] as String;
-          final val = item['aqi'] as int;
-          final color = _aqiColor(val);
-          final factor = (val / 500).clamp(0.05, 1.0);
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 14.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 24,
-                      child: Text(
-                        'R $idx',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF64748B),
-                        ),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                        color: const Color(0xFF1E293B),
                       ),
                     ),
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          Container(
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: factor,
-                            child: Container(
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 32,
-                      child: Text(
-                        '$val',
-                        textAlign: TextAlign.end,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
-                        ),
+                    Text(
+                      range,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                Padding(
-                  padding: const EdgeInsets.only(left: 24.0),
-                  child: Text(
-                    trackerName,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF475569),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-    ],
-  );
-}
-
-  // ── TAB 2: POLLUTANT AVERAGES ─────────────────────────────────────────────
-Widget _buildReadingsTab(List<TrackerReading> readings) {
-  final isAllSelected = _selectedPollutants.length == _allPollutantKeys.length;
-
-  return SingleChildScrollView(
-    padding: const EdgeInsets.all(16),
-    child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: const [
-                  Icon(Icons.sensors, size: 18, color: Color(0xFF2563EB)),
-                  SizedBox(width: 6),
-                  Text(
-                    "Average Readings",
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ],
               ),
-              // Show "Select All" button only when not all items are selected
-              if (!isAllSelected)
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _selectedPollutants = Set.from(_allPollutantKeys);
-                    });
-                  },
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(50, 20),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text(
-                    "Select All",
-                    style: TextStyle(fontSize: 11, color: Color(0xFF2563EB)),
-                  ),
+              Text(
+                count,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? color : const Color(0xFF0F172A),
                 ),
+              ),
             ],
           ),
-          const SizedBox(height: 2),
-          const Text(
-            "Display preferred air pollutant readings by clicking on the tags below.",
-            style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-          ),
-          const SizedBox(height: 12),
-
-          // ── FILTER CHIPS ──────────────────────────────────────────────────
-          Wrap(
-            spacing: 6.0,
-            runSpacing: 4.0,
-            children: _allPollutantKeys.map((key) {
-              final isSelected = _selectedPollutants.contains(key);
-              return FilterChip(
-                label: Text(
-                  key,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
-                  ),
-                ),
-                selected: isSelected,
-                onSelected: (bool selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedPollutants.add(key);
-                    } else {
-                      // Prevent deselecting if it's the last remaining pollutant
-                      if (_selectedPollutants.length > 1) {
-                        _selectedPollutants.remove(key);
-                      }
-                    }
-                  });
-                },
-                selectedColor: const Color(0xFFEFF6FF),
-                backgroundColor: const Color(0xFFF1F5F9),
-                checkmarkColor: const Color(0xFF2563EB),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: isSelected ? const Color(0xFFBFDBFE) : Colors.transparent,
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 16),
-          _buildPollutantGrid(readings),
-        ],
-      ),
-    ),
-  );
-}
-
-Widget _buildPollutantGrid(List<TrackerReading> readings) {
-  final pm1 = _avg(readings.map((r) => r.pm1Ugm3).toList());
-  final pm25 = _avg(readings.map((r) => r.pm25Ugm3).toList());
-  final pm10 = _avg(readings.map((r) => r.pm10Ugm3).toList());
-  final co = _avg(readings.map((r) => r.coPpm).toList());
-  final co2 = _avg(readings.map((r) => r.co2Ppm).toList());
-  final o3 = _avg(readings.map((r) => r.o3Ppm * 1000).toList());
-  final temp = _avg(readings.map((r) => r.temperatureC).toList());
-  final hum = _avg(readings.map((r) => r.humidityPct).toList());
-
-  final hasData = readings.isNotEmpty;
-  String fmt(double v, int d) => hasData ? v.toStringAsFixed(d) : '0.0';
-
-  // Map each pollutant key to its widget builder
-  final Map<String, Widget> cardMap = {
-    'PM2.5': _buildPollutantCard(
-      "PM2.5", fmt(pm25, 1), "µg/m³",
-      hasData ? _pm25Status(pm25) : 'Good',
-      hasData ? _pm25StatusBg(pm25) : const Color(0xFFDCFCE7),
-      hasData ? _pm25StatusText(pm25) : const Color(0xFF166534),
-      true,
-      isLarge: true,
-      infoText: "PM2.5 are fine dust particles that come from smoke, cooking, or outdoor pollution.\n\nSafe below 12 µg/m³ (WHO guideline).",
-    ),
-    'CO₂': _buildPollutantCard(
-      "CO₂", fmt(co2, 0), "ppm",
-      hasData ? _co2Status(co2) : 'Excellent',
-      hasData ? _co2StatusBg(co2) : const Color(0xFFDCFCE7),
-      hasData ? _co2StatusText(co2) : const Color(0xFF166534),
-      true,
-      isLarge: true,
-      infoText: "CO₂ builds up in rooms with many people and poor air circulation.\n\nGood below 800 ppm · Stuffy above 1000 ppm.",
-    ),
-    'PM1.0': _buildPollutantCard(
-      "PM1.0", fmt(pm1, 1), "µg/m³",
-      hasData ? _pm25Status(pm1) : 'Good',
-      hasData ? _pm25StatusBg(pm1) : const Color(0xFFDCFCE7),
-      hasData ? _pm25StatusText(pm1) : const Color(0xFF166534),
-      true,
-      infoText: "PM1.0 are ultra-fine particles smaller than 1 micron that penetrate deep into airways.",
-    ),
-    'PM10': _buildPollutantCard(
-      "PM10", fmt(pm10, 1), "µg/m³",
-      hasData ? _pm25Status(pm10) : 'Good',
-      hasData ? _pm25StatusBg(pm10) : const Color(0xFFDCFCE7),
-      hasData ? _pm25StatusText(pm10) : const Color(0xFF166534),
-      true,
-      infoText: "PM10 includes inhalable dust, pollen, and mold particles.",
-    ),
-    'CO': _buildPollutantCard(
-      "CO", fmt(co, 1), "ppm",
-      hasData ? _coStatus(co) : 'Normal',
-      hasData ? _coStatusBg(co) : const Color(0xFFDCFCE7),
-      hasData ? _coStatusText(co) : const Color(0xFF166534),
-      true,
-      infoText: "Carbon Monoxide is an odorless gas produced by incomplete combustion.",
-    ),
-    'O₃': _buildPollutantCard(
-      "O₃", fmt(o3, 1), "ppb",
-      hasData ? (o3 <= 70 ? 'Good' : 'Elevated') : 'Good',
-      hasData ? (o3 <= 70 ? const Color(0xFFDCFCE7) : const Color(0xFFFEF9C3)) : const Color(0xFFDCFCE7),
-      hasData ? (o3 <= 70 ? const Color(0xFF166534) : const Color(0xFFA16207)) : const Color(0xFF166534),
-      false,
-      infoText: "Ground-level Ozone can irritate the respiratory system, especially for sensitive groups.",
-    ),
-    'Temp': _buildPollutantCard(
-      "Temp", fmt(temp, 1), "°C",
-      hasData ? _tempStatus(temp) : 'Comfortable',
-      hasData ? _tempStatusBg(temp) : const Color(0xFFDCFCE7),
-      hasData ? _tempStatusText(temp) : const Color(0xFF166534),
-      true,
-      infoText: "Indoor temperature affects overall thermal comfort and room circulation.",
-    ),
-    'Humidity': _buildPollutantCard(
-      "Humidity", fmt(hum, 1), "%",
-      hasData ? _humStatus(hum) : 'Ideal',
-      hasData ? _humStatusBg(hum) : const Color(0xFFDCFCE7),
-      hasData ? _humStatusText(hum) : const Color(0xFF166534),
-      true,
-      infoText: "Optimal humidity is between 30% and 60% to limit mold and dust mite growth.",
-    ),
-  };
-
-  // Extract selected cards based on user selection order
-  final activeCards = _allPollutantKeys
-      .where((k) => _selectedPollutants.contains(k))
-      .map((k) => cardMap[k]!)
-      .toList();
-
-  if (activeCards.isEmpty) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 24.0),
-      child: Center(
-        child: Text(
-          "No pollutants selected",
-          style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
         ),
       ),
     );
   }
 
-  // Pair active cards into 2-column rows
-  final List<Widget> rows = [];
-  for (int i = 0; i < activeCards.length; i += 2) {
-    final first = activeCards[i];
-    final second = (i + 1 < activeCards.length) ? activeCards[i + 1] : null;
+  // ── UPDATED: RANKINGS SECTION WITH TRACKER NAMES ─────────────────────────
+  Widget _buildRankingsSection(AppDataStore store) {
+    final trackerRankList = store.trackers
+        .map((t) {
+          final reading = store.readingFor(t.id);
 
-    rows.add(
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: first),
-          const SizedBox(width: 12),
-          Expanded(
-            child: second ?? const SizedBox.shrink(),
-          ),
-        ],
-      ),
+          String trackerName = t.deviceName.trim();
+          if (trackerName.isEmpty && t.location.trim().isNotEmpty) {
+            trackerName = t.location.trim();
+          }
+          if (trackerName.isEmpty) {
+            trackerName = 'Tracker ${t.id}';
+          }
+
+          return {
+            'name': trackerName,
+            'reading': reading,
+            'aqi': reading?.iaqi ?? 0,
+          };
+        })
+        .where((item) {
+          // Filter list based on selected filter
+          if (_selectedStatusFilter == null) return true;
+          final aqi = item['aqi'] as int;
+          final statusLabel = _aqiLabel(aqi);
+          return statusLabel == _selectedStatusFilter;
+        })
+        .toList();
+
+    trackerRankList.sort(
+      (a, b) => (a['aqi'] as int).compareTo(b['aqi'] as int),
     );
 
-    if (i + 2 < activeCards.length) {
-      rows.add(const SizedBox(height: 12));
-    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Individual Tracker/s AQI Rankings",
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            if (_selectedStatusFilter != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "Filter: $_selectedStatusFilter",
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        const Text(
+          "AQI values per tracker — lower is better",
+          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+        ),
+        const SizedBox(height: 16),
+        if (trackerRankList.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              _selectedStatusFilter == null
+                  ? "No rankings available"
+                  : "No trackers found with status \"$_selectedStatusFilter\"",
+              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+            ),
+          )
+        else
+          ...trackerRankList.asMap().entries.map((entry) {
+            final idx = entry.key + 1;
+            final item = entry.value;
+            final trackerName = item['name'] as String;
+            final val = item['aqi'] as int;
+            final color = _aqiColor(val);
+            final factor = (val / 500).clamp(0.05, 1.0);
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        child: Text(
+                          'R $idx',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Container(
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            FractionallySizedBox(
+                              widthFactor: factor,
+                              child: Container(
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 32,
+                        child: Text(
+                          '$val',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 24.0),
+                    child: Text(
+                      trackerName,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+      ],
+    );
   }
 
-  return Column(children: rows);
-}
+  // ── TAB 2: POLLUTANT AVERAGES ─────────────────────────────────────────────
+  Widget _buildReadingsTab(List<TrackerReading> readings) {
+    final isAllSelected =
+        _selectedPollutants.length == _allPollutantKeys.length;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _cardDecoration,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.sensors, size: 18, color: Color(0xFF2563EB)),
+                    SizedBox(width: 6),
+                    Text(
+                      "Average Readings",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+                // Show "Select All" button only when not all items are selected
+                if (!isAllSelected)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedPollutants = Set.from(_allPollutantKeys);
+                      });
+                    },
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(50, 20),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      "Select All",
+                      style: TextStyle(fontSize: 11, color: Color(0xFF2563EB)),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              "Display preferred air pollutant readings by clicking on the tags below.",
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 12),
+
+            // ── FILTER CHIPS ──────────────────────────────────────────────────
+            Wrap(
+              spacing: 6.0,
+              runSpacing: 4.0,
+              children: _allPollutantKeys.map((key) {
+                final isSelected = _selectedPollutants.contains(key);
+                return FilterChip(
+                  label: Text(
+                    key,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      color: isSelected
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF64748B),
+                    ),
+                  ),
+                  selected: isSelected,
+                  onSelected: (bool selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedPollutants.add(key);
+                      } else {
+                        // Prevent deselecting if it's the last remaining pollutant
+                        if (_selectedPollutants.length > 1) {
+                          _selectedPollutants.remove(key);
+                        }
+                      }
+                    });
+                  },
+                  selectedColor: const Color(0xFFEFF6FF),
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  checkmarkColor: const Color(0xFF2563EB),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: isSelected
+                          ? const Color(0xFFBFDBFE)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 0,
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 16),
+            _buildPollutantGrid(readings),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPollutantGrid(List<TrackerReading> readings) {
+    final pm1 = _avg(readings.map((r) => r.pm1Ugm3).toList());
+    final pm25 = _avg(readings.map((r) => r.pm25Ugm3).toList());
+    final pm10 = _avg(readings.map((r) => r.pm10Ugm3).toList());
+    final co = _avg(readings.map((r) => r.coPpm).toList());
+    final co2 = _avg(readings.map((r) => r.co2Ppm).toList());
+    final o3 = _avg(readings.map((r) => r.o3Ppm * 1000).toList());
+    final temp = _avg(readings.map((r) => r.temperatureC).toList());
+    final hum = _avg(readings.map((r) => r.humidityPct).toList());
+
+    final hasData = readings.isNotEmpty;
+    String fmt(double v, int d) => hasData ? v.toStringAsFixed(d) : '0.0';
+
+    // Map each pollutant key to its widget builder
+    final Map<String, Widget> cardMap = {
+      'PM2.5': _buildPollutantCard(
+        "PM2.5",
+        fmt(pm25, 1),
+        "µg/m³",
+        hasData ? _pm25Status(pm25) : 'Good',
+        hasData ? _pm25StatusBg(pm25) : const Color(0xFFDCFCE7),
+        hasData ? _pm25StatusText(pm25) : const Color(0xFF166534),
+        true,
+        isLarge: true,
+        infoText:
+            "PM2.5 are fine dust particles that come from smoke, cooking, or outdoor pollution.\n\nSafe below 12 µg/m³ (WHO guideline).",
+      ),
+      'CO₂': _buildPollutantCard(
+        "CO₂",
+        fmt(co2, 0),
+        "ppm",
+        hasData ? _co2Status(co2) : 'Excellent',
+        hasData ? _co2StatusBg(co2) : const Color(0xFFDCFCE7),
+        hasData ? _co2StatusText(co2) : const Color(0xFF166534),
+        true,
+        isLarge: true,
+        infoText:
+            "CO₂ builds up in rooms with many people and poor air circulation.\n\nGood below 800 ppm · Stuffy above 1000 ppm.",
+      ),
+      'PM1.0': _buildPollutantCard(
+        "PM1.0",
+        fmt(pm1, 1),
+        "µg/m³",
+        hasData ? _pm25Status(pm1) : 'Good',
+        hasData ? _pm25StatusBg(pm1) : const Color(0xFFDCFCE7),
+        hasData ? _pm25StatusText(pm1) : const Color(0xFF166534),
+        true,
+        infoText:
+            "PM1.0 are ultra-fine particles smaller than 1 micron that penetrate deep into airways.",
+      ),
+      'PM10': _buildPollutantCard(
+        "PM10",
+        fmt(pm10, 1),
+        "µg/m³",
+        hasData ? _pm25Status(pm10) : 'Good',
+        hasData ? _pm25StatusBg(pm10) : const Color(0xFFDCFCE7),
+        hasData ? _pm25StatusText(pm10) : const Color(0xFF166534),
+        true,
+        infoText: "PM10 includes inhalable dust, pollen, and mold particles.",
+      ),
+      'CO': _buildPollutantCard(
+        "CO",
+        fmt(co, 1),
+        "ppm",
+        hasData ? _coStatus(co) : 'Normal',
+        hasData ? _coStatusBg(co) : const Color(0xFFDCFCE7),
+        hasData ? _coStatusText(co) : const Color(0xFF166534),
+        true,
+        infoText:
+            "Carbon Monoxide is an odorless gas produced by incomplete combustion.",
+      ),
+      'O₃': _buildPollutantCard(
+        "O₃",
+        fmt(o3, 1),
+        "ppb",
+        hasData ? (o3 <= 70 ? 'Good' : 'Elevated') : 'Good',
+        hasData
+            ? (o3 <= 70 ? const Color(0xFFDCFCE7) : const Color(0xFFFEF9C3))
+            : const Color(0xFFDCFCE7),
+        hasData
+            ? (o3 <= 70 ? const Color(0xFF166534) : const Color(0xFFA16207))
+            : const Color(0xFF166534),
+        false,
+        infoText:
+            "Ground-level Ozone can irritate the respiratory system, especially for sensitive groups.",
+      ),
+      'Temp': _buildPollutantCard(
+        "Temp",
+        fmt(temp, 1),
+        "°C",
+        hasData ? _tempStatus(temp) : 'Comfortable',
+        hasData ? _tempStatusBg(temp) : const Color(0xFFDCFCE7),
+        hasData ? _tempStatusText(temp) : const Color(0xFF166534),
+        true,
+        infoText:
+            "Indoor temperature affects overall thermal comfort and room circulation.",
+      ),
+      'Humidity': _buildPollutantCard(
+        "Humidity",
+        fmt(hum, 1),
+        "%",
+        hasData ? _humStatus(hum) : 'Ideal',
+        hasData ? _humStatusBg(hum) : const Color(0xFFDCFCE7),
+        hasData ? _humStatusText(hum) : const Color(0xFF166534),
+        true,
+        infoText:
+            "Optimal humidity is between 30% and 60% to limit mold and dust mite growth.",
+      ),
+    };
+
+    // Extract selected cards based on user selection order
+    final activeCards = _allPollutantKeys
+        .where((k) => _selectedPollutants.contains(k))
+        .map((k) => cardMap[k]!)
+        .toList();
+
+    if (activeCards.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24.0),
+        child: Center(
+          child: Text(
+            "No pollutants selected",
+            style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+          ),
+        ),
+      );
+    }
+
+    // Pair active cards into 2-column rows
+    final List<Widget> rows = [];
+    for (int i = 0; i < activeCards.length; i += 2) {
+      final first = activeCards[i];
+      final second = (i + 1 < activeCards.length) ? activeCards[i + 1] : null;
+
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: first),
+            const SizedBox(width: 12),
+            Expanded(child: second ?? const SizedBox.shrink()),
+          ],
+        ),
+      );
+
+      if (i + 2 < activeCards.length) {
+        rows.add(const SizedBox(height: 12));
+      }
+    }
+
+    return Column(children: rows);
+  }
 
   Widget _buildPollutantCard(
     String keyName,
@@ -1239,7 +1414,11 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
         children: [
           Text(
             keyName,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 6),
           Row(
@@ -1256,7 +1435,9 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
               Icon(
                 isDownTrend ? Icons.trending_down : Icons.trending_up,
                 size: 18,
-                color: isDownTrend ? const Color(0xFF22C55E) : const Color(0xFFF97316),
+                color: isDownTrend
+                    ? const Color(0xFF22C55E)
+                    : const Color(0xFFF97316),
               ),
             ],
           ),
@@ -1264,7 +1445,10 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(unit, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+              Text(
+                unit,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -1273,7 +1457,11 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
                 ),
                 child: Text(
                   statusLabel,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusTextColor),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: statusTextColor,
+                  ),
                 ),
               ),
             ],
@@ -1294,14 +1482,24 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.info_outline, size: 12, color: Color(0xFF2563EB)),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 12,
+                    color: Color(0xFF2563EB),
+                  ),
                   const SizedBox(width: 4),
                   const Text(
                     "More Info",
-                    style: TextStyle(fontSize: 10, color: Color(0xFF2563EB), fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF2563EB),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     size: 12,
                     color: const Color(0xFF2563EB),
                   ),
@@ -1356,7 +1554,11 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
             const SizedBox(height: 4),
             const Text(
               "Common illnesses senior citizens may develop from indoor air pollutants, with do's and don'ts.",
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.3),
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
+                height: 1.3,
+              ),
             ),
 
             if (_isManualExpanded) ...[
@@ -1376,7 +1578,9 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
               _buildManualSectionCard(
                 title: "Respiratory Illnesses",
                 isExpanded: _isRespiratoryExpanded,
-                onTap: () => setState(() => _isRespiratoryExpanded = !_isRespiratoryExpanded),
+                onTap: () => setState(
+                  () => _isRespiratoryExpanded = !_isRespiratoryExpanded,
+                ),
                 children: const [
                   _ManualIllnessItem(
                     dotColor: Color(0xFFEF4444),
@@ -1400,7 +1604,8 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
                     dotColor: Color(0xFF3B82F6),
                     title: "Lung Cancer (long-term exposure)",
                     triggers: "PM2.5, PM1.0, O₃",
-                    symptoms: "persistent cough, blood in sputum, unexplained weight loss",
+                    symptoms:
+                        "persistent cough, blood in sputum, unexplained weight loss",
                     isLast: true,
                   ),
                 ],
@@ -1422,7 +1627,9 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
               _buildManualSectionCard(
                 title: "Cardiovascular Illnesses",
                 isExpanded: _isCardiovascularExpanded,
-                onTap: () => setState(() => _isCardiovascularExpanded = !_isCardiovascularExpanded),
+                onTap: () => setState(
+                  () => _isCardiovascularExpanded = !_isCardiovascularExpanded,
+                ),
                 children: const [
                   _ManualIllnessItem(
                     dotColor: Color(0xFFEF4444),
@@ -1434,13 +1641,15 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
                     dotColor: Color(0xFFA855F7),
                     title: "Stroke",
                     triggers: "PM2.5, PM10, CO",
-                    symptoms: "sudden numbness, confusion, trouble speaking or walking",
+                    symptoms:
+                        "sudden numbness, confusion, trouble speaking or walking",
                   ),
                   _ManualIllnessItem(
                     dotColor: Color(0xFF06B6D4),
                     title: "Hypertension (worsening)",
                     triggers: "CO, PM2.5, temperature extremes",
-                    symptoms: "headaches, dizziness, elevated blood pressure readings",
+                    symptoms:
+                        "headaches, dizziness, elevated blood pressure readings",
                     isLast: true,
                   ),
                 ],
@@ -1474,25 +1683,29 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
                     icon: Icons.check,
                     iconColor: Color(0xFF16A34A),
                     boldText: "Ventilate regularly",
-                    normalText: "open windows for at least 10 minutes every hour when outdoor air quality allows",
+                    normalText:
+                        "open windows for at least 10 minutes every hour when outdoor air quality allows",
                   ),
                   _DosDontsItem(
                     icon: Icons.check,
                     iconColor: Color(0xFF16A34A),
                     boldText: "Act on alerts immediately",
-                    normalText: "when CO alert is active, open all doors and windows and move residents to fresh air",
+                    normalText:
+                        "when CO alert is active, open all doors and windows and move residents to fresh air",
                   ),
                   _DosDontsItem(
                     icon: Icons.check,
                     iconColor: Color(0xFF16A34A),
                     boldText: "Monitor high-risk residents first",
-                    normalText: "elderly residents with existing heart or lung conditions are most affected by poor air quality",
+                    normalText:
+                        "elderly residents with existing heart or lung conditions are most affected by poor air quality",
                   ),
                   _DosDontsItem(
                     icon: Icons.check,
                     iconColor: Color(0xFF16A34A),
                     boldText: "Keep sensors unobstructed",
-                    normalText: "ensure tracker units are not blocked by furniture or placed near cooking areas",
+                    normalText:
+                        "ensure tracker units are not blocked by furniture or placed near cooking areas",
                     isLast: true,
                   ),
                 ],
@@ -1508,13 +1721,15 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
                 headerTextColor: const Color(0xFFB91C1C),
                 iconColor: const Color(0xFFDC2626),
                 isExpanded: _isDontsExpanded,
-                onTap: () => setState(() => _isDontsExpanded = !_isDontsExpanded),
+                onTap: () =>
+                    setState(() => _isDontsExpanded = !_isDontsExpanded),
                 children: const [
                   _DosDontsItem(
                     icon: Icons.close,
                     iconColor: Color(0xFFDC2626),
                     boldText: "Do not smoke indoors",
-                    normalText: "smoking significantly worsens indoor air quality for all residents",
+                    normalText:
+                        "smoking significantly worsens indoor air quality for all residents",
                   ),
                   _DosDontsItem(
                     icon: Icons.close,
@@ -1526,13 +1741,16 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
                     icon: Icons.close,
                     iconColor: Color(0xFFDC2626),
                     boldText: "Do not remain in high-pollutant areas",
-                    normalText: "move to a cleaner area if readings are Polluted or worse",
+                    normalText:
+                        "move to a cleaner area if readings are Polluted or worse",
                   ),
                   _DosDontsItem(
                     icon: Icons.close,
                     iconColor: Color(0xFFDC2626),
-                    boldText: "Do not perform heavy physical activity when air quality is poor",
-                    normalText: "exertion increases pollutant intake into the lungs",
+                    boldText:
+                        "Do not perform heavy physical activity when air quality is poor",
+                    normalText:
+                        "exertion increases pollutant intake into the lungs",
                     isLast: true,
                   ),
                 ],
@@ -1589,7 +1807,9 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: const Color(0xFF64748B),
                     size: 18,
                   ),
@@ -1646,7 +1866,9 @@ Widget _buildPollutantGrid(List<TrackerReading> readings) {
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: iconColor,
                     size: 18,
                   ),
@@ -1689,7 +1911,9 @@ class _ManualIllnessItem extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+        border: isLast
+            ? null
+            : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1698,10 +1922,7 @@ class _ManualIllnessItem extends StatelessWidget {
             margin: const EdgeInsets.only(top: 4),
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1719,11 +1940,18 @@ class _ManualIllnessItem extends StatelessWidget {
                 const SizedBox(height: 3),
                 RichText(
                   text: TextSpan(
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                      height: 1.3,
+                    ),
                     children: [
                       const TextSpan(
                         text: "Triggered by: ",
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF475569),
+                        ),
                       ),
                       TextSpan(text: triggers),
                     ],
@@ -1732,11 +1960,18 @@ class _ManualIllnessItem extends StatelessWidget {
                 const SizedBox(height: 1),
                 RichText(
                   text: TextSpan(
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                      height: 1.3,
+                    ),
                     children: [
                       const TextSpan(
                         text: "Symptoms: ",
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF475569),
+                        ),
                       ),
                       TextSpan(text: symptoms),
                     ],
@@ -1773,7 +2008,9 @@ class _DosDontsItem extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+        border: isLast
+            ? null
+            : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1783,11 +2020,18 @@ class _DosDontsItem extends StatelessWidget {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(fontSize: 11, color: Color(0xFF475569), height: 1.35),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF475569),
+                  height: 1.35,
+                ),
                 children: [
                   TextSpan(
                     text: "$boldText — ",
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                    ),
                   ),
                   TextSpan(text: normalText),
                 ],

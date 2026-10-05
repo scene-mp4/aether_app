@@ -371,7 +371,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.85,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF1F5F9),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: StreamBuilder<List<NotificationItem>>(
             stream: isAdmin ? _adminFirestoreStream : _firestoreStream,

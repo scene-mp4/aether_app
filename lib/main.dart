@@ -15,8 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'stores/app_data_store.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-
-ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
+import 'screens/tabs/theme_notifier.dart';
 
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +26,7 @@ void main() async {
   );
 
   await NotificationService.initialize();
+  await initializeTheme();
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppDataStore(),
@@ -42,21 +42,42 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AETHER App',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: kPrimaryColor,
-          primary:   kPrimaryColor,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, mode, _) => MaterialApp(
+        title: 'AETHER App',
+        themeMode: mode,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: kPrimaryColor,
+            primary: kPrimaryColor,
+            brightness: Brightness.light,
+          ),
+          scaffoldBackgroundColor: const Color(0xFFF1F5F9),
+          useMaterial3: true,
         ),
+        darkTheme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: kPrimaryColor,
+            primary: const Color(0xFF7AA7FF),
+            brightness: Brightness.dark,
+            surface: const Color(0xFF151D2B),
+          ),
+          scaffoldBackgroundColor: const Color(0xFF0B1220),
+          cardTheme: const CardThemeData(
+            color: Color(0xFF151D2B),
+            surfaceTintColor: Colors.transparent,
+          ),
+          useMaterial3: true,
+        ),
+        debugShowCheckedModeBanner: false,
+        home: const AuthGate(),
+        routes: {
+          '/login': (context) => LoginScreen(),
+          '/bottom_navbar': (context) => BottomNavbar(),
+          '/admin_navbar': (context) => const AdminBottomNavbar(),
+        },
       ),
-      debugShowCheckedModeBanner: false,
-      home: const AuthGate(),
-      routes: {
-        '/login':         (context) => LoginScreen(),
-        '/bottom_navbar': (context) => BottomNavbar(),
-        '/admin_navbar':  (context) => const AdminBottomNavbar(),
-      },
     );
   }
 }

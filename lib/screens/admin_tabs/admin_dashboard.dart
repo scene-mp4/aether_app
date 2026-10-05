@@ -42,7 +42,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
             .toList();
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8FAFC),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           endDrawer: const NotificationsScreen(), //[cite: 1, 3]
           body: SingleChildScrollView(
             child: Column(

@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'manage_account_page.dart';
 import 'package:pollutracker_app/stores/app_data_store.dart';
 import 'notifications_screen.dart';
+import 'theme_notifier.dart';
+import '../../services/notification_service.dart';
 
 class SettingsNewPage extends StatefulWidget {
   const SettingsNewPage({Key? key}) : super(key: key);
@@ -19,8 +21,10 @@ class _SettingsTabState extends State<SettingsNewPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // App Settings State
-  bool pushNotifications = true;
-  bool darkMode = false;
+  bool pushNotifications = false;
+  bool _isUpdatingPushNotifications = false;
+
+  bool get darkMode => themeNotifier.value == ThemeMode.dark;
 
   // User & Loading State (explicit non-null defaults)
   String username = "User";
@@ -40,8 +44,10 @@ class _SettingsTabState extends State<SettingsNewPage> {
 
     if (user != null) {
       try {
-        DocumentSnapshot userDoc =
-            await _firestore.collection('users').doc(user.uid).get();
+        DocumentSnapshot userDoc = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
         if (mounted) {
           setState(() {
@@ -49,8 +55,9 @@ class _SettingsTabState extends State<SettingsNewPage> {
               final Map<String, dynamic> data =
                   userDoc.data() as Map<String, dynamic>;
 
-              username =
-                  (data['username'] ?? user.displayName ?? "User").toString();
+              username = (data['username'] ?? user.displayName ?? "User")
+                  .toString();
+              pushNotifications = data['push_notifications'] as bool? ?? false;
             } else {
               username = (user.displayName ?? "User").toString();
             }
@@ -58,10 +65,16 @@ class _SettingsTabState extends State<SettingsNewPage> {
             _isLoadingUser = false;
           });
         }
+        if (userDoc.data() is Map<String, dynamic> &&
+            (userDoc.data() as Map<String, dynamic>)['push_notifications'] ==
+                true) {
+          await NotificationService.syncEnabledUser(user.uid);
+        }
       } catch (e) {
         if (mounted) {
           setState(() {
             username = (user.displayName ?? user.email ?? "User").toString();
+            pushNotifications = false;
             email = (user.email ?? "").toString();
             _isLoadingUser = false;
           });
@@ -71,6 +84,41 @@ class _SettingsTabState extends State<SettingsNewPage> {
       if (mounted) {
         setState(() => _isLoadingUser = false);
       }
+    }
+  }
+
+  Future<void> _setPushNotifications(bool enabled) async {
+    if (_isUpdatingPushNotifications) return;
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    setState(() => _isUpdatingPushNotifications = true);
+    try {
+      if (enabled) {
+        final didEnable = await NotificationService.enableForUser(user.uid);
+        if (!didEnable) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Notification permission was not granted.'),
+              ),
+            );
+          }
+          return;
+        }
+      } else {
+        await NotificationService.disableForUser(user.uid);
+      }
+
+      if (mounted) setState(() => pushNotifications = enabled);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update notifications: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdatingPushNotifications = false);
     }
   }
 
@@ -92,7 +140,9 @@ class _SettingsTabState extends State<SettingsNewPage> {
             child: const Text(
               "Log Out",
               style: TextStyle(
-                  color: Color(0xFFEF323B), fontWeight: FontWeight.bold),
+                color: Color(0xFFEF323B),
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -119,9 +169,9 @@ class _SettingsTabState extends State<SettingsNewPage> {
         // No Navigator call needed — AuthGate handles routing automatically.
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Log out failed: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Log out failed: $e')));
         }
       } finally {
         if (mounted) {
@@ -134,17 +184,19 @@ class _SettingsTabState extends State<SettingsNewPage> {
   @override
   Widget build(BuildContext context) {
     const primaryBlue = Color(0xFF2563EB);
-    const lightBg = Color(0xFFEBF2FF);
-
     return Scaffold(
-      backgroundColor: lightBg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       endDrawer: const NotificationsScreen(),
       body: Column(
         children: [
           Container(
             width: double.infinity,
             padding: const EdgeInsets.only(
-                left: 16, right: 16, top: 24, bottom: 20),
+              left: 16,
+              right: 16,
+              top: 24,
+              bottom: 20,
+            ),
             color: const Color(0xFF0052FF),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -164,10 +216,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
                     SizedBox(height: 4),
                     Text(
                       "Manage your account and user preferences",
-                      style: TextStyle(
-                        color: Color(0xFFBFDBFE),
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: Color(0xFFBFDBFE), fontSize: 13),
                     ),
                   ],
                 ),
@@ -196,94 +245,125 @@ class _SettingsTabState extends State<SettingsNewPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-          
                   const SizedBox(height: 16),
-          
+
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       children: [
                         // --- Profile Info Card ---
                         _buildProfileCard(primaryBlue),
-          
+
                         const SizedBox(height: 16),
-          
+
                         // --- App Settings Card ---
                         _buildCardWrapper(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Padding(
-                                padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  14,
+                                  16,
+                                  8,
+                                ),
                                 child: Text(
                                   'App Settings',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1E293B),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                 ),
                               ),
-                              const Divider(height: 1, color: Color(0xFFEEF2F6)),
+                              Divider(
+                                height: 1,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
                               _buildSwitchRow(
                                 icon: Icons.notifications_none_rounded,
                                 title: 'Push notifications',
                                 subtitle: 'Receive air quality alerts',
                                 value: pushNotifications,
-                                onChanged: (val) =>
-                                    setState(() => pushNotifications = val),
+                                onChanged: _setPushNotifications,
                               ),
-                              const Divider(
-                                  height: 1,
-                                  indent: 50,
-                                  color: Color(0xFFEEF2F6)),
+                              Divider(
+                                height: 1,
+                                indent: 50,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
                               _buildSwitchRow(
                                 icon: Icons.notifications_none_rounded,
                                 title: 'Dark mode',
                                 subtitle: 'Adjust theme appearance',
                                 value: darkMode,
-                                onChanged: (val) => setState(() => darkMode = val),
+                                onChanged: setDarkMode,
                               ),
                             ],
                           ),
                         ),
-          
+
                         const SizedBox(height: 16),
-          
+
                         // --- More Info Card ---
                         _buildCardWrapper(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Padding(
-                                padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  14,
+                                  16,
+                                  8,
+                                ),
                                 child: Text(
                                   'More',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1E293B),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                 ),
                               ),
-                              const Divider(height: 1, color: Color(0xFFEEF2F6)),
+                              Divider(
+                                height: 1,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
                               _buildAboutUsDropdown(primaryBlue),
-                              const Divider(
-                                  height: 1,
-                                  indent: 50,
-                                  color: Color(0xFFEEF2F6)),
+                              Divider(
+                                height: 1,
+                                indent: 50,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
                               _buildPrivacyPolicyDropdown(primaryBlue),
-                              const Divider(
-                                  height: 1,
-                                  indent: 50,
-                                  color: Color(0xFFEEF2F6)),
+                              Divider(
+                                height: 1,
+                                indent: 50,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
                               _buildTermsDropdown(primaryBlue),
                             ],
                           ),
                         ),
-          
+
                         const SizedBox(height: 20),
-          
+
                         // --- Log Out Button ---
                         SizedBox(
                           width: double.infinity,
@@ -317,9 +397,9 @@ class _SettingsTabState extends State<SettingsNewPage> {
                             ),
                           ),
                         ),
-          
+
                         const SizedBox(height: 16),
-          
+
                         // --- Footer Version Info ---
                         const Text(
                           'Version 1.0.0',
@@ -347,8 +427,9 @@ class _SettingsTabState extends State<SettingsNewPage> {
     final String safeUsername = username.isEmpty ? "User" : username;
     final String initial = safeUsername[0].toUpperCase();
 
-    final String displayEmail =
-        email.trim().isEmpty ? "No email provided" : email;
+    final String displayEmail = email.trim().isEmpty
+        ? "No email provided"
+        : email;
 
     return _buildCardWrapper(
       child: InkWell(
@@ -385,10 +466,10 @@ class _SettingsTabState extends State<SettingsNewPage> {
                       children: [
                         Text(
                           _isLoadingUser ? "Loading..." : safeUsername,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -403,11 +484,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
                       ],
                     ),
                   ),
-                  const Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey,
-                    size: 20,
-                  ),
+                  const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
                 ],
               ),
               const SizedBox(height: 16),
@@ -415,13 +492,18 @@ class _SettingsTabState extends State<SettingsNewPage> {
               // Email Row
               Row(
                 children: [
-                  const Icon(Icons.email_outlined,
-                      size: 18, color: Color(0xFF475569)),
+                  Icon(
+                    Icons.email_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     displayEmail,
-                    style:
-                        const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -437,7 +519,7 @@ class _SettingsTabState extends State<SettingsNewPage> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -471,15 +553,18 @@ class _SettingsTabState extends State<SettingsNewPage> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF1E293B),
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -505,9 +590,11 @@ class _SettingsTabState extends State<SettingsNewPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(
-              "Empowering Communities Through Real-Time Air Quality Insights"),
+            "Empowering Communities Through Real-Time Air Quality Insights",
+          ),
           _bodyText(
-              "AETHER is an innovative IoT-based air quality tracking system designed to bridge the gap between air pollutant data and senior citizen health."),
+            "AETHER is an innovative IoT-based air quality tracking system designed to bridge the gap between air pollutant data and senior citizen health.",
+          ),
         ],
       ),
     );
@@ -525,7 +612,8 @@ class _SettingsTabState extends State<SettingsNewPage> {
           _bodyText("Last Updated: March 2026"),
           _sectionTitle("Data We Collect"),
           _bodyText(
-              "User Profile Information: Name and email stored via Firebase Authentication."),
+            "User Profile Information: Name and email stored via Firebase Authentication.",
+          ),
         ],
       ),
     );
@@ -543,7 +631,8 @@ class _SettingsTabState extends State<SettingsNewPage> {
           _bodyText("Last Updated: March 2026"),
           _sectionTitle("Use of Service"),
           _bodyText(
-              "AETHER is provided for educational and informational purposes."),
+            "AETHER is provided for educational and informational purposes.",
+          ),
         ],
       ),
     );
@@ -562,10 +651,10 @@ class _SettingsTabState extends State<SettingsNewPage> {
         leading: Icon(icon, color: iconColor, size: 22),
         title: Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF1E293B),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
@@ -580,23 +669,23 @@ class _SettingsTabState extends State<SettingsNewPage> {
   }
 
   Widget _sectionTitle(String text) => Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 4),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            color: Color(0xFF334155),
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(top: 8, bottom: 4),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 13,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
+    ),
+  );
 
   Widget _bodyText(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 12,
-          height: 1.4,
-          color: Color(0xFF64748B),
-        ),
-      );
+    text,
+    style: TextStyle(
+      fontSize: 12,
+      height: 1.4,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
+  );
 }

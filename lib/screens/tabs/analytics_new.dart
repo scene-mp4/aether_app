@@ -539,7 +539,7 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
         });
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF1F5F9),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           endDrawer: const NotificationsScreen(),
           body: Column(
             children: [
