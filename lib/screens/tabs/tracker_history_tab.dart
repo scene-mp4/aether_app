@@ -1,20 +1,18 @@
+import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:archive/archive.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:google_fonts/google_fonts.dart';
 import '../../stores/app_data_store.dart';
 import '../../models/tracker_reading.dart';
 import '../../models/tracker_history.dart';
-
-// Conditional imports — dart:io on mobile, dart:html on web
-import 'tracker_history_download_stub.dart'
-    if (dart.library.io)   'tracker_history_download_io.dart'
-    if (dart.library.html) 'tracker_history_download_web.dart';
 
 class TrackerHistoryTab extends StatefulWidget {
   final String deviceId;
@@ -1008,21 +1006,38 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
           '${end.year}${end.month.toString().padLeft(2, '0')}${end.day.toString().padLeft(2, '0')}'
           '.${_format.extension}';
 
-      // Save and share — uses web download on browser, share sheet on mobile
-      final savedToDownloads = await saveAndShareFile(
-        bytes:    bytes,
-        filename: name,
-        mimeType: _format.mimeType,
-        subject:  'AETHER Readings — \${widget.deviceId}',
-      );
+      // FIX 2: Save directly to Downloads folder first so the file is
+      // always accessible on the device regardless of share sheet options.
+      // The emulator's share sheet doesn't always include a "Save to Files"
+      // option, but the file in Downloads is always accessible via Files app.
+      File? savedFile;
+      try {
+        final downloadsDir = await getDownloadsDirectory();
+        if (downloadsDir != null) {
+          savedFile = File('${downloadsDir.path}/$name');
+          await savedFile.writeAsBytes(bytes);
+        }
+      } catch (_) {
+        // Downloads folder not available — fall back to temp directory
+      }
+
+      // Also write to temp dir for the share sheet
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/$name');
+      await tempFile.writeAsBytes(bytes);
+
+      // Open share sheet — user can additionally send via Gmail, Quick Share etc.
+      await Share.shareXFiles([
+        XFile(tempFile.path, mimeType: _format.mimeType),
+      ], subject: 'AETHER Readings — ${widget.deviceId}');
 
       if (mounted) {
-        final saveMsg = (!kIsWeb && savedToDownloads)
+        final saveMsg = savedFile != null
             ? ' Also saved to Downloads folder.'
             : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Exported \${filtered.length} readings.\$saveMsg'),
+            content: Text('Exported ${filtered.length} readings.$saveMsg'),
           ),
         );
         Navigator.pop(context);
@@ -1065,6 +1080,35 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
     return output.toString();
   }
 
+  // Finds and prints every non-ASCII character in a string for debugging
+  void _debugUnicode(String label, String s) {
+    final bad = <String>[];
+    for (int i = 0; i < s.length; i++) {
+      if (s.codeUnitAt(i) > 127) {
+        bad.add('U+${s.codeUnitAt(i).toRadixString(16).toUpperCase().padLeft(4,"0")} '
+            '"${s[i]}" at index $i');
+      }
+    }
+    if (bad.isNotEmpty) {
+      debugPrint('[PDF Unicode] $label: ${bad.join(", ")}');
+    }
+  }
+
+  // Replaces Unicode chars that Helvetica cannot render.
+  // These are the exact chars that cause the PDF freeze.
+  String _pdfSafe(String s) => s
+      .replaceAll('µ', 'u')       // µ  → u   (micro / microgram)
+      .replaceAll('°', ' deg')    // °  → deg (degree)
+      .replaceAll('₂', '2')       // ₂  → 2   (subscript 2)
+      .replaceAll('₃', '3')       // ₃  → 3   (subscript 3)
+      .replaceAll('²', '2')       // ²  → 2   (superscript 2)
+      .replaceAll('³', '3')       // ³  → 3   (superscript 3)
+      .replaceAll('μ', 'u')       // μ  → u   (Greek mu)
+      .replaceAll('’', "'")       // '  → '   (right single quote)
+      .replaceAll('‘', "'")       // '  → '   (left single quote)
+      .replaceAll('“', '"')       // "  → "
+      .replaceAll('”', '"');      // "  → "
+
   Future<Uint8List> _buildPdf(
     String title,
     String period,
@@ -1072,6 +1116,42 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
     List<String> columns,
     List<List<String>> rows,
   ) async {
+    // Sanitise ALL text before it reaches the PDF renderer.
+    // Helvetica (the default pdf package font) has no Unicode support —
+    // any non-ASCII character causes it to stall silently, freezing the app.
+    // Debug: print any remaining non-ASCII chars so we can add them to _pdfSafe
+    _debugUnicode('title',     title);
+    _debugUnicode('period',    period);
+    _debugUnicode('deviceId',  widget.deviceId);
+    for (int i = 0; i < columns.length; i++) {
+      _debugUnicode('col[\$i]', columns[i]);
+    }
+    for (int i = 0; i < rows.length && i < 3; i++) {
+      for (int j = 0; j < rows[i].length; j++) {
+        _debugUnicode('row[\$i][\$j]', rows[i][j]);
+      }
+    }
+
+    final safeTitle   = _pdfSafe(title);
+    final safePeriod  = _pdfSafe(period);
+    final safeCols    = columns.map(_pdfSafe).toList();
+    final safeRows    = rows.map((r) => r.map(_pdfSafe).toList()).toList();
+    final safeTracker = _pdfSafe(widget.deviceId);
+
+    // Debug: verify all strings are now ASCII-clean after sanitisation
+    _debugUnicode('safeTitle',   safeTitle);
+    _debugUnicode('safePeriod',  safePeriod);
+    _debugUnicode('safeTracker', safeTracker);
+    for (int i = 0; i < safeCols.length; i++) {
+      _debugUnicode('safeCol[\$i]', safeCols[i]);
+    }
+    for (int i = 0; i < safeRows.length && i < 3; i++) {
+      for (int j = 0; j < safeRows[i].length; j++) {
+        _debugUnicode('safeRow[\$i][\$j]', safeRows[i][j]);
+      }
+    }
+    debugPrint('[PDF] All strings sanitised — building document...');
+
     final document = pw.Document();
     document.addPage(
       pw.MultiPage(
@@ -1086,7 +1166,7 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                title,
+                safeTitle,
                 style: pw.TextStyle(
                   fontSize: 12,
                   fontWeight: pw.FontWeight.bold,
@@ -1094,7 +1174,7 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
                 ),
               ),
               pw.Text(
-                'Tracker: ${widget.deviceId}',
+                'Tracker: $safeTracker',
                 style: const pw.TextStyle(fontSize: 9),
               ),
             ],
@@ -1125,21 +1205,23 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
             style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 5),
-          pw.Text('Period: $period', style: const pw.TextStyle(fontSize: 9)),
+          pw.Text('Period: $safePeriod',
+              style: const pw.TextStyle(fontSize: 9)),
           pw.Text(
             'Readings: ${rows.length}',
             style: const pw.TextStyle(fontSize: 9),
           ),
           pw.SizedBox(height: 12),
           pw.TableHelper.fromTextArray(
-            headers: columns,
-            data: rows,
+            headers: safeCols,
+            data: safeRows,
             headerStyle: pw.TextStyle(
               fontSize: 7,
               fontWeight: pw.FontWeight.bold,
               color: PdfColors.white,
             ),
-            headerDecoration: const pw.BoxDecoration(color: PdfColors.blue700),
+            headerDecoration:
+                const pw.BoxDecoration(color: PdfColors.blue700),
             cellStyle: const pw.TextStyle(fontSize: 6.5),
             cellPadding: const pw.EdgeInsets.symmetric(
               horizontal: 3,
@@ -1150,7 +1232,16 @@ class _DownloadHistoryModalState extends State<DownloadHistoryModal> {
         ],
       ),
     );
-    return Uint8List.fromList(await document.save());
+    debugPrint('[PDF] Document built — calling save()...');
+    try {
+      final bytes = await document.save();
+      debugPrint('[PDF] save() completed — \${bytes.length} bytes');
+      return Uint8List.fromList(bytes);
+    } catch (e, st) {
+      debugPrint('[PDF] save() FAILED: \$e');
+      debugPrint('[PDF] Stack: \$st');
+      rethrow;
+    }
   }
 
   Uint8List _buildDocx(
