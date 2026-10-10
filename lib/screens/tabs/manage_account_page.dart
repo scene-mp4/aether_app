@@ -256,9 +256,6 @@ class _ManageAccountPageState extends State<ManageAccountPage>
                                 padding: const EdgeInsets.symmetric(vertical: 20),
                                 child: Column(
                                   children: [
-                                    Stack(
-                                      alignment: Alignment.bottomRight,
-                                      children: [
                                         CircleAvatar(
                                           radius: 42,
                                           backgroundColor: primaryBlue,
@@ -271,29 +268,6 @@ class _ManageAccountPageState extends State<ManageAccountPage>
                                             ),
                                           ),
                                         ),
-                                        GestureDetector(
-                                          onTap: () {
-                                            // Action for changing profile picture
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.all(6),
-                                            decoration: BoxDecoration(
-                                              color: primaryBlue,
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: Colors.white,
-                                                width: 2,
-                                              ),
-                                            ),
-                                            child: const Icon(
-                                              Icons.camera_alt_outlined,
-                                              size: 14,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
                                     const SizedBox(height: 10),
                                     Text(
                                       _fullNameController.text.isEmpty

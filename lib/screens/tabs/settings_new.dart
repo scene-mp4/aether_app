@@ -433,12 +433,14 @@ class _SettingsTabState extends State<SettingsNewPage> {
 
     return _buildCardWrapper(
       child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ManageAccountPage()),
-          );
-        },
+onTap: () async {
+  await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => const ManageAccountPage()),
+  );
+  // Re-fetch updated user name/data upon returning
+  _loadUserData();
+},
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
