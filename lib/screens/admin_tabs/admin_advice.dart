@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pollutracker_app/screens/tabs/notifications_screen.dart';
+import 'admin_theme.dart';
 
 class AdminAdviceTab extends StatefulWidget {
   const AdminAdviceTab({super.key});
@@ -204,6 +205,7 @@ Widget build(BuildContext context) {
             child: Column(children: [
               // Search
               TextField(
+                style: TextStyle(color: adminPrimaryTextColor(context)),
                 onChanged: (v) =>
                     setState(() => _searchQuery = v.toLowerCase()),
                 decoration: InputDecoration(
@@ -211,13 +213,16 @@ Widget build(BuildContext context) {
                   prefixIcon: const Icon(Icons.search,
                       color: Color(0xFF64748B)),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: adminCardColor(context),
+                  hintStyle: TextStyle(
+                    color: adminSecondaryTextColor(context),
+                  ),
                   contentPadding:
                       const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide:
-                          const BorderSide(color: Color(0xFFE2E8F0))),
+                          BorderSide(color: adminBorderColor(context))),
                   enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide:
@@ -239,7 +244,7 @@ Widget build(BuildContext context) {
                       selected: sel,
                       onSelected: (_) =>
                           setState(() => _filterSeverity = f),
-                      backgroundColor: Colors.white,
+                      backgroundColor: adminCardColor(context),
                       selectedColor: _filterSeverity == 'All'
                           ? const Color(0xFF3B62F6).withOpacity(0.1)
                           : _severityBg(f),
@@ -253,14 +258,14 @@ Widget build(BuildContext context) {
                               ? (f == 'All'
                                   ? const Color(0xFF3B62F6)
                                   : _severityColor(f))
-                              : const Color(0xFFE2E8F0)),
+                              : adminBorderColor(context)),
                       labelStyle: TextStyle(
                           fontSize: 12,
                           color: sel
                               ? (f == 'All'
                                   ? const Color(0xFF3B62F6)
                                   : _severityColor(f))
-                              : const Color(0xFF475569),
+                              : adminSecondaryTextColor(context),
                           fontWeight: sel
                               ? FontWeight.bold
                               : FontWeight.normal),
@@ -277,7 +282,7 @@ Widget build(BuildContext context) {
                   width: double.infinity,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: adminCardColor(context),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                         color: const Color(0xFF3B62F6), width: 1.5),
@@ -472,25 +477,17 @@ class _AdviceCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))
-        ],
-      ),
+      decoration: adminCardDecoration(context),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Header
         Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A))),
+                      color: adminPrimaryTextColor(context))),
               if (category.isNotEmpty)
                 Text(category,
                     style: const TextStyle(
@@ -515,8 +512,10 @@ class _AdviceCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: active
-                    ? const Color(0xFFDCFCE7)
-                    : const Color(0xFFF1F5F9),
+                      ? (adminIsDark(context)
+                          ? const Color(0xFF17392B)
+                          : const Color(0xFFDCFCE7))
+                      : adminSubtleSurfaceColor(context),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(active ? 'Active' : 'Disabled',
@@ -524,13 +523,15 @@ class _AdviceCard extends StatelessWidget {
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: active
-                          ? const Color(0xFF15803D)
-                          : const Color(0xFF64748B))),
+                          ? (adminIsDark(context)
+                              ? const Color(0xFF86EFAC)
+                              : const Color(0xFF15803D))
+                          : adminSecondaryTextColor(context))),
             ),
           ),
         ]),
         const SizedBox(height: 10),
-        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        Divider(height: 1, color: adminBorderColor(context)),
         const SizedBox(height: 10),
 
         // Condition row
@@ -538,11 +539,11 @@ class _AdviceCard extends StatelessWidget {
           padding:
               const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
+            color: adminSubtleSurfaceColor(context),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(children: [
-            const Icon(Icons.rule, size: 14, color: Color(0xFF64748B)),
+            Icon(Icons.rule, size: 14, color: adminSecondaryTextColor(context)),
             const SizedBox(width: 6),
             Expanded(
               child: Builder(builder: (context) {
@@ -552,8 +553,8 @@ class _AdviceCard extends StatelessWidget {
                     ? 'When $triggerLabel is between $threshold and $thresholdMax'
                     : 'When $triggerLabel $comparatorLabel $threshold';
                 return Text(text,
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF334155)));
+                    style: TextStyle(
+                        fontSize: 12, color: adminPrimaryTextColor(context)));
               }),
             ),
           ]),
@@ -565,36 +566,38 @@ class _AdviceCard extends StatelessWidget {
           (data['message'] as String? ?? '').length > 80
               ? '${(data['message'] as String).substring(0, 80)}…'
               : (data['message'] as String? ?? ''),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+          style: TextStyle(
+              fontSize: 12, color: adminSecondaryTextColor(context)),
         ),
         if (actions.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text('${actions.length} advice item${actions.length == 1 ? '' : 's'} defined',
-              style: const TextStyle(
-                  fontSize: 11, color: Color(0xFF94A3B8))),
+              style: TextStyle(
+                  fontSize: 11, color: adminSecondaryTextColor(context))),
         ],
         const SizedBox(height: 12),
 
         // Action buttons
         Row(children: [
           Expanded(child: _actionBtn(
-              Icons.edit_outlined, 'Edit', Colors.black,
-              const Color(0xFFE2E8F0), onEdit)),
+              context, Icons.edit_outlined, 'Edit',
+              adminPrimaryTextColor(context),
+              adminBorderColor(context), onEdit)),
           const SizedBox(width: 10),
           Expanded(child: _actionBtn(
-              Icons.delete_outline, 'Delete', const Color(0xFFEF4444),
+              context, Icons.delete_outline, 'Delete', const Color(0xFFEF4444),
               const Color(0xFFFECACA), onDelete)),
         ]),
       ]),
     );
   }
 
-  Widget _actionBtn(IconData icon, String label, Color textColor,
+  Widget _actionBtn(BuildContext context, IconData icon, String label, Color textColor,
       Color borderColor, VoidCallback onTap) {
     return Container(
       height: 38,
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: adminCardColor(context),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: borderColor)),
       child: Material(
@@ -754,7 +757,7 @@ class _AdviceModalState extends State<_AdviceModal> {
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: Colors.white,
+      backgroundColor: adminCardColor(context),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: SingleChildScrollView(
         child: Padding(
@@ -764,10 +767,10 @@ class _AdviceModalState extends State<_AdviceModal> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(widget.docId == null ? 'Add Advice Entry' : 'Edit Advice Entry',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A))),
+                      color: adminPrimaryTextColor(context))),
               const SizedBox(height: 20),
 
               _field('Title', _titleCtrl, 'e.g. Elevated CO Detected'),

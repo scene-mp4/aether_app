@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '/stores/app_data_store.dart';
 import 'package:pollutracker_app/screens/tabs/notifications_screen.dart';
+import 'admin_theme.dart';
 
 class AdminTrackersTab extends StatefulWidget {
   const AdminTrackersTab({super.key});
@@ -344,6 +345,7 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
                   // ── Search bar ─────────────────────────────────────────
                   TextField(
                     controller: _searchController,
+                    style: TextStyle(color: adminPrimaryTextColor(context)),
                     onChanged: (v) =>
                         setState(() => _searchQuery = v.toLowerCase()),
                     decoration: InputDecoration(
@@ -351,18 +353,21 @@ class _AdminTrackersTabState extends State<AdminTrackersTab> {
                       prefixIcon: const Icon(Icons.search,
                           color: Color(0xFF64748B)),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: adminCardColor(context),
+                      hintStyle: TextStyle(
+                        color: adminSecondaryTextColor(context),
+                      ),
                       contentPadding:
                           const EdgeInsets.symmetric(vertical: 0),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            const BorderSide(color: Color(0xFFE2E8F0)),
+                            BorderSide(color: adminBorderColor(context)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            const BorderSide(color: Color(0xFFE2E8F0)),
+                            BorderSide(color: adminBorderColor(context)),
                       ),
                     ),
                   ),
@@ -568,7 +573,7 @@ GestureDetector(
         width: double.infinity,
         height: 52,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: adminCardColor(context),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFF3B62F6), width: 1.5),
         ),
@@ -603,17 +608,7 @@ GestureDetector(
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 8,
-              offset: Offset(0, 2)),
-        ],
-      ),
+      decoration: adminCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -626,15 +621,15 @@ GestureDetector(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A))),
+                            color: adminPrimaryTextColor(context))),
                     const SizedBox(height: 2),
                     Text('ID: $docId',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF94A3B8))),
+                            color: adminSecondaryTextColor(context))),
                   ],
                 ),
               ),
@@ -643,8 +638,10 @@ GestureDetector(
                     horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: isActive
-                      ? const Color(0xFFDCFCE7)
-                      : const Color(0xFFF1F5F9),
+                      ? (adminIsDark(context)
+                          ? const Color(0xFF17392B)
+                          : const Color(0xFFDCFCE7))
+                      : adminSubtleSurfaceColor(context),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(status,
@@ -652,13 +649,15 @@ GestureDetector(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: isActive
-                            ? const Color(0xFF15803D)
-                            : const Color(0xFF64748B))),
+                            ? (adminIsDark(context)
+                                ? const Color(0xFF86EFAC)
+                                : const Color(0xFF15803D))
+                            : adminSecondaryTextColor(context))),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          Divider(height: 1, color: adminBorderColor(context)),
           const SizedBox(height: 10),
 
           // ── Info rows ──────────────────────────────────────────────
@@ -708,12 +707,12 @@ GestureDetector(
 
   Widget _infoRow(IconData icon, String text) {
     return Row(children: [
-      Icon(icon, size: 14, color: const Color(0xFF64748B)),
+      Icon(icon, size: 14, color: adminSecondaryTextColor(context)),
       const SizedBox(width: 6),
       Expanded(
         child: Text(text,
-            style: const TextStyle(
-                fontSize: 12, color: Color(0xFF475569)),
+            style: TextStyle(
+                fontSize: 12, color: adminSecondaryTextColor(context)),
             overflow: TextOverflow.ellipsis),
       ),
     ]);
@@ -723,15 +722,16 @@ GestureDetector(
     required IconData  icon,
     required String    label,
     required VoidCallback onTap,
-    Color textColor   = Colors.black,
-    Color borderColor = const Color(0xFFE2E8F0),
+    Color? textColor,
+    Color? borderColor,
   }) {
+    final resolvedTextColor = textColor ?? adminPrimaryTextColor(context);
     return Container(
       height: 38,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: adminCardColor(context),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: borderColor),
+        border: Border.all(color: borderColor ?? adminBorderColor(context)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -741,11 +741,11 @@ GestureDetector(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: textColor, size: 16),
+              Icon(icon, color: resolvedTextColor, size: 16),
               const SizedBox(width: 6),
               Text(label,
                   style: TextStyle(
-                      color: textColor,
+                      color: resolvedTextColor,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
             ],
@@ -917,7 +917,7 @@ class _TrackerModalState extends State<_TrackerModal> {
     return Dialog(
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20)),
-      backgroundColor: Colors.white,
+      backgroundColor: adminCardColor(context),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
       child: SingleChildScrollView(
         child: Padding(
@@ -928,10 +928,10 @@ class _TrackerModalState extends State<_TrackerModal> {
             children: [
               Text(
                 widget.isEditing ? 'Edit Tracker' : 'Add New Tracker',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A)),
+                    color: adminPrimaryTextColor(context)),
               ),
               const SizedBox(height: 20),
 
@@ -957,7 +957,7 @@ class _TrackerModalState extends State<_TrackerModal> {
                             decoration: BoxDecoration(
                               color: _useAutoId
                                   ? const Color(0xFF3B62F6)
-                                  : Colors.white,
+                                  : adminCardColor(context),
                               borderRadius: const BorderRadius.only(
                                 topLeft: Radius.circular(10),
                                 bottomLeft: Radius.circular(10),

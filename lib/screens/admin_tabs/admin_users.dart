@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:pollutracker_app/screens/tabs/notifications_screen.dart';
+import 'admin_theme.dart';
 
 class AdminUsersTab extends StatefulWidget {
   const AdminUsersTab({super.key});
@@ -241,7 +242,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                       width: double.infinity,
                       height: 52,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: adminCardColor(context),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                             color: const Color(0xFF3B62F6), width: 1.5),
@@ -266,6 +267,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                   // ── Search bar ─────────────────────────────────────────
                   TextField(
                     controller: _searchController,
+                    style: TextStyle(color: adminPrimaryTextColor(context)),
                     onChanged: (v) =>
                         setState(() => _searchQuery = v.toLowerCase()),
                     decoration: InputDecoration(
@@ -273,17 +275,20 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                       prefixIcon: const Icon(Icons.search,
                           color: Color(0xFF64748B)),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: adminCardColor(context),
+                      hintStyle: TextStyle(
+                        color: adminSecondaryTextColor(context),
+                      ),
                       contentPadding:
                           const EdgeInsets.symmetric(vertical: 0),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE2E8F0))),
+                              BorderSide(color: adminBorderColor(context))),
                       enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE2E8F0))),
+                              BorderSide(color: adminBorderColor(context))),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -303,18 +308,18 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                           selected: selected,
                           onSelected: (_) =>
                               setState(() => _roleFilter = filter),
-                          backgroundColor: Colors.white,
+                          backgroundColor: adminCardColor(context),
                           selectedColor:
                               const Color(0xFF3B62F6).withOpacity(0.1),
                           checkmarkColor: const Color(0xFF3B62F6),
                           side: BorderSide(
                               color: selected
                                   ? const Color(0xFF3B62F6)
-                                  : const Color(0xFFE2E8F0)),
+                                  : adminBorderColor(context)),
                           labelStyle: TextStyle(
                               color: selected
                                   ? const Color(0xFF3B62F6)
-                                  : const Color(0xFF475569),
+                                  : adminSecondaryTextColor(context),
                               fontWeight: selected
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -605,7 +610,7 @@ Future<void> _handleAdd() async {
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: Colors.white,
+      backgroundColor: adminCardColor(context),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
       child: SingleChildScrollView(
         child: Padding(
@@ -617,11 +622,11 @@ Future<void> _handleAdd() async {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Add New User',
+                  Text('Add New User',
                       style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A))),
+                          color: adminPrimaryTextColor(context))),
                   IconButton(
                     icon: const Icon(Icons.close,
                         color: Color(0xFF64748B), size: 20),
@@ -879,24 +884,25 @@ class _UserCard extends StatelessWidget {
     return '${dt.day}/${dt.month}/${dt.year}';
   }
 
-  Color _roleColor(String r) =>
-      r == 'admin' ? const Color(0xFF7C3AED) : const Color(0xFF2563EB);
-  Color _roleBg(String r) =>
-      r == 'admin' ? const Color(0xFFF3E8FF) : const Color(0xFFEFF6FF);
+  Color _roleColor(String r, BuildContext context) =>
+      r == 'admin'
+          ? (adminIsDark(context)
+              ? const Color(0xFFC4B5FD)
+              : const Color(0xFF7C3AED))
+          : (adminIsDark(context)
+              ? const Color(0xFF93C5FD)
+              : const Color(0xFF2563EB));
+  Color _roleBg(String r, BuildContext context) => adminIsDark(context)
+      ? (r == 'admin'
+          ? const Color(0xFF30254B)
+          : const Color(0xFF1D3049))
+      : (r == 'admin' ? const Color(0xFFF3E8FF) : const Color(0xFFEFF6FF));
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(color: Color(0x0A000000), blurRadius: 8,
-              offset: Offset(0, 2))
-        ],
-      ),
+      decoration: adminCardDecoration(context),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           CircleAvatar(
@@ -911,32 +917,32 @@ class _UserCard extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(username,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A))),
+                      color: adminPrimaryTextColor(context))),
               Text(email,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF64748B)),
+                  style: TextStyle(
+                      fontSize: 12, color: adminSecondaryTextColor(context)),
                   overflow: TextOverflow.ellipsis),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-                color: _roleBg(role),
+                color: _roleBg(role, context),
                 borderRadius: BorderRadius.circular(20)),
             child: Text(role == 'admin' ? 'Admin' : 'User',
                 style: TextStyle(
                     fontSize: 11, fontWeight: FontWeight.bold,
-                    color: _roleColor(role))),
+                    color: _roleColor(role, context))),
           ),
         ]),
         const SizedBox(height: 12),
-        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        Divider(height: 1, color: adminBorderColor(context)),
         const SizedBox(height: 10),
-        _infoRow(Icons.badge_outlined, 'UID: $uid'),
+        _infoRow(context, Icons.badge_outlined, 'UID: $uid'),
         const SizedBox(height: 6),
-        _infoRow(Icons.calendar_today_outlined,
+        _infoRow(context, Icons.calendar_today_outlined,
             'Joined: ${_formatDate(createdAt)}'),
         const SizedBox(height: 6),
 
@@ -955,14 +961,14 @@ class _UserCard extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _infoRow(Icons.sensors,
+                _infoRow(context, Icons.sensors,
                     '$count tracker${count == 1 ? '' : 's'} assigned'),
                 if (names.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(left: 20, top: 2),
                     child: Text(names,
-                        style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF94A3B8)),
+                        style: TextStyle(
+                            fontSize: 11, color: adminSecondaryTextColor(context)),
                         overflow: TextOverflow.ellipsis),
                   ),
               ],
@@ -972,32 +978,32 @@ class _UserCard extends StatelessWidget {
         const SizedBox(height: 14),
 
         Row(children: [
-          Expanded(child: _btn(Icons.edit_outlined, 'Edit',
-              Colors.black, const Color(0xFFE2E8F0), onEdit)),
+          Expanded(child: _btn(context, Icons.edit_outlined, 'Edit',
+              adminPrimaryTextColor(context), adminBorderColor(context), onEdit)),
           const SizedBox(width: 10),
-          Expanded(child: _btn(Icons.delete_outline, 'Delete',
+          Expanded(child: _btn(context, Icons.delete_outline, 'Delete',
               const Color(0xFFEF4444), const Color(0xFFFECACA), onDelete)),
         ]),
       ]),
     );
   }
 
-  Widget _infoRow(IconData icon, String text) => Row(children: [
-        Icon(icon, size: 14, color: const Color(0xFF64748B)),
+  Widget _infoRow(BuildContext context, IconData icon, String text) => Row(children: [
+        Icon(icon, size: 14, color: adminSecondaryTextColor(context)),
         const SizedBox(width: 6),
         Expanded(
             child: Text(text,
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF475569)),
+                style: TextStyle(
+                    fontSize: 12, color: adminSecondaryTextColor(context)),
                 overflow: TextOverflow.ellipsis)),
       ]);
 
-  Widget _btn(IconData icon, String label, Color textColor,
+  Widget _btn(BuildContext context, IconData icon, String label, Color textColor,
       Color borderColor, VoidCallback onTap) {
     return Container(
       height: 38,
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: adminCardColor(context),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: borderColor)),
       child: Material(
@@ -1140,7 +1146,7 @@ Future<void> _handleSave() async {
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: Colors.white,
+      backgroundColor: adminCardColor(context),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
       child: SingleChildScrollView(
         child: Padding(
@@ -1149,10 +1155,10 @@ Future<void> _handleSave() async {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Edit User',
+              Text('Edit User',
                   style: TextStyle(
                       fontSize: 20, fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A))),
+                      color: adminPrimaryTextColor(context))),
               const SizedBox(height: 4),
               Text('UID: ${widget.uid}',
                   style: const TextStyle(
