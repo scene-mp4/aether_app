@@ -403,6 +403,16 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
   final Set<int> _expandedCards     = {};
   final Set<int> _expandedInfoCards = {};
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get _cardSurfaceColor => Theme.of(context).colorScheme.surface;
+
+  Color get _primaryTextColor =>
+      _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B);
+
+  Color get _secondaryTextColor =>
+      _isDark ? const Color(0xFF9AAAC0) : const Color(0xFF64748B);
+
   // ── Trend colour / icon helpers ───────────────────────────────────────────
   Color    _trendColor(String t) => t == 'rising'
       ? const Color(0xFFEF4444)
@@ -606,16 +616,16 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                         _buildRiskLevelGuide(),
                         const SizedBox(height: 20),
 
-                        const Text('All Pollutant Forecasts',
+                        Text('All Pollutant Forecasts',
                             style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B))),
+                                color: _primaryTextColor)),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Tap any card to expand and see the forecast chart.',
                           style: TextStyle(
-                              fontSize: 12, color: Color(0xFF64748B)),
+                              fontSize: 12, color: _secondaryTextColor),
                         ),
                         const SizedBox(height: 12),
 
@@ -638,7 +648,9 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: _isDark
+                                ? const Color(0xFF202C3D)
+                                : const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                                 color: const Color(0xFFE2E8F0)),
@@ -684,9 +696,11 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardSurfaceColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(
+          color: color.withValues(alpha: _isDark ? 0.55 : 0.4),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -734,9 +748,13 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardSurfaceColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: _isDark
+              ? const Color(0xFF263449)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -744,13 +762,13 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
           const Icon(Icons.info_outline_rounded,
               color: Color(0xFF3B82F6), size: 20),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('How to Use This Page',
                     style: TextStyle(
-                        color: Color(0xFF1E293B),
+                        color: _primaryTextColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 14)),
                 SizedBox(height: 6),
@@ -760,7 +778,7 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                   'Tap a card to see its forecast chart and recommended action. '
                   'Tap "More Information" to learn what the measurement means.',
                   style: TextStyle(
-                      color: Color(0xFF475569),
+                      color: _secondaryTextColor,
                       fontSize: 12,
                       height: 1.4),
                 ),
@@ -777,17 +795,21 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: _cardSurfaceColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
+          border: Border.all(
+            color: _isDark
+                ? const Color(0xFF263449)
+                : const Color(0xFFE2E8F0),
+          )),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Risk Level Guide',
+          Text('Risk Level Guide',
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B))),
+                  color: _primaryTextColor)),
           const SizedBox(height: 12),
           _guideRow(const Color(0xFF22C55E), 'Good',
               'All pollutant levels are within safe ranges. Normal monitoring is sufficient.'),
@@ -802,12 +824,12 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
           _guideRow(const Color(0xFF991B1B), 'Hazardous',
               'Emergency conditions. Evacuate everyone immediately and contact emergency services.'),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Source: ATMO (2025); United States Environmental Protection Agency (2024)',
             style: TextStyle(
                 fontSize: 10,
                 fontStyle: FontStyle.italic,
-                color: Color(0xFF94A3B8)),
+                color: _secondaryTextColor),
           ),
         ],
       ),
@@ -830,14 +852,14 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF64748B), height: 1.3),
+                style: TextStyle(
+                    fontSize: 12, color: _secondaryTextColor, height: 1.3),
                 children: [
                   TextSpan(
                       text: '$label — ',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF334155))),
+                          color: _primaryTextColor)),
                   TextSpan(text: desc),
                 ],
               ),
@@ -892,9 +914,13 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        side: BorderSide(
+          color: _isDark
+              ? const Color(0xFF263449)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
-      color: Colors.white,
+      color: _cardSurfaceColor,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () => setState(() {
@@ -917,10 +943,10 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(meta.title,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A))),
+                                color: _primaryTextColor)),
                         Text(meta.unit,
                             style: const TextStyle(
                                 fontSize: 11,
@@ -962,10 +988,10 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                         style: TextStyle(
                             fontSize: 10, color: Color(0xFF64748B))),
                     Text(fmtVal(pred.nowValue),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A))),
+                            color: _primaryTextColor)),
                   ],
                 ),
                 const SizedBox(width: 14),
@@ -1030,14 +1056,18 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
 
               // ── Expanded section ──────────────────────────────────────
               if (isExpanded) ...[
-                const Divider(
-                    height: 24, thickness: 1, color: Color(0xFFF1F5F9)),
+                Divider(
+                    height: 24,
+                    thickness: 1,
+                    color: _isDark
+                        ? const Color(0xFF263449)
+                        : const Color(0xFFF1F5F9)),
 
-                const Text('1-Hour Forecast Chart',
+                Text('1-Hour Forecast Chart',
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B))),
+                        color: _secondaryTextColor)),
                 const SizedBox(height: 12),
 
                 // FIX: Each card has correct nowValue, predicted, maxValue
@@ -1056,18 +1086,18 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                 ),
                 const SizedBox(height: 12),
 
-                const Text('SAFE LEVEL',
+                Text('SAFE LEVEL',
                     style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF64748B),
+                        color: _secondaryTextColor,
                         letterSpacing: 0.5)),
                 const SizedBox(height: 2),
                 Text(meta.safeLevelText,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF334155))),
+                        color: _primaryTextColor)),
                 const SizedBox(height: 10),
 
                 // What to do box
@@ -1158,23 +1188,27 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(
+                        color: _isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFE2E8F0),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'What is ${meta.title.split(' ')[0]}?',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E293B)),
+                              color: _primaryTextColor),
                         ),
                         const SizedBox(height: 4),
                         Text(meta.whatIsText,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF475569),
+                                color: _secondaryTextColor,
                                 height: 1.4)),
                         const SizedBox(height: 10),
                         const Text('Why does it matter for residents?',
@@ -1218,6 +1252,14 @@ class _MLValidationCard extends StatefulWidget {
 class _MLValidationCardState extends State<_MLValidationCard> {
   bool _expanded = false;
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get _primaryTextColor =>
+      _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+
+  Color get _secondaryTextColor =>
+      _isDark ? const Color(0xFF9AAAC0) : const Color(0xFF64748B);
+
   // Confusion matrix from the Python validation run
   // Rows = actual class, Cols = predicted class
   // Order: Good, Moderate, Unhealthy, Hazardous
@@ -1241,9 +1283,13 @@ class _MLValidationCardState extends State<_MLValidationCard> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: _isDark
+              ? const Color(0xFF263449)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Column(children: [
         // Header
@@ -1263,7 +1309,7 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                     color: Color(0xFF7C3AED), size: 20),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1271,7 +1317,7 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A))),
+                            color: _primaryTextColor)),
                     Text('WMA + OLS · UCI Air Quality Dataset',
                         style: TextStyle(
                             fontSize: 11, color: Color(0xFF94A3B8))),
@@ -1289,7 +1335,12 @@ class _MLValidationCardState extends State<_MLValidationCard> {
         ),
 
         if (_expanded) ...[
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          Divider(
+            height: 1,
+            color: _isDark
+                ? const Color(0xFF334155)
+                : const Color(0xFFF1F5F9),
+          ),
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -1297,11 +1348,11 @@ class _MLValidationCardState extends State<_MLValidationCard> {
               children: [
 
                 // Dataset info
-                const Text('DATASET',
+                Text('DATASET',
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF64748B),
+                        color: _secondaryTextColor,
                         letterSpacing: 0.8)),
                 const SizedBox(height: 8),
                 _infoRow('Name',     'UCI Air Quality Dataset'),
@@ -1313,11 +1364,11 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                 const SizedBox(height: 16),
 
                 // Regression metrics
-                const Text('REGRESSION METRICS',
+                Text('REGRESSION METRICS',
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF64748B),
+                        color: _secondaryTextColor,
                         letterSpacing: 0.8)),
                 const SizedBox(height: 8),
                 Row(children: [
@@ -1339,9 +1390,12 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                         color: Color(0xFF64748B),
                         letterSpacing: 0.8)),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Rows = Actual class · Columns = Predicted class',
-                  style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: _secondaryTextColor,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _buildConfusionMatrix(),
@@ -1389,9 +1443,9 @@ class _MLValidationCardState extends State<_MLValidationCard> {
         ),
         Expanded(
           child: Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF334155),
+                  color: _primaryTextColor,
                   fontWeight: FontWeight.w500)),
         ),
       ]),
