@@ -1092,7 +1092,7 @@ Future<void> _handleSave() async {
     setState(() => _error = 'Username cannot exceed 30 characters.'); return;
   }
   if (!usernameRegex.hasMatch(username)) {
-    setState(() => _error = 'Username can only contain letters and numbers.'); return;
+    setState(() => _error = 'Username can only contain letters and numbers; no spaces.'); return;
   }
 
   // Email validation

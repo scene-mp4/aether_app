@@ -53,7 +53,7 @@ final username = usernameField.text.trim();
       return;
     }
     if (!usernameRegex.hasMatch(username)) {
-      _showSnackBar('Username can only contain letters and numbers.');
+      _showSnackBar('Username can only contain letters and numbers; no spaces.');
       return;
     }
 

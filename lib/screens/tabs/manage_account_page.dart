@@ -94,37 +94,46 @@ class _ManageAccountPageState extends State<ManageAccountPage>
 
   /// Save Profile Updates to Firestore
   Future<void> _saveProfileChanges() async {
-    User? user = _auth.currentUser;
+User? user = _auth.currentUser;
     if (user == null) return;
+
+    final username = _fullNameController.text.trim();
+    final usernameRegex = RegExp(r'^[a-zA-Z0-9]+$');
+
+    // Username validations
+    if (username.isEmpty) {
+      _showSnackBar('Username cannot be empty.', Colors.red);
+      return;
+    }
+    if (username.length < 3) {
+      _showSnackBar('Username must be at least 3 characters.', Colors.red);
+      return;
+    }
+    if (username.length > 30) {
+      _showSnackBar('Username cannot exceed 30 characters.', Colors.red);
+      return;
+    }
+    if (!usernameRegex.hasMatch(username)) {
+      _showSnackBar('Username can only contain letters and numbers; no spaces.', Colors.red);
+      return;
+    }
 
     setState(() => _isSavingProfile = true);
 
     try {
       await _firestore.collection('users').doc(user.uid).set({
-        'username': _fullNameController.text.trim(),
+        'username': username,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      if (_fullNameController.text.trim().isNotEmpty) {
-        await user.updateDisplayName(_fullNameController.text.trim());
-      }
+      await user.updateDisplayName(username);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSnackBar('Profile updated successfully!', Colors.green);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update profile: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar('Failed to update profile: $e', Colors.red);
       }
     } finally {
       if (mounted) setState(() => _isSavingProfile = false);
