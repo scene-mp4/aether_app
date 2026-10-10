@@ -28,22 +28,66 @@ class _RegisterState extends State<Register> {
 
   // Firebase registration logic
   Future<void> _register() async {
-    if (usernameField.text.trim().isEmpty) {
+final username = usernameField.text.trim();
+    final email = emailField.text.trim();
+    final password = passwordField.text.trim();
+    final confirmPassword = confirmPasswordField.text.trim();
+
+    // Regex patterns
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    final usernameRegex = RegExp(r'^[a-zA-Z0-9]+$');
+    final strongPasswordRegex = RegExp(
+        r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+
+    // Username validations
+    if (username.isEmpty) {
       _showSnackBar('Username cannot be empty.');
       return;
     }
+    if (username.length < 3) {
+      _showSnackBar('Username must be at least 3 characters.');
+      return;
+    }
+    if (username.length > 30) {
+      _showSnackBar('Username cannot exceed 30 characters.');
+      return;
+    }
+    if (!usernameRegex.hasMatch(username)) {
+      _showSnackBar('Username can only contain letters and numbers.');
+      return;
+    }
 
-    if (emailField.text.trim().isEmpty) {
+    // Email validations
+    if (email.isEmpty) {
       _showSnackBar('Email cannot be empty.');
       return;
     }
-
-    if (passwordField.text.trim().isEmpty) {
-      _showSnackBar('Password cannot be empty.');
+    if (!emailRegex.hasMatch(email)) {
+      _showSnackBar('Please enter a valid email address.');
       return;
     }
 
-    if (passwordField.text.trim() != confirmPasswordField.text.trim()) {
+    // Password validations
+    if (password.isEmpty) {
+      _showSnackBar('Password cannot be empty.');
+      return;
+    }
+    if (password.length < 6) {
+      _showSnackBar('Password must be at least 6 characters.');
+      return;
+    }
+    if (!strongPasswordRegex.hasMatch(password)) {
+      _showSnackBar(
+          'Password must include uppercase, lowercase, number, and special character.');
+      return;
+    }
+
+    // Confirm Password validations
+    if (confirmPassword.isEmpty) {
+      _showSnackBar('Please confirm your password.');
+      return;
+    }
+    if (password != confirmPassword) {
       _showSnackBar('Passwords do not match.');
       return;
     }
@@ -61,19 +105,20 @@ class _RegisterState extends State<Register> {
       );
 
       // Save additional user info to Firestore
-      await FirebaseFirestore.instance
+await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
           .set({
-        'username': usernameField.text.trim(),
-        'email': emailField.text.trim(),
+        'username': username,
+        'email': email,
         'createdAt': FieldValue.serverTimestamp(),
         'role': 'user',
       });
 
       _showSnackBar('Account created successfully!');
-      Navigator.pop(context); // Head back to login screen
-
+      if (mounted) {
+        Navigator.pop(context); // Head back to login screen
+      }
     } on FirebaseAuthException catch (e) {
       String message;
       if (e.code == 'weak-password') {
@@ -87,9 +132,11 @@ class _RegisterState extends State<Register> {
     } catch (e) {
       _showSnackBar('Error: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
