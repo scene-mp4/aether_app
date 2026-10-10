@@ -311,14 +311,14 @@ class _HistorySummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
+            children: [
               Icon(Icons.info_outline, size: 20, color: Color(0xFF2563EB)),
               SizedBox(width: 8),
               Text(
@@ -326,7 +326,9 @@ class _HistorySummaryCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFE2E8F0)
+                      : const Color(0xFF0F172A),
                 ),
               ),
             ],
@@ -359,13 +361,13 @@ class _HistorySummaryCard extends StatelessWidget {
               ),
             )
           else
-            _buildContent(history!),
+            _buildContent(history!, context),
         ],
       ),
     );
   }
 
-  Widget _buildContent(TrackerHistory history) {
+  Widget _buildContent(TrackerHistory history, BuildContext context) {
     final readings = history.readings;
     final pm25 = readings.map((r) => r.pm25Ugm3).toList();
     final co2 = readings.map((r) => r.co2Ppm).toList();
@@ -396,9 +398,11 @@ class _HistorySummaryCard extends StatelessWidget {
           '${maxPm25.toStringAsFixed(1)} µg/m³. '
           'CO₂ ranged from ${minCo2.toStringAsFixed(0)} to '
           '${maxCo2.toStringAsFixed(0)} ppm.',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: Color(0xFF475569),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFFB6C3D4)
+                : const Color(0xFF475569),
             height: 1.4,
           ),
         ),
@@ -441,9 +445,15 @@ class _SummaryBlock extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: bg,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Color.lerp(Theme.of(context).colorScheme.surface, bg, 0.16)!
+            : bg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Color.lerp(Theme.of(context).colorScheme.surface, border, 0.5)!
+              : border,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -469,9 +479,11 @@ class _SummaryBlock extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             desc,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF334155),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFFB6C3D4)
+                  : const Color(0xFF334155),
               height: 1.4,
             ),
           ),
@@ -513,7 +525,7 @@ class _ChartCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -529,10 +541,12 @@ class _ChartCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFFE2E8F0)
+                            : const Color(0xFF0F172A),
                         height: 1.2,
                       ),
                     ),
@@ -540,9 +554,11 @@ class _ChartCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         subtitle!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF94A3B8),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF9AAAC0)
+                            : const Color(0xFF94A3B8),
                         ),
                       ),
                     ],
@@ -621,7 +637,11 @@ class _TFButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
+          color: selected
+              ? const Color(0xFF2563EB)
+              : Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF202C3D)
+                  : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
@@ -629,7 +649,11 @@ class _TFButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : const Color(0xFF475569),
+            color: selected
+                ? Colors.white
+                : Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFB6C3D4)
+                    : const Color(0xFF475569),
           ),
         ),
       ),
@@ -694,18 +718,20 @@ class _RecommendationsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Recommendations Based on History',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFFE2E8F0)
+                  : const Color(0xFF0F172A),
             ),
           ),
           const SizedBox(height: 12),
@@ -751,9 +777,23 @@ class _RecItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Color.lerp(
+                Theme.of(context).colorScheme.surface,
+                bgColor,
+                0.16,
+              )!
+            : bgColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Color.lerp(
+                  Theme.of(context).colorScheme.surface,
+                  borderColor,
+                  0.5,
+                )!
+              : borderColor,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -766,18 +806,22 @@ class _RecItem extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFE2E8F0)
+                        : const Color(0xFF0F172A),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF475569),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFB6C3D4)
+                        : const Color(0xFF475569),
                     height: 1.3,
                   ),
                 ),
@@ -1642,7 +1686,12 @@ class _DotLegend extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF9AAAC0)
+                : const Color(0xFF64748B),
+          ),
         ),
       ],
     );

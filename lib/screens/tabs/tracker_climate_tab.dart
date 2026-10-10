@@ -18,6 +18,16 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
   int  _humDays  = 1;
   bool _fetchTriggered = false;
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get _cardSurfaceColor => Theme.of(context).colorScheme.surface;
+
+  Color get _primaryTextColor =>
+      _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+
+  Color get _secondaryTextColor =>
+      _isDark ? const Color(0xFF9AAAC0) : const Color(0xFF64748B);
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -158,10 +168,10 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
               days:    _tempDays,
               loading: loading,
               history: history,
-              legend:  Row(children: const [
+              legend:  Row(children: [
                 _Dot(color: Color(0xFFEF4444)), SizedBox(width: 4),
                 Text('Temperature (°C)',
-                    style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                    style: TextStyle(fontSize: 10, color: _secondaryTextColor)),
               ]),
               onDaysChanged: (d) {
                 setState(() => _tempDays = d);
@@ -189,10 +199,10 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
               days:    _humDays,
               loading: loading,
               history: history,
-              legend:  Row(children: const [
+              legend:  Row(children: [
                 _Dot(color: Color(0xFF3B82F6)), SizedBox(width: 4),
                 Text('Relative Humidity (%)',
-                    style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                    style: TextStyle(fontSize: 10, color: _secondaryTextColor)),
               ]),
               onDaysChanged: (d) {
                 setState(() => _humDays = d);
@@ -232,15 +242,15 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+          color: _cardSurfaceColor, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Current Climate',
+          Text('Current Climate',
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A))),
+                  color: _primaryTextColor)),
           const SizedBox(height: 16),
           GridView.count(
             shrinkWrap: true,
@@ -301,7 +311,7 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+          color: _cardSurfaceColor, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -309,10 +319,10 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
             children: [
               Expanded(
                 child: Text(title,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A))),
+                        color: _primaryTextColor)),
               ),
               ...[1, 7, 30].map((d) {
                 final label   = d == 1 ? 'Today' : d == 7 ? '7D' : '30D';
@@ -327,7 +337,9 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
                       decoration: BoxDecoration(
                         color: selected
                             ? const Color(0xFF2563EB)
-                            : const Color(0xFFF1F5F9),
+                            : _isDark
+                                ? const Color(0xFF202C3D)
+                                : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(label,
@@ -336,7 +348,7 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
                               fontWeight: FontWeight.w600,
                               color: selected
                                   ? Colors.white
-                                  : const Color(0xFF475569))),
+                                  : _secondaryTextColor)),
                     ),
                   ),
                 );
@@ -417,15 +429,15 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+          color: _cardSurfaceColor, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Comfort Analysis',
+          Text('Comfort Analysis',
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A))),
+                  color: _primaryTextColor)),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
@@ -507,8 +519,11 @@ class _MetricTile extends StatelessWidget {
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
             Text(label,
-                style: const TextStyle(
-                    fontSize: 10, color: Color(0xFF64748B))),
+                style: TextStyle(
+                    fontSize: 10,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF9AAAC0)
+                        : const Color(0xFF64748B))),
           ]),
           const SizedBox(height: 4),
           Text(value,
@@ -539,12 +554,16 @@ class _AdviceItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = Theme.of(context).colorScheme.surface;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: bgColor,
+          color: isDark ? Color.lerp(surface, bgColor, 0.16)! : bgColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor)),
+          border: Border.all(
+            color: isDark ? Color.lerp(surface, borderColor, 0.5)! : borderColor,
+          )),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -555,15 +574,19 @@ class _AdviceItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A))),
+                        color: isDark
+                            ? const Color(0xFFE2E8F0)
+                            : const Color(0xFF0F172A))),
                 const SizedBox(height: 4),
                 Text(text,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF475569),
+                        color: isDark
+                            ? const Color(0xFFB6C3D4)
+                            : const Color(0xFF475569),
                         height: 1.3)),
               ],
             ),
