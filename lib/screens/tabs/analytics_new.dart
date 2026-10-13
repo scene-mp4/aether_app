@@ -13,11 +13,28 @@ import 'notifications_screen.dart';
 class _ValidatedPredictor {
   // Lag coefficients — index 0 = most recent reading (lag 1)
   static const List<double> _coCoefficients = [
-     2.423359, -2.133035,  0.558633, -0.055217,
-    -0.028758, -0.003302,  0.259223, -0.299541,
-     0.104683,  0.125013, -0.150629,  0.047867,
+    0.390492, 0.242109, 0.181164, 0.062056, -0.057160, -0.015170,
+    0.154246, 0.782213, -0.064544, -0.340809, -0.186600, -0.153626
   ];
-  static const double _coIntercept = 0.288265;
+  static const double _coIntercept = 0.001032;
+
+  static const List<double> _pm25Coefficients = [
+    0.602924, 0.256184, 0.067690, 0.025069, -0.032587, 0.009132,
+    0.144480, 0.812393, -0.088365, -0.552324, -0.206174, -0.052733
+  ];
+  static const double _pm25Intercept = 0.143048;
+
+  static const List<double> _pm10Coefficients = [
+    0.638508, 0.241798, 0.031404, 0.015897, -0.056865, 0.015185,
+    0.185017, 0.781014, -0.101005, -0.568943, -0.175703, -0.021604
+  ];
+  static const double _pm10Intercept = 0.225951;
+
+  static const List<double> _o3Coefficients = [
+    0.614321, 0.236608, 0.100962, 0.050464, -0.064380, -0.008616,
+    0.179441, 0.812827, -0.097062, -0.536251, -0.185540, -0.119593
+  ];
+  static const double _o3Intercept = 1.417563;
 
   static const int _nLags   = 12;
   static const int _wmaWin  = 6;
@@ -40,9 +57,8 @@ class _ValidatedPredictor {
     return smoothed;
   }
 
-  // Predict CO ppm at t+1 using validated OLS coefficients
-  // readings: list of recent co_ppm values, oldest first
-  static double predictCO(List<double> readings) {
+  // Core prediction calculator utilizing coefficients
+  static double _predict(List<double> readings, List<double> coefficients, double intercept) {
     if (readings.length < _nLags) return readings.isNotEmpty ? readings.last : 0.0;
 
     final smoothed = _applyWMA(readings);
@@ -50,16 +66,19 @@ class _ValidatedPredictor {
         ? smoothed.sublist(smoothed.length - _nLags)
         : smoothed;
 
-    double result = _coIntercept;
+    double result = intercept;
     for (int i = 0; i < recent.length && i < _nLags; i++) {
-      // lag_1 = most recent, so index from the end
-      result += _coCoefficients[i] * recent[recent.length - 1 - i];
+      result += coefficients[i] * recent[recent.length - 1 - i];
     }
     return result.clamp(0.0, double.infinity);
   }
+
+  static double predictCO(List<double> readings) => _predict(readings, _coCoefficients, _coIntercept);
+  static double predictPM25(List<double> readings) => _predict(readings, _pm25Coefficients, _pm25Intercept);
+  static double predictPM10(List<double> readings) => _predict(readings, _pm10Coefficients, _pm10Intercept);
+  static double predictO3(List<double> readings) => _predict(readings, _o3Coefficients, _o3Intercept);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // PREDICTION ENGINE
 //
 // Algorithm: Weighted Moving Average (WMA) preprocessing →
@@ -403,6 +422,16 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
   final Set<int> _expandedCards     = {};
   final Set<int> _expandedInfoCards = {};
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get _cardSurfaceColor => Theme.of(context).colorScheme.surface;
+
+  Color get _primaryTextColor =>
+      _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B);
+
+  Color get _secondaryTextColor =>
+      _isDark ? const Color(0xFF9AAAC0) : const Color(0xFF64748B);
+
   // ── Trend colour / icon helpers ───────────────────────────────────────────
   Color    _trendColor(String t) => t == 'rising'
       ? const Color(0xFFEF4444)
@@ -443,20 +472,17 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
   // ── Build predictions from AppDataStore ──────────────────────────────────
   List<_PredictionResult> _buildPredictions(
       AppDataStore store, List<TrackerInfo> trackers) {
-    // Collect all history lists from trackers that have data
     final allHistory = trackers
         .map((t) => store.historyFor(t.id))
         .where((h) => h != null && h.readings.isNotEmpty)
         .map((h) => h!.readings)
         .toList();
 
-    // Helper: average OLS prediction across all trackers for one metric
     _PredictionResult avgFor(
       double Function(TrackerReading) pick, {
       double floor = 0.0,
     }) {
       if (allHistory.isEmpty) {
-        // Fallback: use latest reading only, mark unreliable
         final latest = trackers
             .map((t) => store.readingFor(t.id))
             .whereType<TrackerReading>()
@@ -484,35 +510,64 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
       avgFor((r) => r.pm10Ugm3),
       avgFor((r) => r.coPpm,         floor: 0),  // index 3 — CO
       avgFor((r) => r.co2Ppm,        floor: 420),
-      avgFor((r) => r.o3Ppm * 1000), // ppm → ppb
+      avgFor((r) => r.o3Ppm * 1000), // ppm → ppb (index 5 — O3)
       avgFor((r) => r.temperatureC,  floor: 0),
       avgFor((r) => r.humidityPct,   floor: 0),
     ];
 
-    // Override CO (index 3) with externally validated predictor
-    // trained on UCI Air Quality Dataset (R²=0.821, MAE=0.283 ppm)
+    // Integrate multi-pollutant validated ML forecasts (overriding default trends)
     if (allHistory.isNotEmpty) {
-      final coReadings = allHistory
-          .expand((r) => r)
-          .map((r) => r.coPpm)
-          .toList();
-      if (coReadings.length >= 12) {
-        final validatedCO = _ValidatedPredictor.predictCO(coReadings);
-        final nowCO       = predictions[3].nowValue;
-        final change      = nowCO > 0
-            ? ((validatedCO - nowCO) / nowCO * 100)
-            : 0.0;
+      for (final readings in allHistory) {
+        // 1. PM2.5 (Index 1)
+        final pm25Readings = readings.map((r) => r.pm25Ugm3).toList();
+        final predPM25 = _ValidatedPredictor.predictPM25(pm25Readings);
+        final nowPM25 = predictions[1].nowValue;
+        predictions[1] = _PredictionResult(
+          nowValue:      nowPM25,
+          predicted:     predPM25,
+          changePercent: nowPM25 > 0 ? ((predPM25 - nowPM25) / nowPM25) * 100 : 0.0,
+          rSquared:      0.9817,
+          trend:         predPM25 > nowPM25 ? 'rising' : (predPM25 < nowPM25 ? 'falling' : 'stable'),
+          reliable:      true,
+        );
+
+        // 2. PM10 (Index 2)
+        final pm10Readings = readings.map((r) => r.pm10Ugm3).toList();
+        final predPM10 = _ValidatedPredictor.predictPM10(pm10Readings);
+        final nowPM10 = predictions[2].nowValue;
+        predictions[2] = _PredictionResult(
+          nowValue:      nowPM10,
+          predicted:     predPM10,
+          changePercent: nowPM10 > 0 ? ((predPM10 - nowPM10) / nowPM10) * 100 : 0.0,
+          rSquared:      0.9782,
+          trend:         predPM10 > nowPM10 ? 'rising' : (predPM10 < nowPM10 ? 'falling' : 'stable'),
+          reliable:      true,
+        );
+
+        // 3. CO (Index 3)
+        final coReadings = readings.map((r) => r.coPpm).toList();
+        final predCO = _ValidatedPredictor.predictCO(coReadings);
+        final nowCO = predictions[3].nowValue;
         predictions[3] = _PredictionResult(
           nowValue:      nowCO,
-          predicted:     validatedCO,
-          changePercent: change,
-          rSquared:      0.821,
-          trend:         change > 8
-              ? 'rising'
-              : change < -8
-                  ? 'falling'
-                  : 'stable',
-          reliable: true,
+          predicted:     predCO,
+          changePercent: nowCO > 0 ? ((predCO - nowCO) / nowCO) * 100 : 0.0,
+          rSquared:      0.9783,
+          trend:         predCO > nowCO ? 'rising' : (predCO < nowCO ? 'falling' : 'stable'),
+          reliable:      true,
+        );
+
+        // 4. O3 (Index 5 - ppm to ppb context)
+        final o3Readings = readings.map((r) => r.o3Ppm * 1000).toList();
+        final predO3 = _ValidatedPredictor.predictO3(o3Readings);
+        final nowO3 = predictions[5].nowValue;
+        predictions[5] = _PredictionResult(
+          nowValue:      nowO3,
+          predicted:     predO3,
+          changePercent: nowO3 > 0 ? ((predO3 - nowO3) / nowO3) * 100 : 0.0,
+          rSquared:      0.9887,
+          trend:         predO3 > nowO3 ? 'rising' : (predO3 < nowO3 ? 'falling' : 'stable'),
+          reliable:      true,
         );
       }
     }
@@ -606,16 +661,16 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                         _buildRiskLevelGuide(),
                         const SizedBox(height: 20),
 
-                        const Text('All Pollutant Forecasts',
+                        Text('All Pollutant Forecasts',
                             style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B))),
+                                color: _primaryTextColor)),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Tap any card to expand and see the forecast chart.',
                           style: TextStyle(
-                              fontSize: 12, color: Color(0xFF64748B)),
+                              fontSize: 12, color: _secondaryTextColor),
                         ),
                         const SizedBox(height: 12),
 
@@ -638,7 +693,9 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: _isDark
+                                ? const Color(0xFF202C3D)
+                                : const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                                 color: const Color(0xFFE2E8F0)),
@@ -684,9 +741,11 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardSurfaceColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(
+          color: color.withValues(alpha: _isDark ? 0.55 : 0.4),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -734,9 +793,13 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardSurfaceColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: _isDark
+              ? const Color(0xFF263449)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -744,13 +807,13 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
           const Icon(Icons.info_outline_rounded,
               color: Color(0xFF3B82F6), size: 20),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('How to Use This Page',
                     style: TextStyle(
-                        color: Color(0xFF1E293B),
+                        color: _primaryTextColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 14)),
                 SizedBox(height: 6),
@@ -760,7 +823,7 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                   'Tap a card to see its forecast chart and recommended action. '
                   'Tap "More Information" to learn what the measurement means.',
                   style: TextStyle(
-                      color: Color(0xFF475569),
+                      color: _secondaryTextColor,
                       fontSize: 12,
                       height: 1.4),
                 ),
@@ -777,17 +840,21 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: _cardSurfaceColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
+          border: Border.all(
+            color: _isDark
+                ? const Color(0xFF263449)
+                : const Color(0xFFE2E8F0),
+          )),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Risk Level Guide',
+          Text('Risk Level Guide',
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B))),
+                  color: _primaryTextColor)),
           const SizedBox(height: 12),
           _guideRow(const Color(0xFF22C55E), 'Good',
               'All pollutant levels are within safe ranges. Normal monitoring is sufficient.'),
@@ -802,12 +869,12 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
           _guideRow(const Color(0xFF991B1B), 'Hazardous',
               'Emergency conditions. Evacuate everyone immediately and contact emergency services.'),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Source: ATMO (2025); United States Environmental Protection Agency (2024)',
             style: TextStyle(
                 fontSize: 10,
                 fontStyle: FontStyle.italic,
-                color: Color(0xFF94A3B8)),
+                color: _secondaryTextColor),
           ),
         ],
       ),
@@ -830,14 +897,14 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF64748B), height: 1.3),
+                style: TextStyle(
+                    fontSize: 12, color: _secondaryTextColor, height: 1.3),
                 children: [
                   TextSpan(
                       text: '$label — ',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF334155))),
+                          color: _primaryTextColor)),
                   TextSpan(text: desc),
                 ],
               ),
@@ -892,9 +959,13 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        side: BorderSide(
+          color: _isDark
+              ? const Color(0xFF263449)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
-      color: Colors.white,
+      color: _cardSurfaceColor,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () => setState(() {
@@ -917,10 +988,10 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(meta.title,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A))),
+                                color: _primaryTextColor)),
                         Text(meta.unit,
                             style: const TextStyle(
                                 fontSize: 11,
@@ -962,10 +1033,10 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                         style: TextStyle(
                             fontSize: 10, color: Color(0xFF64748B))),
                     Text(fmtVal(pred.nowValue),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A))),
+                            color: _primaryTextColor)),
                   ],
                 ),
                 const SizedBox(width: 14),
@@ -1030,14 +1101,18 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
 
               // ── Expanded section ──────────────────────────────────────
               if (isExpanded) ...[
-                const Divider(
-                    height: 24, thickness: 1, color: Color(0xFFF1F5F9)),
+                Divider(
+                    height: 24,
+                    thickness: 1,
+                    color: _isDark
+                        ? const Color(0xFF263449)
+                        : const Color(0xFFF1F5F9)),
 
-                const Text('1-Hour Forecast Chart',
+                Text('1-Hour Forecast Chart',
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B))),
+                        color: _secondaryTextColor)),
                 const SizedBox(height: 12),
 
                 // FIX: Each card has correct nowValue, predicted, maxValue
@@ -1056,18 +1131,18 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                 ),
                 const SizedBox(height: 12),
 
-                const Text('SAFE LEVEL',
+                Text('SAFE LEVEL',
                     style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF64748B),
+                        color: _secondaryTextColor,
                         letterSpacing: 0.5)),
                 const SizedBox(height: 2),
                 Text(meta.safeLevelText,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF334155))),
+                        color: _primaryTextColor)),
                 const SizedBox(height: 10),
 
                 // What to do box
@@ -1158,23 +1233,27 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(
+                        color: _isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFE2E8F0),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'What is ${meta.title.split(' ')[0]}?',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E293B)),
+                              color: _primaryTextColor),
                         ),
                         const SizedBox(height: 4),
                         Text(meta.whatIsText,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF475569),
+                                color: _secondaryTextColor,
                                 height: 1.4)),
                         const SizedBox(height: 10),
                         const Text('Why does it matter for residents?',
@@ -1218,6 +1297,14 @@ class _MLValidationCard extends StatefulWidget {
 class _MLValidationCardState extends State<_MLValidationCard> {
   bool _expanded = false;
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get _primaryTextColor =>
+      _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+
+  Color get _secondaryTextColor =>
+      _isDark ? const Color(0xFF9AAAC0) : const Color(0xFF64748B);
+
   // Confusion matrix from the Python validation run
   // Rows = actual class, Cols = predicted class
   // Order: Good, Moderate, Unhealthy, Hazardous
@@ -1241,9 +1328,13 @@ class _MLValidationCardState extends State<_MLValidationCard> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: _isDark
+              ? const Color(0xFF263449)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Column(children: [
         // Header
@@ -1263,7 +1354,7 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                     color: Color(0xFF7C3AED), size: 20),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1271,7 +1362,7 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A))),
+                            color: _primaryTextColor)),
                     Text('WMA + OLS · UCI Air Quality Dataset',
                         style: TextStyle(
                             fontSize: 11, color: Color(0xFF94A3B8))),
@@ -1289,7 +1380,12 @@ class _MLValidationCardState extends State<_MLValidationCard> {
         ),
 
         if (_expanded) ...[
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          Divider(
+            height: 1,
+            color: _isDark
+                ? const Color(0xFF334155)
+                : const Color(0xFFF1F5F9),
+          ),
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -1297,11 +1393,11 @@ class _MLValidationCardState extends State<_MLValidationCard> {
               children: [
 
                 // Dataset info
-                const Text('DATASET',
+                Text('DATASET',
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF64748B),
+                        color: _secondaryTextColor,
                         letterSpacing: 0.8)),
                 const SizedBox(height: 8),
                 _infoRow('Name',     'UCI Air Quality Dataset'),
@@ -1313,11 +1409,11 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                 const SizedBox(height: 16),
 
                 // Regression metrics
-                const Text('REGRESSION METRICS',
+                Text('REGRESSION METRICS',
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF64748B),
+                        color: _secondaryTextColor,
                         letterSpacing: 0.8)),
                 const SizedBox(height: 8),
                 Row(children: [
@@ -1339,9 +1435,12 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                         color: Color(0xFF64748B),
                         letterSpacing: 0.8)),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Rows = Actual class · Columns = Predicted class',
-                  style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: _secondaryTextColor,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _buildConfusionMatrix(),
@@ -1389,9 +1488,9 @@ class _MLValidationCardState extends State<_MLValidationCard> {
         ),
         Expanded(
           child: Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF334155),
+                  color: _primaryTextColor,
                   fontWeight: FontWeight.w500)),
         ),
       ]),
