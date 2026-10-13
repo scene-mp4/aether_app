@@ -60,16 +60,27 @@ class _SummaryNewPageState extends State<SummaryNewPage>
   };
 
   // ── Shared UI styling constants ──────────────────────────────────────────
-  static final BoxDecoration _cardDecoration = BoxDecoration(
-    color: Colors.white,
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get _primaryTextColor =>
+      _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B);
+
+  Color get _secondaryTextColor =>
+      _isDark ? const Color(0xFF9AAAC0) : const Color(0xFF64748B);
+
+  BoxDecoration get _cardDecoration => BoxDecoration(
+    color: Theme.of(context).colorScheme.surface,
     borderRadius: BorderRadius.circular(16),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.03),
-        blurRadius: 10,
-        offset: const Offset(0, 2),
-      ),
-    ],
+    border: _isDark ? Border.all(color: const Color(0xFF263449)) : null,
+    boxShadow: _isDark
+        ? null
+        : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
   );
 
   // ── AQI helpers ───────────────────────────────────────────────────────────
@@ -371,7 +382,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
             width: 50,
             child: Text(
               range,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 color: Color(0xFF475569),
                 fontWeight: FontWeight.w500,
@@ -403,7 +414,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
                 "Summary",
                 style: TextStyle(
@@ -468,13 +479,13 @@ class _SummaryNewPageState extends State<SummaryNewPage>
               children: [
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         "Overall AQI",
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
+                          color: _primaryTextColor,
                         ),
                       ),
                     ),
@@ -486,9 +497,9 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.right,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
-                          color: Color(0xFF94A3B8),
+                          color: _secondaryTextColor,
                         ),
                       ),
                     ),
@@ -543,7 +554,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                 const SizedBox(height: 4),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
+                  children: [
                     Text(
                       "Good",
                       style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
@@ -611,7 +622,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(Icons.sensors, color: Color(0xFF2563EB), size: 18),
                         SizedBox(width: 6),
                         Flexible(
@@ -621,7 +632,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF64748B),
+                              color: _secondaryTextColor,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -631,10 +642,10 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                     const SizedBox(height: 6),
                     Text(
                       '$totalTrackers',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                        color: _primaryTextColor,
                       ),
                     ),
                   ],
@@ -682,7 +693,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                     const SizedBox(height: 6),
                     Text(
                       '$alertCount',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFFDC2626),
@@ -704,9 +715,10 @@ class _SummaryNewPageState extends State<SummaryNewPage>
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
+        border: _isDark ? Border.all(color: const Color(0xFF263449)) : null,
+        boxShadow: _isDark ? null : [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
             blurRadius: 8,
@@ -717,7 +729,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
       child: TabBar(
         controller: _tabController,
         labelColor: Colors.white,
-        unselectedLabelColor: const Color(0xFF64748B),
+        unselectedLabelColor: _secondaryTextColor,
         labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
         unselectedLabelStyle: const TextStyle(
           fontSize: 12,
@@ -802,12 +814,12 @@ class _SummaryNewPageState extends State<SummaryNewPage>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               "Tracker Status",
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
+                color: _primaryTextColor,
               ),
             ),
             if (_selectedStatusFilter != null)
@@ -830,14 +842,14 @@ class _SummaryNewPageState extends State<SummaryNewPage>
 
         // ── HINT TEXT ────────────────────────────────────────────────────────
         Row(
-          children: const [
+          children: [
             Icon(Icons.touch_app_outlined, size: 12, color: Color(0xFF64748B)),
             SizedBox(width: 4),
             Text(
               "Tap any status below to filter rankings",
               style: TextStyle(
                 fontSize: 11,
-                color: Color(0xFF64748B),
+                color: _secondaryTextColor,
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -926,7 +938,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.w600,
-                        color: const Color(0xFF1E293B),
+                        color: _primaryTextColor,
                       ),
                     ),
                     Text(
@@ -944,7 +956,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? color : const Color(0xFF0F172A),
+                  color: isSelected ? color : _primaryTextColor,
                 ),
               ),
             ],
@@ -993,12 +1005,12 @@ class _SummaryNewPageState extends State<SummaryNewPage>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               "Individual Tracker/s AQI Rankings",
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
+                color: _primaryTextColor,
               ),
             ),
             if (_selectedStatusFilter != null)
@@ -1020,9 +1032,9 @@ class _SummaryNewPageState extends State<SummaryNewPage>
           ],
         ),
         const SizedBox(height: 2),
-        const Text(
+        Text(
           "AQI values per tracker — lower is better",
-          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+          style: TextStyle(fontSize: 11, color: _secondaryTextColor),
         ),
         const SizedBox(height: 16),
         if (trackerRankList.isEmpty)
@@ -1055,10 +1067,10 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                         width: 24,
                         child: Text(
                           'R $idx',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF64748B),
+                            color: _secondaryTextColor,
                           ),
                         ),
                       ),
@@ -1091,10 +1103,10 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                         child: Text(
                           '$val',
                           textAlign: TextAlign.end,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
+                            color: _primaryTextColor,
                           ),
                         ),
                       ),
@@ -1105,10 +1117,10 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                     padding: const EdgeInsets.only(left: 24.0),
                     child: Text(
                       trackerName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF475569),
+                        color: _secondaryTextColor,
                       ),
                     ),
                   ),
@@ -1137,7 +1149,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
-                  children: const [
+                  children: [
                     Icon(Icons.sensors, size: 18, color: Color(0xFF2563EB)),
                     SizedBox(width: 6),
                     Text(
@@ -1145,7 +1157,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                        color: _primaryTextColor,
                       ),
                     ),
                   ],
@@ -1171,9 +1183,9 @@ class _SummaryNewPageState extends State<SummaryNewPage>
               ],
             ),
             const SizedBox(height: 2),
-            const Text(
+            Text(
               "Display preferred air pollutant readings by clicking on the tags below.",
-              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              style: TextStyle(fontSize: 11, color: _secondaryTextColor),
             ),
             const SizedBox(height: 12),
 
@@ -1406,7 +1418,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
     return Container(
       padding: EdgeInsets.all(isLarge ? 14 : 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: _isDark ? const Color(0xFF202C3D) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -1414,9 +1426,9 @@ class _SummaryNewPageState extends State<SummaryNewPage>
         children: [
           Text(
             keyName,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF64748B),
+              color: _secondaryTextColor,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1428,7 +1440,7 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                 style: TextStyle(
                   fontSize: isLarge ? 26 : 22,
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF0F172A),
+                  color: _primaryTextColor,
                 ),
               ),
               const SizedBox(width: 4),
@@ -1543,20 +1555,20 @@ class _SummaryNewPageState extends State<SummaryNewPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top Manual Header Banner
-            const Text(
+            Text(
               "Health Supervising Manual",
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
+                color: _primaryTextColor,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               "Common illnesses senior citizens may develop from indoor air pollutants, with do's and don'ts.",
               style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF64748B),
+                color: _secondaryTextColor,
                 height: 1.3,
               ),
             ),
@@ -1783,9 +1795,11 @@ class _SummaryNewPageState extends State<SummaryNewPage>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: _isDark ? const Color(0xFF202C3D) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1800,17 +1814,17 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
+                      color: _primaryTextColor,
                     ),
                   ),
                   Icon(
                     isExpanded
                         ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
-                    color: const Color(0xFF64748B),
+                    color: _secondaryTextColor,
                     size: 18,
                   ),
                 ],
@@ -1818,7 +1832,12 @@ class _SummaryNewPageState extends State<SummaryNewPage>
             ),
           ),
           if (isExpanded) ...[
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            Divider(
+              height: 1,
+              color: _isDark
+                  ? const Color(0xFF334155)
+                  : const Color(0xFFF1F5F9),
+            ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: children,

@@ -14,6 +14,19 @@ class TrackerAdviceTab extends StatelessWidget {
     this.reading,
   });
 
+  bool _isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  Color _primaryText(BuildContext context) => _isDark(context)
+      ? const Color(0xFFE2E8F0)
+      : const Color(0xFF0F172A);
+
+  Color _secondaryText(BuildContext context) => _isDark(context)
+      ? const Color(0xFFB6C3D4)
+      : const Color(0xFF475569);
+
+  Color _surface(BuildContext context) => Theme.of(context).colorScheme.surface;
+
   Color _aqiColor(int aqi) {
     if (aqi <= 50)  return const Color(0xFF22C55E);
     if (aqi <= 100) return const Color(0xFFEAB308);
@@ -224,34 +237,38 @@ class TrackerAdviceTab extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildStatusBanner(hasData, iaqi, aqiLabel, aqiColor, r),
+            _buildStatusBanner(context, hasData, iaqi, aqiLabel, aqiColor, r),
             const SizedBox(height: 16),
-            const Text('Advice for Healthcare Staff',
+            Text('Advice for Healthcare Staff',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A))),
+                    color: _primaryText(context))),
             const SizedBox(height: 4),
             Text(
               hasData
                   ? '${matched.length} recommendation${matched.length == 1 ? '' : 's'} based on current readings'
                   : 'Recommendations will appear once sensor data is received.',
-              style: const TextStyle(
-                  fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: _isDark(context)
+                      ? const Color(0xFF9AAAC0)
+                      : const Color(0xFF64748B),
+                  height: 1.4),
             ),
             const SizedBox(height: 16),
             if (!hasData)
-              _buildNoDataCard()
+              _buildNoDataCard(context)
             else ...[
               ...matched.map((item) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _AdviceCard(item: item),
                   )),
               const SizedBox(height: 4),
-              _buildBestPracticesCard(),
+              _buildBestPracticesCard(context),
             ],
             const SizedBox(height: 16),
-            _buildDisclaimer(),
+            _buildDisclaimer(context),
             const SizedBox(height: 24),
           ],
         );
@@ -259,7 +276,7 @@ class TrackerAdviceTab extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBanner(bool hasData, int iaqi, String label,
+  Widget _buildStatusBanner(BuildContext context, bool hasData, int iaqi, String label,
       Color color, TrackerReading? r) {
     return Container(
       width: double.infinity,
@@ -290,8 +307,10 @@ class TrackerAdviceTab extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               hasData ? _summaryLine(r!) : 'Connect your tracker to see advice.',
-              style: const TextStyle(
-                  fontSize: 12, color: Color(0xFF475569), height: 1.3),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: _secondaryText(context),
+                  height: 1.3),
             ),
           ]),
         ),
@@ -299,23 +318,27 @@ class TrackerAdviceTab extends StatelessWidget {
     );
   }
 
-  Widget _buildNoDataCard() {
+  Widget _buildNoDataCard(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surface(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: _isDark(context)
+              ? const Color(0xFF263449)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
-      child: const Column(children: [
+      child: Column(children: [
         Icon(Icons.sensors_off_outlined, size: 40, color: Color(0xFF94A3B8)),
         SizedBox(height: 12),
         Text('No readings available',
             style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF475569))),
+                color: _secondaryText(context))),
         SizedBox(height: 6),
         Text(
           'Make sure your tracker is powered on and connected to WiFi.',
@@ -326,15 +349,19 @@ class TrackerAdviceTab extends StatelessWidget {
     );
   }
 
-  Widget _buildBestPracticesCard() {
+  Widget _buildBestPracticesCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: _surface(context),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
+          border: Border.all(
+            color: _isDark(context)
+                ? const Color(0xFF263449)
+                : const Color(0xFFE2E8F0),
+          )),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: const [
+        Row(children: [
           Icon(Icons.health_and_safety_outlined,
               color: Color(0xFF2563EB), size: 20),
           SizedBox(width: 8),
@@ -342,7 +369,7 @@ class TrackerAdviceTab extends StatelessWidget {
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A))),
+                  color: _primaryText(context))),
         ]),
         const SizedBox(height: 12),
         ...[
@@ -362,14 +389,16 @@ class TrackerAdviceTab extends StatelessWidget {
                 Expanded(
                   child: RichText(
                     text: TextSpan(
-                      style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF475569), height: 1.4),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: _secondaryText(context),
+                          height: 1.4),
                       children: [
                         TextSpan(
                             text: '${p.$1}: ',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF334155))),
+                                color: _primaryText(context))),
                         TextSpan(text: p.$2),
                       ],
                     ),
@@ -381,15 +410,21 @@ class TrackerAdviceTab extends StatelessWidget {
     );
   }
 
-  Widget _buildDisclaimer() {
+  Widget _buildDisclaimer(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: _isDark(context)
+            ? const Color(0xFF202C3D)
+            : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: _isDark(context)
+              ? const Color(0xFF334155)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(Icons.info_outline, size: 16, color: Color(0xFF94A3B8)),
         SizedBox(width: 8),
         Expanded(
@@ -398,7 +433,11 @@ class TrackerAdviceTab extends StatelessWidget {
             'air quality guidelines (WHO, EPA, OSHA). It does not replace '
             'professional medical or safety judgement.',
             style: TextStyle(
-                fontSize: 11, color: Color(0xFF94A3B8), height: 1.4),
+                fontSize: 11,
+                color: _isDark(context)
+                    ? const Color(0xFF9AAAC0)
+                    : const Color(0xFF64748B),
+                height: 1.4),
           ),
         ),
       ]),
@@ -438,11 +477,17 @@ class _AdviceCardState extends State<_AdviceCard> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = Theme.of(context).colorScheme.surface;
     return Container(
       decoration: BoxDecoration(
-        color: item.bgColor,
+        color: isDark ? Color.lerp(surface, item.bgColor, 0.16)! : item.bgColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: item.borderColor),
+        border: Border.all(
+          color: isDark
+              ? Color.lerp(surface, item.borderColor, 0.5)!
+              : item.borderColor,
+        ),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         InkWell(
@@ -463,9 +508,11 @@ class _AdviceCardState extends State<_AdviceCard> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
                     Text(item.category,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF64748B),
+                            color: isDark
+                                ? const Color(0xFF9AAAC0)
+                                : const Color(0xFF64748B),
                             fontWeight: FontWeight.w500)),
                     const SizedBox(width: 6),
                     Container(
@@ -483,17 +530,22 @@ class _AdviceCardState extends State<_AdviceCard> {
                   ]),
                   const SizedBox(height: 4),
                   Text(item.headline,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
+                          color: isDark
+                              ? const Color(0xFFE2E8F0)
+                              : const Color(0xFF0F172A),
                           height: 1.3)),
                 ]),
               ),
               const SizedBox(width: 8),
               Icon(
                 _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                color: const Color(0xFF64748B), size: 20),
+                color: isDark
+                    ? const Color(0xFF9AAAC0)
+                    : const Color(0xFF64748B),
+                size: 20),
             ]),
           ),
         ),
@@ -501,24 +553,37 @@ class _AdviceCardState extends State<_AdviceCard> {
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              Divider(
+                height: 1,
+                color: isDark
+                    ? const Color(0xFF334155)
+                    : const Color(0xFFE2E8F0),
+              ),
               const SizedBox(height: 12),
               Text(item.details,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF475569), height: 1.5)),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? const Color(0xFFB6C3D4)
+                          : const Color(0xFF475569),
+                      height: 1.5)),
               if (item.actions.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.7),
+                      color: isDark
+                          ? const Color(0xFF202C3D)
+                          : Colors.white.withOpacity(0.7),
                       borderRadius: BorderRadius.circular(10)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Advices',
+                    Text('Advices',
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF334155))),
+                            color: isDark
+                                ? const Color(0xFFE2E8F0)
+                                : const Color(0xFF334155))),
                     const SizedBox(height: 8),
                     ...item.actions.map((a) => Padding(
                           padding: const EdgeInsets.only(bottom: 6),
@@ -534,9 +599,11 @@ class _AdviceCardState extends State<_AdviceCard> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(a,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 12,
-                                        color: Color(0xFF334155),
+                                        color: isDark
+                                            ? const Color(0xFFB6C3D4)
+                                            : const Color(0xFF334155),
                                         height: 1.3)),
                               ),
                             ],

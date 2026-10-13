@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pollutracker_app/stores/app_data_store.dart';
 import 'package:pollutracker_app/screens/tabs/notifications_screen.dart';
+import 'package:pollutracker_app/screens/tabs/theme_notifier.dart';
+import 'admin_theme.dart';
 
 class AdminSettingsTab extends StatefulWidget {
   const AdminSettingsTab({super.key});
@@ -251,6 +253,24 @@ Widget build(BuildContext context) {
                   ),
                   const SizedBox(height: 16),
 
+                  _buildSectionCard(
+                    icon: Icons.dark_mode_outlined,
+                    title: 'Appearance',
+                    subtitle: 'Choose the display mode for the app',
+                    children: [
+                      ValueListenableBuilder<ThemeMode>(
+                        valueListenable: themeNotifier,
+                        builder: (context, mode, _) => _buildSwitchTile(
+                          title: 'Dark Mode',
+                          subtitle: 'Use a darker appearance across the app',
+                          value: mode == ThemeMode.dark,
+                          onChanged: setDarkMode,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
                   // 2. Notification Settings Card
                   _buildSectionCard(
                     icon: Icons.notifications_none_rounded,
@@ -263,14 +283,14 @@ Widget build(BuildContext context) {
                         value: _emailAlerts,
                         onChanged: (val) => setState(() => _emailAlerts = val),
                       ),
-                      const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                      Divider(height: 24, color: adminBorderColor(context)),
                       _buildSwitchTile(
                         title: 'Push Notifications',
                         subtitle: 'Real-time alerts to user mobile apps',
                         value: _pushNotifications,
                         onChanged: (val) => setState(() => _pushNotifications = val),
                       ),
-                      const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                      Divider(height: 24, color: adminBorderColor(context)),
                       _buildSwitchTile(
                         title: 'Critical Alerts',
                         subtitle: 'Immediate notifications for hazardous conditions',
@@ -391,8 +411,9 @@ Widget build(BuildContext context) {
                     child: OutlinedButton(
                       onPressed: _saving ? null : _resetDefaults,
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        backgroundColor: adminCardColor(context),
+                        foregroundColor: adminPrimaryTextColor(context),
+                        side: BorderSide(color: adminBorderColor(context)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -400,7 +421,6 @@ Widget build(BuildContext context) {
                       child: const Text(
                         'Reset to Defaults',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -425,8 +445,14 @@ Widget build(BuildContext context) {
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFEF2F2),
-                        side: const BorderSide(color: Color(0xFFFECACA)),
+                        backgroundColor: adminIsDark(context)
+                            ? const Color(0xFF3B2025)
+                            : const Color(0xFFFEF2F2),
+                        side: BorderSide(
+                          color: adminIsDark(context)
+                              ? const Color(0xFF71343D)
+                              : const Color(0xFFFECACA),
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -525,12 +551,14 @@ Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: adminCardColor(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
+        border: Border.all(color: adminBorderColor(context)),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x05000000),
+            color: Colors.black.withValues(
+              alpha: adminIsDark(context) ? 0.12 : 0.02,
+            ),
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -556,17 +584,17 @@ Widget build(BuildContext context) {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: adminPrimaryTextColor(context),
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF64748B),
+                      color: adminSecondaryTextColor(context),
                     ),
                   ),
                 ],
@@ -585,10 +613,10 @@ Widget build(BuildContext context) {
       padding: const EdgeInsets.only(bottom: 6.0),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF334155),
+          color: adminPrimaryTextColor(context),
         ),
       ),
     );
@@ -597,8 +625,10 @@ Widget build(BuildContext context) {
   Widget _buildTextField(TextEditingController controller) {
     return TextField(
       controller: controller,
-      style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+      style: TextStyle(fontSize: 14, color: adminPrimaryTextColor(context)),
       decoration: InputDecoration(
+        filled: true,
+        fillColor: adminSubtleSurfaceColor(context),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -615,6 +645,8 @@ Widget build(BuildContext context) {
   Widget _buildDropdownField() {
     return InputDecorator(
       decoration: InputDecoration(
+        filled: true,
+        fillColor: adminSubtleSurfaceColor(context),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -629,7 +661,8 @@ Widget build(BuildContext context) {
         child: DropdownButton<String>(
           value: _selectedTimezone,
           isExpanded: true,
-          style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+          style: TextStyle(fontSize: 14, color: adminPrimaryTextColor(context)),
+          dropdownColor: adminCardColor(context),
           items: _timezones.map((tz) {
             return DropdownMenuItem(value: tz, child: Text(tz));
           }).toList(),
@@ -655,18 +688,18 @@ Widget build(BuildContext context) {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
+                  color: adminPrimaryTextColor(context),
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF64748B),
+                  color: adminSecondaryTextColor(context),
                 ),
               ),
             ],
@@ -691,10 +724,10 @@ Widget build(BuildContext context) {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF334155),
+            color: adminPrimaryTextColor(context),
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -703,8 +736,10 @@ Widget build(BuildContext context) {
         TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+          style: TextStyle(fontSize: 14, color: adminPrimaryTextColor(context)),
           decoration: InputDecoration(
+            filled: true,
+            fillColor: adminSubtleSurfaceColor(context),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),

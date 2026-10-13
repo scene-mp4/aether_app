@@ -26,6 +26,20 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
   int  _selectedTabIndex       = 0;
   bool _isAqiReferenceExpanded = false;
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get _cardSurfaceColor => Theme.of(context).colorScheme.surface;
+
+  Color get _primaryTextColor =>
+      _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B);
+
+  Color get _secondaryTextColor =>
+      _isDark ? const Color(0xFF9AAAC0) : const Color(0xFF64748B);
+
+  Color _tintedSurface(Color lightTint) => _isDark
+      ? Color.lerp(_cardSurfaceColor, lightTint, 0.16)!
+      : lightTint;
+
   final List<String> _tabs = ['Pollutants', 'History', 'Climate', 'Advice'];
 
   final List<Color> _scaleColors = const [
@@ -297,10 +311,10 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                                 iaqi, aqiColor, aqiLabel),
                             const SizedBox(height: 16),
                             RichText(
-                              text: const TextSpan(
+                              text: TextSpan(
                                 style: TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF64748B),
+                                    color: _secondaryTextColor,
                                     height: 1.4),
                                 children: [
                                   TextSpan(text: "Tap "),
@@ -317,10 +331,10 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            const Text(
+                            Text(
                               "Pollutant thresholds are based on Shittu et al. (2025) and Rosca et al. (2026) indoor air quality classifications.",
                               style: TextStyle(
-                                  fontSize: 10, color: Color(0xFF94A3B8)),
+                                  fontSize: 10, color: _secondaryTextColor),
                             ),
                             const SizedBox(height: 16),
                             _buildPollutantGrid(),
@@ -441,7 +455,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
   // ── Tab bar ────────────────────────────────────────────────────────────────
   Widget _buildTabBar() {
     return Container(
-      color: Colors.white,
+      color: _cardSurfaceColor,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -463,7 +477,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                 style: TextStyle(
                   color: isSelected
                       ? const Color(0xFF0052FF)
-                      : const Color(0xFF64748B),
+                      : _secondaryTextColor,
                   fontWeight:
                       isSelected ? FontWeight.bold : FontWeight.normal,
                   fontSize: 13,
@@ -501,16 +515,16 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: _cardSurfaceColor,
           borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "${widget.trackerName} — Current AQI position",
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF64748B),
+                color: _secondaryTextColor,
                 fontWeight: FontWeight.w400),
           ),
           const SizedBox(height: 10),
@@ -561,7 +575,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
   Widget _buildAqiReferenceCard() {
     return Container(
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          color: _cardSurfaceColor, borderRadius: BorderRadius.circular(12)),
       child: Column(children: [
         InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -576,20 +590,20 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                 const Icon(Icons.info_outline,
                     size: 18, color: Color(0xFF2563EB)),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     "AQI Category Reference (US EPA 2024)",
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF334155)),
+                        color: _primaryTextColor),
                   ),
                 ),
                 Icon(
                   _isAqiReferenceExpanded
                       ? Icons.keyboard_arrow_up
                       : Icons.keyboard_arrow_down,
-                  color: const Color(0xFF64748B),
+                  color: _secondaryTextColor,
                 ),
               ]),
               const SizedBox(height: 10),
@@ -660,7 +674,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-          color: bg,
+          color: _tintedSurface(bg),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: border)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -693,8 +707,8 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
         Padding(
           padding: const EdgeInsets.only(left: 20),
           child: Text(desc,
-              style: const TextStyle(
-                  fontSize: 11, color: Color(0xFF475569), height: 1.3)),
+              style: TextStyle(
+                  fontSize: 11, color: _secondaryTextColor, height: 1.3)),
         ),
       ]),
     );
@@ -736,9 +750,13 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardSurfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: _isDark
+              ? const Color(0xFF263449)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -751,10 +769,10 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                 child: Text(item["name"],
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B))),
+                        color: _primaryTextColor)),
               ),
               const SizedBox(width: 8),
               InkWell(
@@ -769,7 +787,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                   decoration: BoxDecoration(
                     color: isInfoExpanded
                         ? const Color(0xFF2563EB)
-                        : const Color(0xFFEFF6FF),
+                        : _tintedSurface(const Color(0xFFEFF6FF)),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -793,12 +811,12 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
           ),
           const SizedBox(height: 4),
           Text(item["value"],
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A))),
+                  color: _primaryTextColor)),
           Text(item["unit"],
-              style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                  style: TextStyle(fontSize: 10, color: _secondaryTextColor)),
           const SizedBox(height: 6),
           Container(
             padding:
@@ -855,23 +873,25 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: _tintedSurface(const Color(0xFFEFF6FF)),
                   borderRadius: BorderRadius.circular(10)),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(item["description"] ?? "",
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF1E3A8A),
+                            color: _primaryTextColor,
                             height: 1.3)),
                     if (item["goodHeadline"] != null) ...[
                       const SizedBox(height: 6),
                       Text(item["goodHeadline"],
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1D4ED8))),
+                              color: _isDark
+                                  ? const Color(0xFF93C5FD)
+                                  : const Color(0xFF1D4ED8))),
                     ],
                   ]),
             ),
@@ -884,13 +904,19 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: _isDark
+                      ? const Color(0xFF202C3D)
+                      : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(
+                    color: _isDark
+                        ? const Color(0xFF334155)
+                        : const Color(0xFFE2E8F0),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         "View Threshold Scale",
                         maxLines: 1,
@@ -898,7 +924,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                         style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155)),
+                            color: _primaryTextColor),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -907,7 +933,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                           ? Icons.keyboard_arrow_up
                           : Icons.keyboard_arrow_down,
                       size: 16,
-                      color: const Color(0xFF64748B),
+                      color: _secondaryTextColor,
                     ),
                   ],
                 ),
@@ -915,11 +941,11 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
             ),
             if (isThresholdExpanded) ...[
               const SizedBox(height: 10),
-              const Text("THRESHOLD RANGES",
+              Text("THRESHOLD RANGES",
                   style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF64748B),
+                      color: _secondaryTextColor,
                       letterSpacing: 0.5)),
               const SizedBox(height: 6),
               if (item["thresholds"] != null)
@@ -936,8 +962,10 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                             horizontal: 8, vertical: 6),
                         decoration: BoxDecoration(
                           color: isCurrent
-                              ? const Color(0xFFF0FDF4)
-                              : const Color(0xFFF8FAFC),
+                              ? _tintedSurface(const Color(0xFFF0FDF4))
+                              : _isDark
+                                  ? const Color(0xFF202C3D)
+                                  : const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(8),
                           border: isCurrent
                               ? Border.all(
@@ -962,7 +990,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                                 fontWeight: isCurrent
                                   ? FontWeight.bold
                                   : FontWeight.w500,
-                                color: const Color(0xFF334155))),
+                                color: _primaryTextColor)),
                             ),
                             Text(t["range"] ?? "",
                               textAlign: TextAlign.right,
@@ -970,7 +998,7 @@ class _TrackerDetailsPageState extends State<TrackerDetailsPage> {
                                 fontSize: 9,
                                 color: isCurrent
                                   ? const Color(0xFF166534)
-                                  : const Color(0xFF64748B),
+                                  : _secondaryTextColor,
                                 fontWeight: isCurrent
                                   ? FontWeight.bold
                                   : FontWeight.normal)),

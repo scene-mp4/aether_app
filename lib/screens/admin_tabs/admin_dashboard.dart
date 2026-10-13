@@ -6,6 +6,7 @@ import '/stores/app_data_store.dart';
 import '/models/tracker_reading.dart';
 import '/models/tracker_info.dart';
 import 'package:pollutracker_app/screens/tabs/notifications_screen.dart';
+import 'admin_theme.dart';
 
 class AdminDashboardTab extends StatefulWidget {
   const AdminDashboardTab({super.key});
@@ -202,7 +203,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
 
     return Container(
       padding: const EdgeInsets.all(16.0),
-      decoration: _cardDecoration(),
+      decoration: adminCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -311,7 +312,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
 
     return Container(
       padding: const EdgeInsets.all(16.0),
-      decoration: _cardDecoration(),
+      decoration: adminCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -367,10 +368,10 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(legendNames[i],
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFF334155))),
+                                          color: adminPrimaryTextColor(context))),
                                   Text('$pct%',
                                       style: TextStyle(
                                           fontSize: 11,
@@ -382,9 +383,9 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                                 readings.isEmpty
                                     ? '—'
                                     : '$val ${legendUnits[i]}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 10,
-                                    color: Color(0xFF94A3B8)),
+                                    color: adminSecondaryTextColor(context)),
                               ),
                             ],
                           ),
@@ -408,7 +409,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
       AppDataStore store) {
     return Container(
       padding: const EdgeInsets.all(16.0),
-      decoration: _cardDecoration(),
+      decoration: adminCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -494,7 +495,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
 
     return Container(
       padding: const EdgeInsets.all(16.0),
-      decoration: _cardDecoration(),
+      decoration: adminCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -545,20 +546,6 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-
-  BoxDecoration _cardDecoration() => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: const Color(0xFFE2E8F0).withOpacity(0.6)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000),
-            offset: Offset(0, 4),
-            blurRadius: 12,
-          ),
-        ],
-      );
 
   String _aqiLabel(int aqi) {
     if (aqi <= 50)  return 'Good';
@@ -684,7 +671,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: adminCardColor(context),
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
@@ -709,22 +696,22 @@ class _StatCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(title,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF64748B),
+                  color: adminSecondaryTextColor(context),
                   fontWeight: FontWeight.w500)),
           const SizedBox(height: 4),
           Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
+                  color: adminPrimaryTextColor(context),
                   height: 1.0)),
           const SizedBox(height: 4),
           Text(subtitle,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF64748B),
+                  color: adminSecondaryTextColor(context),
                   fontWeight: FontWeight.w400)),
         ],
       ),
@@ -778,7 +765,7 @@ class _FacilityStatusItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: adminSubtleSurfaceColor(context),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -786,17 +773,17 @@ class _FacilityStatusItem extends StatelessWidget {
         children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF334155))),
+                        color: adminPrimaryTextColor(context))),
             if (subtitle.isNotEmpty)
               Text(subtitle,
-                  style: const TextStyle(
-                      fontSize: 10, color: Color(0xFF94A3B8))),
+                  style: TextStyle(
+                      fontSize: 10, color: adminSecondaryTextColor(context))),
             Text('AQI: $aqi',
-                style: const TextStyle(
-                    fontSize: 10, color: Color(0xFF64748B))),
+                style: TextStyle(
+                    fontSize: 10, color: adminSecondaryTextColor(context))),
           ]),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -838,7 +825,9 @@ class _AlertItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
+        color: adminIsDark(context)
+            ? const Color(0xFF382D18)
+            : const Color(0xFFFFFBEB),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFFDE68A)),
       ),
@@ -849,19 +838,19 @@ class _AlertItem extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(location,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B))),
+                      color: adminPrimaryTextColor(context))),
               Text(time,
-                  style: const TextStyle(
-                      fontSize: 10, color: Color(0xFF94A3B8))),
+                  style: TextStyle(
+                      fontSize: 10, color: adminSecondaryTextColor(context))),
             ],
           ),
           const SizedBox(height: 2),
           Text(detail,
-              style: const TextStyle(
-                  fontSize: 11, color: Color(0xFF64748B))),
+              style: TextStyle(
+                  fontSize: 11, color: adminSecondaryTextColor(context))),
           const SizedBox(height: 8),
           Container(
             padding:

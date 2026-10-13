@@ -374,6 +374,13 @@ class _TrackerCardState extends State<TrackerCard> {
   Widget build(BuildContext context) {
     final r       = widget.reading;
     final hasData = r != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryTextColor = isDark
+        ? const Color(0xFFE2E8F0)
+        : const Color(0xFF1E293B);
+    final secondaryTextColor = isDark
+        ? const Color(0xFF9AAAC0)
+        : const Color(0xFF475569);
 
     // IAQI display values
     final iaqi      = hasData ? r.iaqi      : 0;
@@ -437,10 +444,14 @@ class _TrackerCardState extends State<TrackerCard> {
         ),
       ),
       child: Card(
-        color: Colors.white,
-        elevation: 2,
+        color: Theme.of(context).colorScheme.surface,
+        elevation: isDark ? 0 : 2,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+          borderRadius: BorderRadius.circular(16),
+          side: isDark
+              ? const BorderSide(color: Color(0xFF263449))
+              : BorderSide.none,
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -454,10 +465,10 @@ class _TrackerCardState extends State<TrackerCard> {
                   Expanded(
                     child: Text(
                       widget.info.deviceName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF475569),
+                        color: primaryTextColor,
                       ),
                     ),
                   ),
@@ -490,16 +501,16 @@ class _TrackerCardState extends State<TrackerCard> {
               // ── Location ─────────────────────────────────────────────────
               Row(
                 children: [
-                  const Icon(Icons.location_on_outlined,
-                      size: 14, color: Color(0xFF475569)),
+                  Icon(Icons.location_on_outlined,
+                      size: 14, color: secondaryTextColor),
                   const SizedBox(width: 4),
                   Text(
                     widget.info.location.isNotEmpty
                         ? widget.info.location
                         : 'No location set',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF475569),
+                      color: secondaryTextColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -690,12 +701,12 @@ class _TrackerCardState extends State<TrackerCard> {
                   color: Color(0xFFE2E8F0)),
 
               // ── Sensor readings grid ─────────────────────────────────────
-              const Text(
+              Text(
                 "Current Readings",
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF334155),
+                  color: primaryTextColor,
                 ),
               ),
               const SizedBox(height: 10),
@@ -715,7 +726,9 @@ class _TrackerCardState extends State<TrackerCard> {
                   final item = readings[index];
                   return Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: isDark
+                          ? const Color(0xFF202C3D)
+                          : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Column(
@@ -723,10 +736,10 @@ class _TrackerCardState extends State<TrackerCard> {
                       children: [
                         Text(
                           item['label']!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF475569),
+                            color: secondaryTextColor,
                           ),
                         ),
                         const SizedBox(height: 1),
@@ -736,16 +749,16 @@ class _TrackerCardState extends State<TrackerCard> {
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
                             color: hasData
-                                ? const Color(0xFF1E293B)
+                                ? primaryTextColor
                                 : const Color(0xFF94A3B8),
                           ),
                         ),
                         Text(
                           item['unit']!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 8,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF64748B),
+                            color: secondaryTextColor,
                           ),
                         ),
                       ],
