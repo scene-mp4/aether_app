@@ -7,34 +7,37 @@ import '/models/tracker_info.dart';
 import 'notifications_screen.dart';
 
 // ── Validated OLS predictor ────────────────────────────────────────────────
-// Coefficients trained on UCI Air Quality Dataset (Italy, 2004–2005)
-// R²=0.821  MAE=0.283 ppm  RMSE=0.386 ppm  Train:5864  Test:1467
+// Coefficients trained on Philippine Cities Air Quality Dataset (Jan 2026)
+// Metro Manila subset — 8,052 rows, 80/20 time-ordered split
 // Algorithm: WMA (window=6) + OLS Linear Regression, 12 lag features
 class _ValidatedPredictor {
-  // Lag coefficients — index 0 = most recent reading (lag 1)
+  // CO (ppm) — R²=0.976  MAE=0.002  RMSE=0.003  Acc=100.0%
   static const List<double> _coCoefficients = [
-    0.390492, 0.242109, 0.181164, 0.062056, -0.057160, -0.015170,
-    0.154246, 0.782213, -0.064544, -0.340809, -0.186600, -0.153626
+    0.654897, 0.119985, -0.042330, 0.118570, 0.054561, -0.030831,
+    -0.028214, -0.026867, 0.119642, 0.750328, -0.116793, -0.576634,
   ];
-  static const double _coIntercept = 0.001032;
+  static const double _coIntercept = 0.000674;
 
+  // PM2.5 (µg/m³) — R²=0.982  MAE=0.277  RMSE=0.492  Acc=93.0%
   static const List<double> _pm25Coefficients = [
-    0.602924, 0.256184, 0.067690, 0.025069, -0.032587, 0.009132,
-    0.144480, 0.812393, -0.088365, -0.552324, -0.206174, -0.052733
+    0.799091, 0.119612, -0.027451, 0.038441, 0.042858, 0.004392,
+    -0.021527, -0.021508, 0.146410, 0.791745, -0.132273, -0.749746,
   ];
-  static const double _pm25Intercept = 0.143048;
+  static const double _pm25Intercept = 0.098882;
 
+  // PM10 (µg/m³) — R²=0.979  MAE=0.398  RMSE=0.650  Acc=100.0%
   static const List<double> _pm10Coefficients = [
-    0.638508, 0.241798, 0.031404, 0.015897, -0.056865, 0.015185,
-    0.185017, 0.781014, -0.101005, -0.568943, -0.175703, -0.021604
+    0.759810, 0.128370, -0.003119, 0.052406, -0.017308, -0.003729,
+    0.012009, -0.026252, 0.164243, 0.765050, -0.133169, -0.709590,
   ];
-  static const double _pm10Intercept = 0.225951;
+  static const double _pm10Intercept = 0.164367;
 
+  // O3 (ppb) — R²=0.989  MAE=0.559  RMSE=0.857  Acc=89.9%
   static const List<double> _o3Coefficients = [
-    0.614321, 0.236608, 0.100962, 0.050464, -0.064380, -0.008616,
-    0.179441, 0.812827, -0.097062, -0.536251, -0.185540, -0.119593
+    0.850705, 0.084997, -0.012563, 0.100550, -0.026821, -0.048570,
+    0.048086, -0.000959, 0.105183, 0.805447, -0.121350, -0.796036,
   ];
-  static const double _o3Intercept = 1.417563;
+  static const double _o3Intercept = 0.476386;
 
   static const int _nLags   = 12;
   static const int _wmaWin  = 6;
@@ -526,7 +529,7 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
           nowValue:      nowPM25,
           predicted:     predPM25,
           changePercent: nowPM25 > 0 ? ((predPM25 - nowPM25) / nowPM25) * 100 : 0.0,
-          rSquared:      0.9817,
+          rSquared:      0.9815,
           trend:         predPM25 > nowPM25 ? 'rising' : (predPM25 < nowPM25 ? 'falling' : 'stable'),
           reliable:      true,
         );
@@ -539,7 +542,7 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
           nowValue:      nowPM10,
           predicted:     predPM10,
           changePercent: nowPM10 > 0 ? ((predPM10 - nowPM10) / nowPM10) * 100 : 0.0,
-          rSquared:      0.9782,
+          rSquared:      0.9789,
           trend:         predPM10 > nowPM10 ? 'rising' : (predPM10 < nowPM10 ? 'falling' : 'stable'),
           reliable:      true,
         );
@@ -552,7 +555,7 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
           nowValue:      nowCO,
           predicted:     predCO,
           changePercent: nowCO > 0 ? ((predCO - nowCO) / nowCO) * 100 : 0.0,
-          rSquared:      0.9783,
+          rSquared:      0.9763,
           trend:         predCO > nowCO ? 'rising' : (predCO < nowCO ? 'falling' : 'stable'),
           reliable:      true,
         );
@@ -565,7 +568,7 @@ class _AnalyticsNewPageState extends State<AnalyticsNewPage> {
           nowValue:      nowO3,
           predicted:     predO3,
           changePercent: nowO3 > 0 ? ((predO3 - nowO3) / nowO3) * 100 : 0.0,
-          rSquared:      0.9887,
+          rSquared:      0.9891,
           trend:         predO3 > nowO3 ? 'rising' : (predO3 < nowO3 ? 'falling' : 'stable'),
           reliable:      true,
         );
@@ -1308,11 +1311,13 @@ class _MLValidationCardState extends State<_MLValidationCard> {
   // Confusion matrix from the Python validation run
   // Rows = actual class, Cols = predicted class
   // Order: Good, Moderate, Unhealthy, Hazardous
+  // PM2.5 confusion matrix (most informative — has Good + Moderate classes)
+  // CO and PM10 are 100% Good in Metro Manila Jan 2026 data
   static const List<List<int>> _cm = [
-    [1404, 12, 0, 0],
-    [50,    1, 0, 0],
-    [0,     0, 0, 0],
-    [0,     0, 0, 0],
+    [1342, 65, 0, 0],
+    [  48,153, 0, 0],
+    [   0,  0, 0, 0],
+    [   0,  0, 0, 0],
   ];
   static const List<String> _classes = [
     'Good', 'Moderate', 'Unhealthy', 'Hazardous'
@@ -1363,7 +1368,7 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: _primaryTextColor)),
-                    Text('WMA + OLS · UCI Air Quality Dataset',
+                    Text('WMA + OLS · Philippine Cities AQ Dataset',
                         style: TextStyle(
                             fontSize: 11, color: Color(0xFF94A3B8))),
                   ],
@@ -1400,12 +1405,12 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                         color: _secondaryTextColor,
                         letterSpacing: 0.8)),
                 const SizedBox(height: 8),
-                _infoRow('Name',     'UCI Air Quality Dataset'),
-                _infoRow('Source',   'archive.ics.uci.edu/dataset/360'),
-                _infoRow('Location', 'Polluted road, Italy'),
-                _infoRow('Period',   'March 2004 – April 2005'),
-                _infoRow('Samples',  '7,331 (after cleaning)'),
-                _infoRow('Split',    '80% train (5,864) / 20% test (1,467)'),
+                _infoRow('Name',     'Philippine Cities AQ Dataset'),
+                _infoRow('Source',   'kaggle.com/bwandowando'),
+                _infoRow('Location', 'Metro Manila, Philippines'),
+                _infoRow('Period',   'January 2026'),
+                _infoRow('Samples',  '8,052 (Metro Manila subset)'),
+                _infoRow('Split',    '80% train (6,431) / 20% test (1,608)'),
                 const SizedBox(height: 16),
 
                 // Regression metrics
@@ -1416,19 +1421,30 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                         color: _secondaryTextColor,
                         letterSpacing: 0.8)),
                 const SizedBox(height: 8),
+                // Per-pollutant metrics from Philippine Cities validation
                 Row(children: [
-                  _metricChip('R²',   '0.821', const Color(0xFF7C3AED)),
-                  const SizedBox(width: 8),
-                  _metricChip('MAE',  '0.283 ppm', const Color(0xFF2563EB)),
-                  const SizedBox(width: 8),
-                  _metricChip('RMSE', '0.386 ppm', const Color(0xFF0891B2)),
+                  _metricChip('CO R²',    '0.976', const Color(0xFF7C3AED)),
+                  const SizedBox(width: 6),
+                  _metricChip('PM2.5 R²', '0.982', const Color(0xFF2563EB)),
                 ]),
-                const SizedBox(height: 8),
-                _metricChip('Accuracy', '95.9%', const Color(0xFF16A34A)),
+                const SizedBox(height: 6),
+                Row(children: [
+                  _metricChip('PM10 R²',  '0.979', const Color(0xFF0891B2)),
+                  const SizedBox(width: 6),
+                  _metricChip('O3 R²',    '0.989', const Color(0xFF7C3AED)),
+                ]),
+                const SizedBox(height: 6),
+                Row(children: [
+                  _metricChip('CO Acc',    '100%',  const Color(0xFF16A34A)),
+                  const SizedBox(width: 6),
+                  _metricChip('PM2.5 Acc', '93.0%', const Color(0xFF16A34A)),
+                  const SizedBox(width: 6),
+                  _metricChip('O3 Acc',    '89.9%', const Color(0xFF16A34A)),
+                ]),
                 const SizedBox(height: 16),
 
                 // Confusion matrix
-                const Text('CONFUSION MATRIX (TEST SET)',
+                const Text('CONFUSION MATRIX — PM2.5 (TEST SET)',
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -1458,10 +1474,13 @@ class _MLValidationCardState extends State<_MLValidationCard> {
                     'Algorithm: Weighted Moving Average (WMA, window=6) '
                     'preprocessing followed by Ordinary Least Squares (OLS) '
                     'linear regression with 12 lag features. '
-                    'CO forecasts in this app use coefficients validated on '
-                    'the UCI Air Quality Dataset (Italy, 2004–2005). '
-                    'The high accuracy for the "Good" class reflects that '
-                    'most readings in the UCI dataset fall within clean-air ranges.',
+                    'All pollutant forecasts (CO, PM2.5, PM10, O3) use '
+                    'coefficients validated on the Philippine Cities Air Quality '
+                    'Dataset (Metro Manila, January 2026, 8,052 readings). '
+                    'The confusion matrix shown is for PM2.5 — the most '
+                    'discriminating pollutant in the Metro Manila dataset. '
+                    'CO and PM10 achieved 100% accuracy as readings stayed '
+                    'within the Good range throughout the validation period.',
                     style: TextStyle(
                         fontSize: 10,
                         color: Color(0xFF64748B),
