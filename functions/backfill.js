@@ -132,9 +132,19 @@ async function backfill() {
         const mq131_v = raw.mq131_v ?? 0;
         const temp    = raw.temperature ?? 25;
         const hum     = raw.humidity    ?? 60;
-        const pm25    = raw.pm2_5  ?? 0;
-        const pm10    = raw.pm10   ?? 0;
-        const pm1     = raw.pm1_0  ?? 0;
+        const pm25_raw = raw.pm2_5  ?? 0;
+        const pm10_raw = raw.pm10   ?? 0;
+        const pm1_raw  = raw.pm1_0  ?? 0;
+
+        // PMS5003 sanity check — PM10 >= PM2.5 >= PM1.0 must hold physically
+        const pm_valid = (pm10_raw >= pm25_raw) && (pm25_raw >= pm1_raw);
+        const pm25     = pm_valid ? pm25_raw : 0;
+        const pm10     = pm_valid ? pm10_raw : 0;
+        const pm1      = pm_valid ? pm1_raw  : 0;
+
+        if (!pm_valid && (pm25_raw > 0 || pm10_raw > 0)) {
+          console.log(`  [PMS5003] Corrupt PM for ${readingId}: PM1=${pm1_raw} PM2.5=${pm25_raw} PM10=${pm10_raw} — zeroed`);
+        }
 
         const ratio_mq2   = getRsRatio(mq2_v,   CALIBRATION.RL_MQ2,   CALIBRATION.Ro_MQ2);
         const ratio_mq9   = getRsRatio(mq9_v,   CALIBRATION.RL_MQ9,   CALIBRATION.Ro_MQ9);
@@ -200,6 +210,7 @@ async function backfill() {
           lpg_alert,
           pm25_alert,
           co2_alert,
+          pm_sensor_error: !pm_valid,
 
           computed_at: new Date().toISOString(),
           backfilled:  true,  // flag so you know which docs were backfilled
@@ -216,15 +227,6 @@ async function backfill() {
         totalProcessed++;
         if (totalProcessed % 50 === 0) {
           console.log(`  Processed ${totalProcessed} readings so far...`);
-        }
-
-        // update latest reading
-        const latestRef = db.collection('devices').doc(deviceId);
-        const latestSnap = await latestRef.get();
-        const currentLatest = latestSnap.data()?.latest;
-
-        if (!currentLatest || computedDoc.timestamp >= (currentLatest.timestamp ?? '')) {
-          await latestRef.update({ latest: computedDoc });
         }
 
       } catch (err) {

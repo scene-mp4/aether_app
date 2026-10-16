@@ -57,7 +57,6 @@ const CALIBRATION = {
   RL_MQ135: 10.0,
   RL_MQ131: 10.0,
 };
-
 // Set to 1.5 if using a 10kΩ/20kΩ voltage divider between MQ AOUT and ADS1115.
 // Set to 1.0 if MQ sensors are powered directly from 3.3V with no divider.
 const DIVIDER_FACTOR = 1.0;
@@ -177,11 +176,27 @@ exports.computeSensorMetrics = onDocumentCreated(
     const mq135_v = raw.mq135_v ?? 0;
     const mq131_v = raw.mq131_v ?? 0;
 
-    const temp = raw.temperature ?? 25;
-    const hum  = raw.humidity    ?? 60;
-    const pm25 = raw.pm2_5  ?? 0;
-    const pm10 = raw.pm10   ?? 0;
-    const pm1  = raw.pm1_0  ?? 0;
+    const temp    = raw.temperature ?? 25;
+    const hum     = raw.humidity    ?? 60;
+    const pm25_raw = raw.pm2_5  ?? 0;
+    const pm10_raw = raw.pm10   ?? 0;
+    const pm1_raw  = raw.pm1_0  ?? 0;
+
+    // ── PMS5003 sanity check ─────────────────────────────────────────────────
+    // PM10 must always be >= PM2.5 >= PM1.0 by physical definition.
+    // If violated, the sensor is producing corrupt UART frames — discard all
+    // PM values to prevent false IAQI spikes and spurious FCM alerts.
+    const pm_valid = (pm10_raw >= pm25_raw) && (pm25_raw >= pm1_raw);
+    const pm25     = pm_valid ? pm25_raw : 0;
+    const pm10     = pm_valid ? pm10_raw : 0;
+    const pm1      = pm_valid ? pm1_raw  : 0;
+
+    if (!pm_valid && (pm25_raw > 0 || pm10_raw > 0 || pm1_raw > 0)) {
+      console.warn(
+        `[PMS5003] Corrupt reading for \${deviceId}: ` +
+        `PM1=\${pm1_raw} PM2.5=\${pm25_raw} PM10=\${pm10_raw} — zeroed out`
+      );
+    }
 
     // ── Rs/Ro ratios ────────────────────────────────────────────────────────
     const ratio_mq2   = getRsRatio(mq2_v,   CALIBRATION.RL_MQ2,   CALIBRATION.Ro_MQ2);
@@ -294,6 +309,7 @@ exports.computeSensorMetrics = onDocumentCreated(
       lpg_alert,
       pm25_alert,
       co2_alert,
+      pm_sensor_error: !pm_valid,
 
       // ── Function metadata ─────────────────────────────────────────────────
       computed_at: new Date().toISOString(),
@@ -365,13 +381,8 @@ async function sendAlertIfNeeded(deviceId, deviceName, computed, pushEnabled, cr
   }
 
   // Get owner's FCM tokens from Firestore
-  const userDoc  = await db.collection('users').doc(ownerId).get();
-  const userData = userDoc.data() ?? {};
-  if (userData.push_notifications === false) {
-    console.log(`[FCM] Push notifications disabled for user ${ownerId} — skipping`);
-    return;
-  }
-  const tokens = userData.fcm_tokens ?? [];
+  const userDoc = await db.collection('users').doc(ownerId).get();
+  const tokens  = userDoc.data()?.fcm_tokens ?? [];
   if (tokens.length === 0) {
     console.log(`[FCM] No FCM tokens for user ${ownerId} — skipping`);
     return;
