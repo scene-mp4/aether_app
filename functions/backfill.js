@@ -23,7 +23,6 @@ const CALIBRATION = {
   RL_MQ135: 10.0,
   RL_MQ131: 10.0,
 };
-
 // ── Paste the same helper functions from your index.js here ───────────────────
 function getRsRatio(vout, rl, ro) {
   const v = vout;
@@ -136,14 +135,16 @@ async function backfill() {
         const pm10_raw = raw.pm10   ?? 0;
         const pm1_raw  = raw.pm1_0  ?? 0;
 
-        // PMS5003 sanity check — PM10 >= PM2.5 >= PM1.0 must hold physically
-        const pm_valid = (pm10_raw >= pm25_raw) && (pm25_raw >= pm1_raw);
-        const pm25     = pm_valid ? pm25_raw : 0;
-        const pm10     = pm_valid ? pm10_raw : 0;
-        const pm1      = pm_valid ? pm1_raw  : 0;
+        // PMS5003 sanity check — only zero genuine spikes.
+        // PM10 < PM2.5 is normal on some PMS5003 firmware (differential reporting).
+        // Only discard: PM2.5 > 500, PM1 > PM2.5, or PM2.5 > 1000.
+        const pm_spike = pm25_raw > 500 || pm1_raw > pm25_raw || pm25_raw > 1000;
+        const pm25     = pm_spike ? 0 : pm25_raw;
+        const pm10     = pm_spike ? 0 : pm10_raw;
+        const pm1      = pm_spike ? 0 : pm1_raw;
 
-        if (!pm_valid && (pm25_raw > 0 || pm10_raw > 0)) {
-          console.log(`  [PMS5003] Corrupt PM for ${readingId}: PM1=${pm1_raw} PM2.5=${pm25_raw} PM10=${pm10_raw} — zeroed`);
+        if (pm_spike && (pm25_raw > 0 || pm10_raw > 0)) {
+          console.log('  [PMS5003] Spike for ' + readingId + ': PM1=' + pm1_raw + ' PM2.5=' + pm25_raw + ' PM10=' + pm10_raw + ' — zeroed');
         }
 
         const ratio_mq2   = getRsRatio(mq2_v,   CALIBRATION.RL_MQ2,   CALIBRATION.Ro_MQ2);
@@ -210,7 +211,7 @@ async function backfill() {
           lpg_alert,
           pm25_alert,
           co2_alert,
-          pm_sensor_error: !pm_valid,
+          pm_sensor_error: pm_spike,
 
           computed_at: new Date().toISOString(),
           backfilled:  true,  // flag so you know which docs were backfilled

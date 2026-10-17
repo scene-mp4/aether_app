@@ -183,18 +183,24 @@ exports.computeSensorMetrics = onDocumentCreated(
     const pm1_raw  = raw.pm1_0  ?? 0;
 
     // ── PMS5003 sanity check ─────────────────────────────────────────────────
-    // PM10 must always be >= PM2.5 >= PM1.0 by physical definition.
-    // If violated, the sensor is producing corrupt UART frames — discard all
-    // PM values to prevent false IAQI spikes and spurious FCM alerts.
-    const pm_valid = (pm10_raw >= pm25_raw) && (pm25_raw >= pm1_raw);
-    const pm25     = pm_valid ? pm25_raw : 0;
-    const pm10     = pm_valid ? pm10_raw : 0;
-    const pm1      = pm_valid ? pm1_raw  : 0;
+    // The PMS5003 on some firmware reports PM10 as the differential count
+    // (particles 2.5–10µm only) rather than cumulative, so PM10 < PM2.5
+    // is a known library behaviour and NOT corrupt data.
+    //
+    // Only zero out genuinely impossible spike values:
+    //   - PM2.5 > 500 µg/m³  (WHO max hazardous = 250, sensor max = 500)
+    //   - PM1.0 > PM2.5      (PM1 is always a subset of PM2.5)
+    //   - PM2.5 > 1000       (clearly saturated/stuck sensor)
+    const pm_spike   = pm25_raw > 500 || pm1_raw > pm25_raw || pm25_raw > 1000;
+    const pm25       = pm_spike ? 0 : pm25_raw;
+    const pm10       = pm_spike ? 0 : pm10_raw;
+    const pm1        = pm_spike ? 0 : pm1_raw;
+    const pm_sensor_error = pm_spike;
 
-    if (!pm_valid && (pm25_raw > 0 || pm10_raw > 0 || pm1_raw > 0)) {
+    if (pm_spike && (pm25_raw > 0 || pm10_raw > 0 || pm1_raw > 0)) {
       console.warn(
-        `[PMS5003] Corrupt reading for \${deviceId}: ` +
-        `PM1=\${pm1_raw} PM2.5=\${pm25_raw} PM10=\${pm10_raw} — zeroed out`
+        '[PMS5003] Spike detected for ' + deviceId + ': ' +
+        'PM1=' + pm1_raw + ' PM2.5=' + pm25_raw + ' PM10=' + pm10_raw + ' — zeroed out'
       );
     }
 
@@ -309,7 +315,7 @@ exports.computeSensorMetrics = onDocumentCreated(
       lpg_alert,
       pm25_alert,
       co2_alert,
-      pm_sensor_error: !pm_valid,
+      pm_sensor_error,
 
       // ── Function metadata ─────────────────────────────────────────────────
       computed_at: new Date().toISOString(),
