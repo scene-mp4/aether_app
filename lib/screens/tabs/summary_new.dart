@@ -661,21 +661,29 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                   horizontal: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
+                  color: _isDark
+                      ? const Color(0xFF301B1D)
+                      : const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFFEE2E2)),
+                  border: Border.all(
+                    color: _isDark
+                        ? const Color(0xFF5B2A2D)
+                        : const Color(0xFFFEE2E2),
+                  ),
                 ),
                 child: Column(
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(
                           Icons.warning_amber_rounded,
-                          color: Color(0xFFDC2626),
+                          color: _isDark
+                              ? const Color(0xFFF87171)
+                              : const Color(0xFFDC2626),
                           size: 18,
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             "Active Alerts",
@@ -684,7 +692,9 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFFDC2626),
+                              color: _isDark
+                                  ? const Color(0xFFF87171)
+                                  : const Color(0xFFDC2626),
                             ),
                           ),
                         ),
@@ -696,7 +706,9 @@ class _SummaryNewPageState extends State<SummaryNewPage>
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFFDC2626),
+                        color: _isDark
+                            ? const Color(0xFFF87171)
+                            : const Color(0xFFDC2626),
                       ),
                     ),
                   ],
@@ -718,13 +730,15 @@ class _SummaryNewPageState extends State<SummaryNewPage>
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         border: _isDark ? Border.all(color: const Color(0xFF263449)) : null,
-        boxShadow: _isDark ? null : [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: _isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: TabBar(
         controller: _tabController,
@@ -1684,10 +1698,18 @@ class _SummaryNewPageState extends State<SummaryNewPage>
               // DO'S CARD (GREEN)
               _buildDosDontsCard(
                 title: "Do's — Recommended Actions",
-                bgColor: const Color(0xFFF0FDF4),
-                borderColor: const Color(0xFFBBF7D0),
-                headerTextColor: const Color(0xFF15803D),
-                iconColor: const Color(0xFF16A34A),
+                bgColor: _isDark
+                    ? const Color(0xFF10291F)
+                    : const Color(0xFFF0FDF4),
+                borderColor: _isDark
+                    ? const Color(0xFF1F5136)
+                    : const Color(0xFFBBF7D0),
+                headerTextColor: _isDark
+                    ? const Color(0xFF86EFAC)
+                    : const Color(0xFF15803D),
+                iconColor: _isDark
+                    ? const Color(0xFF4ADE80)
+                    : const Color(0xFF16A34A),
                 isExpanded: _isDosExpanded,
                 onTap: () => setState(() => _isDosExpanded = !_isDosExpanded),
                 children: const [
@@ -1728,10 +1750,18 @@ class _SummaryNewPageState extends State<SummaryNewPage>
               // DON'TS CARD (RED)
               _buildDosDontsCard(
                 title: "Don'ts — Actions to Avoid",
-                bgColor: const Color(0xFFFEF2F2),
-                borderColor: const Color(0xFFFECACA),
-                headerTextColor: const Color(0xFFB91C1C),
-                iconColor: const Color(0xFFDC2626),
+                bgColor: _isDark
+                    ? const Color(0xFF301B1D)
+                    : const Color(0xFFFEF2F2),
+                borderColor: _isDark
+                    ? const Color(0xFF5B2A2D)
+                    : const Color(0xFFFECACA),
+                headerTextColor: _isDark
+                    ? const Color(0xFFFCA5A5)
+                    : const Color(0xFFB91C1C),
+                iconColor: _isDark
+                    ? const Color(0xFFF87171)
+                    : const Color(0xFFDC2626),
                 isExpanded: _isDontsExpanded,
                 onTap: () =>
                     setState(() => _isDontsExpanded = !_isDontsExpanded),
@@ -1926,13 +1956,21 @@ class _ManualIllnessItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+            : Border(
+                bottom: BorderSide(
+                  color: isDark
+                      ? const Color(0xFF334155)
+                      : const Color(0xFFF1F5F9),
+                ),
+              ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2023,13 +2061,21 @@ class _DosDontsItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+            : Border(
+                bottom: BorderSide(
+                  color: isDark
+                      ? const Color(0xFF334155)
+                      : const Color(0xFFF1F5F9),
+                ),
+              ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2039,17 +2085,21 @@ class _DosDontsItem extends StatelessWidget {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF475569),
+                  color: isDark
+                      ? const Color(0xFFCBD5E1)
+                      : const Color(0xFF475569),
                   height: 1.35,
                 ),
                 children: [
                   TextSpan(
                     text: "$boldText — ",
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
+                      color: isDark
+                          ? const Color(0xFFF1F5F9)
+                          : const Color(0xFF1E293B),
                     ),
                   ),
                   TextSpan(text: normalText),

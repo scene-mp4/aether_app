@@ -507,13 +507,17 @@ class _AdviceCardState extends State<_AdviceCard> {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    Text(item.category,
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: isDark
-                                ? const Color(0xFF9AAAC0)
-                                : const Color(0xFF64748B),
-                            fontWeight: FontWeight.w500)),
+                    Expanded(
+                      child: Text(item.category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: isDark
+                                  ? const Color(0xFF9AAAC0)
+                                  : const Color(0xFF64748B),
+                              fontWeight: FontWeight.w500)),
+                    ),
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(

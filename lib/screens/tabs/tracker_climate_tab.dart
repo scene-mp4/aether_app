@@ -256,7 +256,7 @@ class _TrackerClimateTabState extends State<TrackerClimateTab> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
-            childAspectRatio: 2.0,
+            childAspectRatio: 1.6,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             children: [

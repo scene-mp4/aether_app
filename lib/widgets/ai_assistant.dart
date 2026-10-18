@@ -42,26 +42,54 @@ class _AiAssistantState extends State<AiAssistant> {
   }
 
   void _openSheet() {
+    final topInset = MediaQuery.of(context).padding.top;
     if (_messages.isEmpty) {
-      _messages.add(_Msg(
-        "Hi! I'm your AETHER assistant. Ask me anything about air quality or what readings mean.",
-        false,
-      ));
+      _messages.add(
+        _Msg(
+          "Hi! I'm your AETHER assistant. Ask me anything about air quality or what readings mean.",
+          false,
+        ),
+      );
     }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        final w = MediaQuery.of(ctx).size.width * 0.95;
+        final media = MediaQuery.of(ctx);
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final panelColor = isDark ? const Color(0xFF111827) : Colors.white;
+        final botBubbleColor = isDark
+            ? const Color(0xFF1E293B)
+            : const Color(0xFFF0F4FF);
+        final botTextColor = isDark
+            ? const Color(0xFFE2E8F0)
+            : const Color(0xFF333333);
+        final strongTextColor = isDark
+            ? const Color(0xFFF8FAFC)
+            : const Color(0xFF111111);
+        final codeBackgroundColor = isDark
+            ? const Color(0xFF0F172A)
+            : const Color(0xFFE8EDFF);
+        final inputBorderColor = isDark
+            ? const Color(0xFF334155)
+            : const Color(0xFFD8E0F0);
+        final w = media.size.width * 0.95;
         final width = w > 420 ? 420.0 : w;
+        final bottomPadding =
+            media.viewInsets.bottom +
+            (media.viewInsets.bottom == 0 ? 80.0 : 16.0);
+        final sheetHeight = (media.size.height - topInset - bottomPadding - 32)
+            .clamp(0.0, 720.0)
+            .toDouble();
 
         return StatefulBuilder(
           builder: (context, setModalState) {
             Future<void> handleSend(String text) async {
               if (text.trim().isEmpty) return;
-              
+
               setModalState(() {
                 _messages.add(_Msg(text, true));
                 _loading = true;
@@ -90,7 +118,8 @@ class _AiAssistantState extends State<AiAssistant> {
 
             return Padding(
               padding: EdgeInsets.only(
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 80,
+                top: 16,
+                bottom: bottomPadding,
                 right: 16,
                 left: 16,
               ),
@@ -102,8 +131,8 @@ class _AiAssistantState extends State<AiAssistant> {
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
                     width: width,
-                    height: 720,
-                    color: Colors.white,
+                    height: sheetHeight,
+                    color: panelColor,
                     child: Column(
                       children: [
                         // Header
@@ -169,12 +198,14 @@ class _AiAssistantState extends State<AiAssistant> {
                                       vertical: 10,
                                     ),
                                     constraints: BoxConstraints(
-                                      maxWidth: MediaQuery.of(context).size.width * 0.75,
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width *
+                                          0.75,
                                     ),
                                     decoration: BoxDecoration(
                                       color: m.me
                                           ? const Color(0xFF2B52FF)
-                                          : const Color(0xFFF0F4FF),
+                                          : botBubbleColor,
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: m.me
@@ -189,27 +220,29 @@ class _AiAssistantState extends State<AiAssistant> {
                                         : MarkdownBody(
                                             data: m.text,
                                             styleSheet: MarkdownStyleSheet(
-                                              p: const TextStyle(
-                                                color: Color(0xFF333333),
+                                              p: TextStyle(
+                                                color: botTextColor,
                                                 fontSize: 13,
                                                 height: 1.4,
                                               ),
-                                              strong: const TextStyle(
-                                                color: Color(0xFF111111),
+                                              strong: TextStyle(
+                                                color: strongTextColor,
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.bold,
                                               ),
-                                              em: const TextStyle(
-                                                color: Color(0xFF333333),
+                                              em: TextStyle(
+                                                color: botTextColor,
                                                 fontSize: 13,
                                                 fontStyle: FontStyle.italic,
                                               ),
-                                              listBullet: const TextStyle(
-                                                color: Color(0xFF333333),
+                                              listBullet: TextStyle(
+                                                color: botTextColor,
                                                 fontSize: 13,
                                               ),
-                                              code: const TextStyle(
-                                                backgroundColor: Color(0xFFE8EDFF),
+                                              code: TextStyle(
+                                                color: botTextColor,
+                                                backgroundColor:
+                                                    codeBackgroundColor,
                                                 fontFamily: 'monospace',
                                                 fontSize: 12,
                                               ),
@@ -240,20 +273,23 @@ class _AiAssistantState extends State<AiAssistant> {
                                 child: Container(
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: panelColor,
                                     borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: const Color(0xFFD8E0F0),
-                                    ),
+                                    border: Border.all(color: inputBorderColor),
                                   ),
                                   child: TextField(
                                     controller: _ctrl,
                                     onSubmitted: handleSend,
-                                    style: const TextStyle(fontSize: 13),
-                                    decoration: const InputDecoration(
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: botTextColor,
+                                    ),
+                                    decoration: InputDecoration(
                                       hintText: 'Type a question...',
                                       hintStyle: TextStyle(
-                                        color: Colors.grey,
+                                        color: isDark
+                                            ? const Color(0xFF94A3B8)
+                                            : Colors.grey,
                                         fontSize: 13,
                                       ),
                                       border: InputBorder.none,
@@ -349,6 +385,7 @@ class _Msg {
 
 /// Helper to launch assistant from anywhere in your widget tree
 Future<void> showAiAssistant(BuildContext context) async {
+  final topInset = MediaQuery.of(context).padding.top;
   final AiService service = AiService();
   final List<_Msg> messages = [
     _Msg(
@@ -362,10 +399,35 @@ Future<void> showAiAssistant(BuildContext context) async {
   await showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (ctx) {
-      final w = MediaQuery.of(ctx).size.width * 0.88;
+      final media = MediaQuery.of(ctx);
+      final isDark = Theme.of(ctx).brightness == Brightness.dark;
+      final panelColor = isDark ? const Color(0xFF111827) : Colors.white;
+      final botBubbleColor = isDark
+          ? const Color(0xFF1E293B)
+          : const Color(0xFFF0F4FF);
+      final botTextColor = isDark
+          ? const Color(0xFFE2E8F0)
+          : const Color(0xFF333333);
+      final strongTextColor = isDark
+          ? const Color(0xFFF8FAFC)
+          : const Color(0xFF111111);
+      final codeBackgroundColor = isDark
+          ? const Color(0xFF0F172A)
+          : const Color(0xFFE8EDFF);
+      final inputBorderColor = isDark
+          ? const Color(0xFF334155)
+          : const Color(0xFFD8E0F0);
+      final w = media.size.width * 0.88;
       final width = w > 360 ? 360.0 : w;
+      final bottomPadding =
+          media.viewInsets.bottom +
+          (media.viewInsets.bottom == 0 ? 80.0 : 16.0);
+      final sheetHeight = (media.size.height - topInset - bottomPadding - 32)
+          .clamp(0.0, 280.0)
+          .toDouble();
 
       return StatefulBuilder(
         builder: (ctx, setModalState) {
@@ -394,7 +456,8 @@ Future<void> showAiAssistant(BuildContext context) async {
 
           return Padding(
             padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 80,
+              top: 16,
+              bottom: bottomPadding,
               right: 16,
               left: 16,
             ),
@@ -406,8 +469,8 @@ Future<void> showAiAssistant(BuildContext context) async {
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   width: width,
-                  height: 280,
-                  color: Colors.white,
+                  height: sheetHeight,
+                  color: panelColor,
                   child: Column(
                     children: [
                       Container(
@@ -470,12 +533,14 @@ Future<void> showAiAssistant(BuildContext context) async {
                                     vertical: 10,
                                   ),
                                   constraints: BoxConstraints(
-                                    maxWidth: MediaQuery.of(context).size.width * 0.75,
+                                    maxWidth:
+                                        MediaQuery.of(context).size.width *
+                                        0.75,
                                   ),
                                   decoration: BoxDecoration(
                                     color: m.me
                                         ? const Color(0xFF2B52FF)
-                                        : const Color(0xFFF0F4FF),
+                                        : botBubbleColor,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: m.me
@@ -490,27 +555,29 @@ Future<void> showAiAssistant(BuildContext context) async {
                                       : MarkdownBody(
                                           data: m.text,
                                           styleSheet: MarkdownStyleSheet(
-                                            p: const TextStyle(
-                                              color: Color(0xFF333333),
+                                            p: TextStyle(
+                                              color: botTextColor,
                                               fontSize: 13,
                                               height: 1.4,
                                             ),
-                                            strong: const TextStyle(
-                                              color: Color(0xFF111111),
+                                            strong: TextStyle(
+                                              color: strongTextColor,
                                               fontSize: 13,
                                               fontWeight: FontWeight.bold,
                                             ),
-                                            em: const TextStyle(
-                                              color: Color(0xFF333333),
+                                            em: TextStyle(
+                                              color: botTextColor,
                                               fontSize: 13,
                                               fontStyle: FontStyle.italic,
                                             ),
-                                            listBullet: const TextStyle(
-                                              color: Color(0xFF333333),
+                                            listBullet: TextStyle(
+                                              color: botTextColor,
                                               fontSize: 13,
                                             ),
-                                            code: const TextStyle(
-                                              backgroundColor: Color(0xFFE8EDFF),
+                                            code: TextStyle(
+                                              color: botTextColor,
+                                              backgroundColor:
+                                                  codeBackgroundColor,
                                               fontFamily: 'monospace',
                                               fontSize: 12,
                                             ),
@@ -538,20 +605,23 @@ Future<void> showAiAssistant(BuildContext context) async {
                               child: Container(
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: panelColor,
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFFD8E0F0),
-                                  ),
+                                  border: Border.all(color: inputBorderColor),
                                 ),
                                 child: TextField(
                                   controller: ctrl,
                                   onSubmitted: sendLocal,
-                                  style: const TextStyle(fontSize: 13),
-                                  decoration: const InputDecoration(
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: botTextColor,
+                                  ),
+                                  decoration: InputDecoration(
                                     hintText: 'Type a question...',
                                     hintStyle: TextStyle(
-                                      color: Colors.grey,
+                                      color: isDark
+                                          ? const Color(0xFF94A3B8)
+                                          : Colors.grey,
                                       fontSize: 13,
                                     ),
                                     border: InputBorder.none,

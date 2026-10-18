@@ -367,11 +367,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     final store   = context.watch<AppDataStore>();
     final isAdmin = store.isAdmin; // bool getter on AppDataStore
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final drawerSurface = isDark
+        ? const Color(0xFF0F172A)
+        : Theme.of(context).scaffoldBackgroundColor;
+    final readItemColor = isDark ? const Color(0xFF111D2C) : Colors.white;
+    final unreadItemColor =
+        isDark ? const Color(0xFF17263A) : const Color(0xFFEFF6FF);
 
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.85,
       child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: drawerSurface,
         body: SafeArea(
           child: StreamBuilder<List<NotificationItem>>(
             stream: isAdmin ? _adminFirestoreStream : _firestoreStream,
@@ -441,7 +448,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
                 // ── Empty ─────────────────────────────────────────────────
                 else if (all.isEmpty)
-                  const Expanded(
+                  Expanded(
                     child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -452,7 +459,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           Text('No notifications yet',
                               style: TextStyle(
                                   fontSize: 14,
-                                  color: Color(0xFF64748B),
+                                  color: isDark
+                                      ? const Color(0xFFCBD5E1)
+                                      : const Color(0xFF64748B),
                                   fontWeight: FontWeight.w500)),
                           SizedBox(height: 4),
                           Text('Air quality alerts will appear here.',
@@ -490,8 +499,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ),
                           child: Container(
                             color: item.isRead
-                                ? Colors.white
-                                : const Color(0xFFEFF6FF),
+                                ? readItemColor
+                                : unreadItemColor,
                             child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 4),
@@ -528,7 +537,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                           fontWeight: item.isRead
                                               ? FontWeight.w600
                                               : FontWeight.bold,
-                                          color: const Color(0xFF0F172A))),
+                                          color: isDark
+                                              ? const Color(0xFFE2E8F0)
+                                              : const Color(0xFF0F172A))),
                                 ),
                                 Text(_formatTimestamp(item.timestamp),
                                     style: const TextStyle(
@@ -541,9 +552,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(top: 2),
                                     child: Text(item.message,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 12,
-                                            color: Color(0xFF475569))),
+                                            color: isDark
+                                                ? const Color(0xFFCBD5E1)
+                                                : const Color(0xFF475569))),
                                   ),
                                   const SizedBox(height: 4),
                                   Row(children: [
@@ -563,15 +576,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 5, vertical: 1),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFEFF6FF),
+                                          color: isDark
+                                              ? const Color(0xFF1E3A5F)
+                                              : const Color(0xFFEFF6FF),
                                           borderRadius:
                                               BorderRadius.circular(4),
                                         ),
-                                        child: const Text('Live',
+                                        child: Text('Live',
                                             style: TextStyle(
                                                 fontSize: 9,
                                                 fontWeight: FontWeight.bold,
-                                                color: Color(0xFF2563EB))),
+                                                color: isDark
+                                                    ? const Color(0xFF93C5FD)
+                                                    : const Color(0xFF2563EB))),
                                       ),
                                   ]),
                                 ],
