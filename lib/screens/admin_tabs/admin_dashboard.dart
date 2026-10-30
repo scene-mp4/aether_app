@@ -598,13 +598,17 @@ class _ActiveUsersStatGrid extends StatelessWidget {
       builder: (context, snap) {
         final userCount = snap.hasData ? snap.data!.docs.length : 0;
 
-        return GridView.count(
-          crossAxisCount: 2,
+        // mainAxisExtent is a delegate option, so this uses the plain
+        // GridView constructor rather than GridView.count.
+        return GridView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          mainAxisExtent: 150,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 150,
+          ),
           children: [
             _StatCard(
               icon:        Icons.monitor_heart,
