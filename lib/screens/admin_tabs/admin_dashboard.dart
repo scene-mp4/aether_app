@@ -604,7 +604,7 @@ class _ActiveUsersStatGrid extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 1.55,
+          mainAxisExtent: 150,
           children: [
             _StatCard(
               icon:        Icons.monitor_heart,
