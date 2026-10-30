@@ -29,6 +29,13 @@ class AppDataStore extends ChangeNotifier {
   bool    _loading = false;
   String? _error;
 
+  // Set when a Firestore stream fails or the first load times out.
+  // Kept separate from _error so link / unlink / history failures do not
+  // trigger the "could not load tracker data" banner.
+  String? _loadError;
+  Timer?  _loadTimeout;
+  static const Duration _loadTimeoutDuration = Duration(seconds: 12);
+
   // ── Admin state ────────────────────────────────────────────────────────────
   bool                         _isAdmin            = false;
   List<TrackerInfo>            _allTrackers        = [];
@@ -61,6 +68,7 @@ class AppDataStore extends ChangeNotifier {
 
   bool    get loading => _loading;
   String? get error   => _error;
+  String? get loadError => _loadError;
 
   TrackerReading? readingFor(String deviceId)    => _latestReadings[deviceId];
   TrackerReading? allReadingFor(String deviceId) => _allLatestReadings[deviceId];
@@ -126,6 +134,9 @@ class AppDataStore extends ChangeNotifier {
     _initializing = false;
     _isAdmin      = false;
     _error        = null;
+    _loadError    = null;
+    _loadTimeout?.cancel();
+    _loadTimeout  = null;
     _clearing     = false;
 
     notifyListeners();
@@ -149,8 +160,22 @@ class AppDataStore extends ChangeNotifier {
       return;
     }
 
-    _loading = true;
+    _loading   = true;
+    _loadError = null;
     notifyListeners();
+
+    // If Firestore never answers (offline with no cache, blocked network),
+    // the snapshot stream neither emits nor errors. Without this timer the
+    // spinner would run forever.
+    _loadTimeout?.cancel();
+    _loadTimeout = Timer(_loadTimeoutDuration, () {
+      if (_loading) {
+        _loadError = 'Loading is taking longer than expected. '
+            'Check your internet connection and try again.';
+        _loading = false;
+        notifyListeners();
+      }
+    });
 
     // Listen to trackers owned by this user
     _trackerListSub = _db
@@ -178,6 +203,9 @@ class AppDataStore extends ChangeNotifier {
             .toList()
             .forEach(_closeTrackerStreams);
 
+        _loadTimeout?.cancel();
+        _loadTimeout  = null;
+        _loadError    = null;
         _loading      = false;
         _initializing = false;
         notifyListeners();
@@ -186,13 +214,7 @@ class AppDataStore extends ChangeNotifier {
           print('[AppDataStore] initialize: ${_trackers.length} trackers for $uid');
         }
       },
-      onError: (e) {
-        _error        = e.toString();
-        _loading      = false;
-        _initializing = false;
-        notifyListeners();
-        if (kDebugMode) print('[AppDataStore] initialize error: $e');
-      },
+      onError: (e) => _reportLoadError('tracker list', e),
     );
 
     // Listen to unowned (available) trackers
@@ -206,7 +228,7 @@ class AppDataStore extends ChangeNotifier {
               d.id, d.data() as Map<String, dynamic>))
           .toList();
       notifyListeners();
-    });
+    }, onError: (e) => _reportLoadError('available trackers', e));
 
     // Listen to active advice entries — shared across all users
     _openAdviceStream();
@@ -239,7 +261,7 @@ class AppDataStore extends ChangeNotifier {
         print('[AppDataStore] advice: ${_adviceEntries.length} active entries loaded');
       }
     }, onError: (e) {
-      if (kDebugMode) print('[AppDataStore] advice stream error: \$e');
+      if (kDebugMode) print('[AppDataStore] advice stream error: $e');
     });
   }
 
@@ -274,7 +296,52 @@ class AppDataStore extends ChangeNotifier {
           .forEach(_closeAdminStream);
 
       notifyListeners();
-    });
+    }, onError: (e) => _reportLoadError('admin tracker list', e));
+  }
+
+  // ── Load-error handling ────────────────────────────────────────────────────
+
+  String _describeError(Object e) {
+    if (e is FirebaseException) {
+      switch (e.code) {
+        case 'permission-denied':
+          return 'Permission denied while reading tracker data. Your account '
+              'may not have access, or the Firestore security rules need updating.';
+        case 'unauthenticated':
+          return 'Your session has expired. Please log out and sign in again.';
+        case 'unavailable':
+          return 'Cannot reach Firebase. Check your internet connection and try again.';
+        case 'deadline-exceeded':
+          return 'Firebase took too long to respond. Please try again.';
+        case 'failed-precondition':
+          return 'A required Firestore index is missing. Check the debug '
+              'console for a link to create it.';
+        case 'resource-exhausted':
+          return 'Firebase quota exceeded. Please try again later.';
+        default:
+          return 'Firebase error (${e.code}). Please try again.';
+      }
+    }
+    return 'Unexpected error while loading tracker data.';
+  }
+
+  void _reportLoadError(String source, Object e) {
+    _loadTimeout?.cancel();
+    _loadTimeout  = null;
+    _error        = e.toString();
+    _loadError    = _describeError(e);
+    _loading      = false;
+    _initializing = false;
+    notifyListeners();
+    if (kDebugMode) print('[AppDataStore] $source error: $e');
+  }
+
+  // Tears down every stream and reopens them. Wired to the banner's Retry button.
+  Future<void> retry() async {
+    final wasAdmin = _isAdmin; // clear() resets this flag
+    await clear();
+    await initialize();
+    if (wasAdmin) await initializeAdmin();
   }
 
   // ── Per-tracker stream helpers ─────────────────────────────────────────────
@@ -293,7 +360,7 @@ class AppDataStore extends ChangeNotifier {
       _latestReadings[deviceId] =
           TrackerReading.fromLatest(deviceId, readingId, latest);
       notifyListeners();
-    });
+    }, onError: (e) => _reportLoadError('latest reading ($deviceId)', e));
     _latestSubs[deviceId] = sub;
   }
 
@@ -325,6 +392,10 @@ class AppDataStore extends ChangeNotifier {
 
       _historyCache[deviceId] = existing.copyWith(readings: updated);
       notifyListeners();
+    }, onError: (e) {
+      if (kDebugMode) {
+        print('[AppDataStore] new-readings stream error ($deviceId): $e');
+      }
     });
     _newReadingSubs[deviceId] = sub;
   }
@@ -343,7 +414,7 @@ class AppDataStore extends ChangeNotifier {
       _allLatestReadings[deviceId] =
           TrackerReading.fromLatest(deviceId, readingId, latest);
       notifyListeners();
-    });
+    }, onError: (e) => _reportLoadError('admin latest reading ($deviceId)', e));
     _allLatestSubs[deviceId] = sub;
   }
 

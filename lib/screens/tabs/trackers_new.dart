@@ -7,6 +7,7 @@ import '/models/tracker_info.dart';
 import 'tracker_details_page.dart';
 import 'notifications_screen.dart';
 import 'wifi_provisioning_page.dart';
+import 'package:pollutracker_app/widgets/firebase_error_banner.dart';
 
 class TrackersNewPage extends StatelessWidget {
   const TrackersNewPage({super.key});
@@ -73,6 +74,9 @@ return Scaffold(
       ),
 
               // ── Body ──────────────────────────────────────────────────────
+              // Shows only when store.loadError is set
+              const FirebaseErrorBanner(),
+
               Expanded(
                 child: store.loading
                     ? const Center(child: CircularProgressIndicator())
@@ -119,12 +123,16 @@ return Scaffold(
                               // const SizedBox(height: 16),
 
                               // Tracker cards
-                              if (trackers.isEmpty)
+                              // Do not claim "no trackers linked" when the real
+                              // problem is that the load failed.
+                              if (trackers.isEmpty && store.loadError != null)
+                                const SizedBox.shrink()
+                              else if (trackers.isEmpty)
                                 const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 40),
                                   child: Center(
                                     child: Text(
-                                      "No trackers linked yet.\nTap \"Add New Tracker\" to get started.",
+                                      "No trackers linked yet.\nPlease contact an administrator to link a tracker to your account.",
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                           color: Color(0xFF64748B),
